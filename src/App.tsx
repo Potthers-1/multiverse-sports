@@ -54,7 +54,7 @@ const COUNTRIES = [
   { name: "Ilhas Salomão", flag: "🇸🇧" },
 ];
 
-const DATA_VERSION = "5";
+const DATA_VERSION = "6";
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -96,6 +96,26 @@ export default function App() {
     setChampionships(brazil);
     localStorage.setItem("sports-brazil-regulations-v1", "1");
   }, []);
+
+  useEffect(() => {
+    if (clubs.length > 0) return;
+    const seriesA = championships.find((item) => item.country === "Brasil" && item.division === "Série A");
+    const seriesB = championships.find((item) => item.country === "Brasil" && item.division === "Série B");
+    const seriesC = championships.find((item) => item.country === "Brasil" && item.division === "Série C");
+    if (!seriesA || !seriesB || !seriesC) return;
+
+    const teamsByDivision = [
+      { championshipId: seriesA.id, names: ["Athletico Paranaense","Atlético Mineiro","Bahia","Botafogo","Chapecoense","Corinthians","Coritiba","Cruzeiro","Flamengo","Fluminense","Grêmio","Internacional","Mirassol","Palmeiras","Red Bull Bragantino","Remo","Santos","São Paulo","Vasco da Gama","Vitória"] },
+      { championshipId: seriesB.id, names: ["América Mineiro","Athletic","Atlético Goianiense","Avaí","Botafogo - SP","Ceará","CRB","Criciúma","Cuiabá","Fortaleza","Goiás","Juventude","Londrina","Náutico","Novorizontino","Operário - PR","Ponte Preta","São Bernardo","Sport","Vila Nova"] },
+      { championshipId: seriesC.id, names: ["Amazonas","Anápolis","Barra - SC","Botafogo - PB","Brusque","Caxias","Confiança","Ferroviária","Figueirense","Floresta","Guarani","Inter de Limeira","Itabaiana","Ituano","Maranhão","Maringá","Paysandu","Santa Cruz","Volta Redonda","Ypiranga de Erechim"] }
+    ];
+
+    let id = 1;
+    const initialClubs: Club[] = teamsByDivision.flatMap((group) =>
+      group.names.map((name) => ({ id: id++, name, championshipId: group.championshipId }))
+    );
+    setClubs(initialClubs);
+  }, [championships, clubs.length]);
 
   useEffect(() => save("sports-championships", championships), [championships]);
   useEffect(() => save("sports-clubs", clubs), [clubs]);
