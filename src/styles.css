@@ -145,3 +145,7 @@ td:nth-child(2) { color: #d8e0e9; }
 .cardActions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
 .dangerText { border: 0 !important; color: #ff7d89 !important; background: transparent !important; font-size: 9px; }
 @media (max-width: 700px) { .headerActions { flex-wrap: wrap; justify-content: flex-end; } }
+
+.countryEmpty { padding: 45px 20px; text-align: center; border: 1px dashed #2a3b4f; border-radius: 8px; background: #0b131f; }
+.countryEmpty h3 { margin: 0 0 8px; color: #d8e0e9; font-size: 17px; }
+.countryEmpty p { margin: 0; color: #65758a; font-size: 11px; }
