@@ -33,6 +33,8 @@ type Match = {
   homeScore: number | null;
   awayScore: number | null;
   played: boolean;
+  stage?: "regular" | "playoff" | "secondPhase" | "final";
+  group?: "A" | "B";
 };
 
 const seedChampionships: Championship[] = [];
@@ -109,6 +111,7 @@ function generateRoundRobin(teamIds: number[], legs: number, championshipId: num
           homeScore: null,
           awayScore: null,
           played: false,
+          stage: "regular",
         });
       }
 
@@ -321,6 +324,106 @@ export default function App() {
     setMatches([...matches, ...created]);
     setRound(nextRound);
     setSection("Partidas");
+  }
+
+  function generateNextStage() {
+    if (!championship) return;
+
+    if (championship.division === "Série B") {
+      const regular = myMatches.filter((match) => (match.stage ?? "regular") === "regular");
+      const playoff = myMatches.filter((match) => match.stage === "playoff");
+      if (playoff.length > 0) {
+        window.alert("Os play-offs da Série B já foram gerados.");
+        return;
+      }
+      if (regular.length === 0 || regular.some((match) => !match.played)) {
+        window.alert("Finalize os 38 jogos da fase regular da Série B antes de gerar os play-offs.");
+        return;
+      }
+
+      const regularTable = standings;
+      if (regularTable.length < 6) return;
+      const pairs = [
+        [regularTable[2].club.id, regularTable[5].club.id],
+        [regularTable[3].club.id, regularTable[4].club.id],
+      ];
+      const start = nextId(matches);
+      const created: Match[] = [];
+      let id = start;
+      pairs.forEach(([home, away], index) => {
+        created.push({ id: id++, championshipId: championship.id, round: 39 + index, home, away, homeScore: null, awayScore: null, played: false, stage: "playoff" });
+        created.push({ id: id++, championshipId: championship.id, round: 41 + index, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "playoff" });
+      });
+      setMatches([...matches, ...created]);
+      setRound(39);
+      setSection("Partidas");
+      return;
+    }
+
+    if (championship.division === "Série C") {
+      const regular = myMatches.filter((match) => (match.stage ?? "regular") === "regular");
+      const secondPhase = myMatches.filter((match) => match.stage === "secondPhase");
+      const final = myMatches.filter((match) => match.stage === "final");
+
+      if (regular.length > 0 && regular.every((match) => match.played) && secondPhase.length === 0) {
+        const table = standings;
+        if (table.length < 8) return;
+
+        const groups = [
+          { name: "A" as const, ids: [table[0].club.id, table[3].club.id, table[4].club.id, table[7].club.id] },
+          { name: "B" as const, ids: [table[1].club.id, table[2].club.id, table[5].club.id, table[6].club.id] },
+        ];
+
+        let id = nextId(matches);
+        const created: Match[] = [];
+        groups.forEach((group) => {
+          const generated = generateRoundRobin(group.ids, 2, championship.id, id);
+          generated.forEach((match) => created.push({ ...match, round: match.round, stage: "secondPhase", group: group.name }));
+          id = nextId([...matches, ...created]);
+        });
+
+        setMatches([...matches, ...created]);
+        setRound(1);
+        setSection("Partidas");
+        return;
+      }
+
+      if (secondPhase.length > 0 && secondPhase.every((match) => match.played) && final.length === 0) {
+        const groupTable = (group: "A" | "B") => {
+          const ids = [...new Set(secondPhase.filter((match) => match.group === group).flatMap((match) => [match.home, match.away]))];
+          return ids.map((clubId) => {
+            let points = 0, gd = 0, gf = 0;
+            secondPhase.filter((match) => match.group === group && match.played && (match.home === clubId || match.away === clubId)).forEach((match) => {
+              const home = match.home === clubId;
+              const scored = home ? match.homeScore! : match.awayScore!;
+              const conceded = home ? match.awayScore! : match.homeScore!;
+              gf += scored; gd += scored - conceded;
+              points += scored > conceded ? championship.pointsWin : scored === conceded ? championship.pointsDraw : championship.pointsLoss;
+            });
+            return { clubId, points, gd, gf };
+          }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
+        };
+
+        const winnerA = groupTable("A")[0];
+        const winnerB = groupTable("B")[0];
+        if (!winnerA || !winnerB) return;
+
+        const id = nextId(matches);
+        const created: Match[] = [
+          { id, championshipId: championship.id, round: 1, home: winnerA.clubId, away: winnerB.clubId, homeScore: null, awayScore: null, played: false, stage: "final" },
+          { id: id + 1, championshipId: championship.id, round: 2, home: winnerB.clubId, away: winnerA.clubId, homeScore: null, awayScore: null, played: false, stage: "final" },
+        ];
+        setMatches([...matches, ...created]);
+        setRound(1);
+        setSection("Partidas");
+        return;
+      }
+
+      window.alert("Não há uma próxima fase disponível agora. Finalize a fase atual primeiro.");
+      return;
+    }
+
+    window.alert("A geração automática de fases está disponível para as Séries B e C do Brasil.");
   }
 
   function saveScore(id: number, home: string, away: string) {
@@ -586,7 +689,7 @@ export default function App() {
         </div>}
 
         {section === "País" && <CountryPage country={selectedCountry} flag={COUNTRIES.find((item) => item.name === selectedCountry)?.flag ?? ""} championships={championships.filter((item) => item.country === selectedCountry)} clubs={clubs} matches={matches} onNew={() => setModal("championship")} onOpen={(id) => { setSelectedId(id); setSection("Visão geral"); }} onDelete={deleteChampionship} />}
-        {section === "Visão geral" && <Dashboard standings={standings} matches={myMatches} division={championship?.division ?? ""} clubName={clubName} onPartidas={() => setSection("Partidas")} onClub={() => setModal("club")} onChamp={() => setModal("championship")} onRound={addRound} onNextSeason={createNextBrazilSeason} onGenerateRound={() => generateResults("round")} onGenerateRemaining={() => generateResults("remaining")} />}
+        {section === "Visão geral" && <Dashboard standings={standings} matches={myMatches} division={championship?.division ?? ""} clubName={clubName} onPartidas={() => setSection("Partidas")} onClub={() => setModal("club")} onChamp={() => setModal("championship")} onRound={addRound} onNextSeason={createNextBrazilSeason} onGenerateRound={() => generateResults("round")} onGenerateRemaining={() => generateResults("remaining")} onGenerateNextStage={generateNextStage} />}
         {section === "Campeonatos" && <Manager title="Meus campeonatos" button="Novo campeonato" onClick={() => setModal("championship")}><div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.country} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>Abrir →</button><button className="dangerText" onClick={() => deleteChampionship(item.id)}>Excluir</button></div></div>)}</div></Manager>}
         {section === "Clubes" && <Manager title={"Clubes · " + championship?.name} button="Novo clube" onClick={() => setModal("club")}><div className="cards">{myClubs.map((club) => <div className="entityCard" key={club.id}><span>CLUBE</span><h2>{club.name}</h2><p>{championship?.country} · {championship?.season}</p></div>)}</div></Manager>}
         {section === "Partidas" && <Manager title={(championship?.name ?? "") + " · Partidas"} button="Ver rodadas" onClick={() => setSection("Partidas")}>
@@ -604,11 +707,11 @@ function CountryPage({ country, flag, championships, clubs, matches, onNew, onOp
   return <section className="manager countryPage"><div className="managerHead"><div><span className="eyebrow">{flag} {country.toUpperCase()}</span><h2>Campeonatos de {country}</h2></div><button className="primary" onClick={onNew}>＋ Novo campeonato</button></div>{championships.length === 0 ? <div className="countryEmpty"><h3>Nenhum campeonato cadastrado</h3><p>Use o botão acima para criar uma competição dentro de {country}.</p></div> : <div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.division} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => onOpen(item.id)}>Abrir →</button><button className="dangerText" onClick={() => onDelete(item.id)}>Excluir</button></div></div>)}</div>}</section>;
 }
 
-function Dashboard({ standings, matches, division, clubName, onPartidas, onClub, onChamp, onRound, onNextSeason, onGenerateRound, onGenerateRemaining }: { standings: any[]; matches: Match[]; division: string; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void; onNextSeason: () => void; onGenerateRound: () => void; onGenerateRemaining: () => void }) {
+function Dashboard({ standings, matches, division, clubName, onPartidas, onClub, onChamp, onRound, onNextSeason, onGenerateRound, onGenerateRemaining, onGenerateNextStage }: { standings: any[]; matches: Match[]; division: string; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void; onNextSeason: () => void; onGenerateRound: () => void; onGenerateRemaining: () => void; onGenerateNextStage: () => void }) {
   return <><section className="stats"><div className="stat"><span>CLUBES</span><strong>{standings.length}</strong><small>neste campeonato</small></div><div className="stat"><span>PARTIDAS</span><strong>{matches.length}</strong><small>{matches.filter((m) => m.played).length} com resultado</small></div><div className="stat"><span>RODADAS</span><strong>{new Set(matches.map((m) => m.round)).size}</strong><small>cadastradas</small></div></section>
     <div className="grid"><section className="panel wide"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Classificação</h2></div><button className="textBtn" onClick={onPartidas}>Abrir partidas →</button></div><div className="tableLegend"><span className="legendItem direct"><i /> Acesso direto</span><span className="legendItem playoff"><i /> Play-offs de acesso</span><span className="legendItem secondPhase"><i /> Segunda fase</span><span className="legendItem relegation"><i /> Rebaixamento</span></div><table className="standingsTable"><thead><tr><th>#</th><th>CLUBE</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{standings.map((row, index) => { const position = index + 1; const rowClass = division === "Série A" ? (position >= 17 ? "zone-relegation" : "zone-neutral") : division === "Série B" ? (position <= 2 ? "zone-direct" : position <= 6 ? "zone-playoff" : position >= 17 ? "zone-relegation" : "zone-neutral") : division === "Série C" ? (position <= 8 ? "zone-second-phase" : "zone-neutral") : "zone-neutral"; return <tr key={row.club.id} className={rowClass}><td>{position}</td><td><b>{row.club.name}</b></td><td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.gf}</td><td>{row.ga}</td><td>{row.gd > 0 ? "+" : ""}{row.gd}</td><td><strong>{row.points}</strong></td></tr>; })}</tbody></table></section>
     <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Próximos jogos</h2></div></div>{matches.filter((m) => !m.played).slice(0, 5).map((m) => <div className="match" key={m.id}><div className="date">RODADA {m.round}</div><div className="teams"><span>{clubName(m.home)}</span><b>×</b><span>{clubName(m.away)}</span></div></div>)}</section>
-    <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Ações rápidas</h2></div></div><div className="quick"><button onClick={onClub}>＋ Cadastrar clube</button><button onClick={onChamp}>＋ Novo campeonato</button><button onClick={onPartidas}>◷ Ver rodadas</button><button onClick={onPartidas}>◷ Lançar resultados</button><button className="generateBtn" onClick={onGenerateRound}>⚡ Gerar rodada</button><button className="generateBtn" onClick={onGenerateRemaining}>⚡ Gerar restantes</button><button onClick={onNextSeason}>⇄ Gerar próxima temporada</button></div></section></div></>;
+    <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Ações rápidas</h2></div></div><div className="quick"><button onClick={onClub}>＋ Cadastrar clube</button><button onClick={onChamp}>＋ Novo campeonato</button><button onClick={onPartidas}>◷ Ver rodadas</button><button onClick={onPartidas}>◷ Lançar resultados</button><button className="generateBtn" onClick={onGenerateRound}>⚡ Gerar rodada</button><button className="generateBtn" onClick={onGenerateRemaining}>⚡ Gerar restantes</button>{(division === "Série B" || division === "Série C") && <button className="generateBtn" onClick={onGenerateNextStage}>⇢ Gerar próxima fase</button>}<button onClick={onNextSeason}>⇄ Gerar próxima temporada</button></div></section></div></>;
 }
 
 function Manager({ title, button, onClick, children }: { title: string; button: string; onClick: () => void; children: React.ReactNode }) {
