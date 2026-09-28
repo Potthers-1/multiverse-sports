@@ -267,7 +267,34 @@ export default function App() {
       return;
     }
 
-    const relegatedFromA: number[] = [];
+    const aInput = window.prompt(
+      "A regra de rebaixamento da Série A ainda não foi informada. Informe os 4 clubes rebaixados da Série A para a Série B.\n\nDigite os nomes separados por vírgula:"
+    );
+    if (!aInput) return;
+    const relegatedFromA = aInput.split(",").map((name) => name.trim()).filter(Boolean).map((name) => {
+      const found = aTable.find((row) => clubName(row.clubId).toLowerCase() === name.toLowerCase());
+      return found?.clubId;
+    }).filter((id): id is number => id !== undefined);
+
+    if (relegatedFromA.length !== 4 || new Set(relegatedFromA).size !== 4) {
+      window.alert("Informe exatamente 4 clubes diferentes da Série A.");
+      return;
+    }
+
+    const cRelegationInput = window.prompt(
+      "A regra de rebaixamento da Série C ainda não foi informada. Informe os 4 clubes rebaixados da Série C para a divisão abaixo.\n\nDigite os nomes separados por vírgula:"
+    );
+    if (!cRelegationInput) return;
+    const relegatedFromC = cRelegationInput.split(",").map((name) => name.trim()).filter(Boolean).map((name) => {
+      const found = cTable.find((row) => clubName(row.clubId).toLowerCase() === name.toLowerCase());
+      return found?.clubId;
+    }).filter((id): id is number => id !== undefined);
+
+    if (relegatedFromC.length !== 4 || new Set(relegatedFromC).size !== 4) {
+      window.alert("Informe exatamente 4 clubes diferentes da Série C.");
+      return;
+    }
+
     const promotedToA = [...directToA, ...playoffWinners];
     const promotedToB = cPromoted;
     const relegatedFromB = bRelegated;
@@ -289,14 +316,16 @@ export default function App() {
     const currentCClubIds = idsFor(currentC);
 
     const promotedBToA = new Set(promotedToA);
+    const relegatedAToB = new Set(relegatedFromA);
     const relegatedBToC = new Set(relegatedFromB);
     const promotedCToB = new Set(promotedToB);
+    const relegatedCToLower = new Set(relegatedFromC);
 
-    const nextAClubIds = currentAClubIds.filter((id) => !relegatedFromA.includes(id)).concat(promotedBToA);
-    const nextBClubIds = currentBClubIds.filter((id) => !relegatedBToC.has(id) && !promotedBToA.has(id)).concat(promotedCToB);
-    const nextCClubIds = currentCClubIds.filter((id) => !promotedCToB.has(id)).concat(relegatedFromB);
+    const nextAClubIds = currentAClubIds.filter((id) => !relegatedAToB.has(id)).concat(promotedBToA);
+    const nextBClubIds = currentBClubIds.filter((id) => !relegatedBToC.has(id) && !promotedBToA.has(id)).concat(relegatedAToB).concat(promotedCToB);
+    const nextCClubIds = currentCClubIds.filter((id) => !promotedCToB.has(id) && !relegatedCToLower.has(id)).concat(relegatedBToC);
 
-    if (nextAClubIds.length !== 24 || nextBClubIds.length !== 20 || nextCClubIds.length !== 20) {
+    if (nextAClubIds.length !== 20 || nextBClubIds.length !== 20 || nextCClubIds.length !== 20) {
       window.alert("A movimentação não fechou os números esperados. A temporada 2027 não foi criada.");
       return;
     }
