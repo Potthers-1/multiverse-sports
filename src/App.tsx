@@ -195,6 +195,140 @@ export default function App() {
     setMatches(matches.map((match) => match.id === id ? { ...match, homeScore: h, awayScore: a, played: true } : match));
   }
 
+  function createNextBrazilSeason() {
+    const currentA = championships.find((item) => item.country === "Brasil" && item.division === "Série A" && item.season === "2026");
+    const currentB = championships.find((item) => item.country === "Brasil" && item.division === "Série B" && item.season === "2026");
+    const currentC = championships.find((item) => item.country === "Brasil" && item.division === "Série C" && item.season === "2026");
+    if (!currentA || !currentB || !currentC) {
+      window.alert("As Séries A, B e C de 2026 precisam existir para gerar a próxima temporada.");
+      return;
+    }
+    if (championships.some((item) => item.country === "Brasil" && item.season === "2027" && ["Série A", "Série B", "Série C"].includes(item.division))) {
+      window.alert("A temporada 2027 das Séries A, B ou C já foi criada.");
+      return;
+    }
+
+    const tableFor = (champ: Championship) => {
+      const teamIds = clubs.filter((club) => club.championshipId === champ.id).map((club) => club.id);
+      return teamIds.map((clubId) => {
+        let points = 0, gd = 0, gf = 0, played = 0;
+        matches.filter((match) => match.championshipId === champ.id && match.played && (match.home === clubId || match.away === clubId)).forEach((match) => {
+          const home = match.home === clubId;
+          const scored = home ? match.homeScore! : match.awayScore!;
+          const conceded = home ? match.awayScore! : match.homeScore!;
+          played++; gf += scored; gd += scored - conceded;
+          if (scored > conceded) points += champ.pointsWin;
+          else if (scored === conceded) points += champ.pointsDraw;
+          else points += champ.pointsLoss;
+        });
+        return { clubId, played, points, gd, gf };
+      }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
+    };
+
+    const aTable = tableFor(currentA);
+    const bTable = tableFor(currentB);
+    const cTable = tableFor(currentC);
+
+    if (aTable.length < 20 || bTable.length < 20 || cTable.length < 20) {
+      window.alert("As três divisões precisam ter os 20 clubes cadastrados antes de gerar 2027.");
+      return;
+    }
+
+    const bRelegated = bTable.slice(-4).map((row) => row.clubId);
+    const directToA = bTable.slice(0, 2).map((row) => row.clubId);
+    const playoffCandidates = bTable.slice(2, 6).map((row) => row.clubId);
+    const playoffText = playoffCandidates.map((id, index) => (index + 3) + ". " + clubName(id)).join("\n");
+    const playoffInput = window.prompt(
+      "Série B: informe os 2 clubes que venceram os playoffs de acesso à Série A.\n\nCandidatos:\n" + playoffText + "\n\nDigite os nomes separados por vírgula:"
+    );
+    if (!playoffInput) return;
+
+    const playoffWinners = playoffInput.split(",").map((name) => name.trim()).filter(Boolean).map((name) => {
+      const found = playoffCandidates.find((id) => clubName(id).toLowerCase() === name.toLowerCase());
+      return found;
+    }).filter((id): id is number => id !== undefined);
+
+    if (playoffWinners.length !== 2 || new Set(playoffWinners).size !== 2) {
+      window.alert("Informe exatamente 2 vencedores diferentes entre os 4 clubes dos playoffs.");
+      return;
+    }
+
+    const cInput = window.prompt(
+      "Série C: informe os 4 clubes que conquistaram o acesso à Série B na segunda fase.\n\nDigite os nomes separados por vírgula:"
+    );
+    if (!cInput) return;
+    const cPromoted = cInput.split(",").map((name) => name.trim()).filter(Boolean).map((name) => {
+      const found = cTable.find((row) => clubName(row.clubId).toLowerCase() === name.toLowerCase());
+      return found?.clubId;
+    }).filter((id): id is number => id !== undefined);
+
+    if (cPromoted.length !== 4 || new Set(cPromoted).size !== 4) {
+      window.alert("Informe exatamente 4 clubes diferentes da Série C.");
+      return;
+    }
+
+    const relegatedFromA: number[] = [];
+    const promotedToA = [...directToA, ...playoffWinners];
+    const promotedToB = cPromoted;
+    const relegatedFromB = bRelegated;
+
+    const nextBase = Math.max(0, ...championships.map((item) => item.id));
+    const nextChampionships: Championship[] = [
+      { ...currentA, id: nextBase + 1, season: "2027" },
+      { ...currentB, id: nextBase + 2, season: "2027" },
+      { ...currentC, id: nextBase + 3, season: "2027" }
+    ];
+
+    const nextAId = nextBase + 1;
+    const nextBId = nextBase + 2;
+    const nextCId = nextBase + 3;
+
+    const idsFor = (champ: Championship) => clubs.filter((club) => club.championshipId === champ.id).map((club) => club.id);
+    const currentAClubIds = idsFor(currentA);
+    const currentBClubIds = idsFor(currentB);
+    const currentCClubIds = idsFor(currentC);
+
+    const promotedBToA = new Set(promotedToA);
+    const relegatedBToC = new Set(relegatedFromB);
+    const promotedCToB = new Set(promotedToB);
+
+    const nextAClubIds = currentAClubIds.filter((id) => !relegatedFromA.includes(id)).concat(promotedBToA);
+    const nextBClubIds = currentBClubIds.filter((id) => !relegatedBToC.has(id) && !promotedBToA.has(id)).concat(promotedCToB);
+    const nextCClubIds = currentCClubIds.filter((id) => !promotedCToB.has(id)).concat(relegatedFromB);
+
+    if (nextAClubIds.length !== 24 || nextBClubIds.length !== 20 || nextCClubIds.length !== 20) {
+      window.alert("A movimentação não fechou os números esperados. A temporada 2027 não foi criada.");
+      return;
+    }
+
+    let nextClubId = nextId(clubs);
+    const createClubs = (clubIds: number[], championshipId: number): Club[] =>
+      clubIds.map((oldId) => {
+        const source = clubs.find((club) => club.id === oldId)!;
+        return { id: nextClubId++, name: source.name, championshipId };
+      });
+
+    const newClubs = [
+      ...createClubs(nextAClubIds, nextAId),
+      ...createClubs(nextBClubIds, nextBId),
+      ...createClubs(nextCClubIds, nextCId)
+    ];
+
+    setChampionships([...championships, ...nextChampionships]);
+    setClubs([...clubs, ...newClubs]);
+    setSelectedCountry("Brasil");
+    setSelectedId(nextAId);
+    setSection("Visão geral");
+    setRound(1);
+
+    window.alert(
+      "Temporada 2027 criada. A temporada 2026 foi preservada.\n\n" +
+      "Série A: " + nextAClubIds.length + " clubes\n" +
+      "Série B: " + nextBClubIds.length + " clubes\n" +
+      "Série C: " + nextCClubIds.length + " clubes"
+    );
+  }
+
   if (!championship) {
     return (
       <div className="app">
@@ -248,7 +382,7 @@ export default function App() {
         </div>}
 
         {section === "País" && <CountryPage country={selectedCountry} flag={COUNTRIES.find((item) => item.name === selectedCountry)?.flag ?? ""} championships={championships.filter((item) => item.country === selectedCountry)} clubs={clubs} matches={matches} onNew={() => setModal("championship")} onOpen={(id) => { setSelectedId(id); setSection("Visão geral"); }} onDelete={deleteChampionship} />}
-        {section === "Visão geral" && <Dashboard standings={standings} matches={myMatches} clubName={clubName} onPartidas={() => setSection("Partidas")} onClub={() => setModal("club")} onChamp={() => setModal("championship")} onRound={addRound} />}
+        {section === "Visão geral" && <Dashboard standings={standings} matches={myMatches} clubName={clubName} onPartidas={() => setSection("Partidas")} onClub={() => setModal("club")} onChamp={() => setModal("championship")} onRound={addRound} onNextSeason={createNextBrazilSeason} />}
         {section === "Campeonatos" && <Manager title="Meus campeonatos" button="Novo campeonato" onClick={() => setModal("championship")}><div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.country} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>Abrir →</button><button className="dangerText" onClick={() => deleteChampionship(item.id)}>Excluir</button></div></div>)}</div></Manager>}
         {section === "Clubes" && <Manager title={"Clubes · " + championship?.name} button="Novo clube" onClick={() => setModal("club")}><div className="cards">{myClubs.map((club) => <div className="entityCard" key={club.id}><span>CLUBE</span><h2>{club.name}</h2><p>{championship?.country} · {championship?.season}</p></div>)}</div></Manager>}
         {section === "Partidas" && <Manager title={(championship?.name ?? "") + " · Partidas"} button="Adicionar rodada" onClick={addRound}>
@@ -266,11 +400,11 @@ function CountryPage({ country, flag, championships, clubs, matches, onNew, onOp
   return <section className="manager countryPage"><div className="managerHead"><div><span className="eyebrow">{flag} {country.toUpperCase()}</span><h2>Campeonatos de {country}</h2></div><button className="primary" onClick={onNew}>＋ Novo campeonato</button></div>{championships.length === 0 ? <div className="countryEmpty"><h3>Nenhum campeonato cadastrado</h3><p>Use o botão acima para criar uma competição dentro de {country}.</p></div> : <div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.division} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => onOpen(item.id)}>Abrir →</button><button className="dangerText" onClick={() => onDelete(item.id)}>Excluir</button></div></div>)}</div>}</section>;
 }
 
-function Dashboard({ standings, matches, clubName, onPartidas, onClub, onChamp, onRound }: { standings: any[]; matches: Match[]; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void }) {
+function Dashboard({ standings, matches, clubName, onPartidas, onClub, onChamp, onRound, onNextSeason }: { standings: any[]; matches: Match[]; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void; onNextSeason: () => void }) {
   return <><section className="stats"><div className="stat"><span>CLUBES</span><strong>{standings.length}</strong><small>neste campeonato</small></div><div className="stat"><span>PARTIDAS</span><strong>{matches.length}</strong><small>{matches.filter((m) => m.played).length} com resultado</small></div><div className="stat"><span>RODADAS</span><strong>{new Set(matches.map((m) => m.round)).size}</strong><small>cadastradas</small></div></section>
     <div className="grid"><section className="panel wide"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Classificação</h2></div><button className="textBtn" onClick={onPartidas}>Abrir partidas →</button></div><table><thead><tr><th>#</th><th>CLUBE</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{standings.map((row, index) => <tr key={row.club.id}><td>{index + 1}</td><td><b>{row.club.name}</b></td><td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.gf}</td><td>{row.ga}</td><td>{row.gd > 0 ? "+" : ""}{row.gd}</td><td><strong>{row.points}</strong></td></tr>)}</tbody></table></section>
     <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Próximos jogos</h2></div></div>{matches.filter((m) => !m.played).slice(0, 5).map((m) => <div className="match" key={m.id}><div className="date">RODADA {m.round}</div><div className="teams"><span>{clubName(m.home)}</span><b>×</b><span>{clubName(m.away)}</span></div></div>)}</section>
-    <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Ações rápidas</h2></div></div><div className="quick"><button onClick={onClub}>＋ Cadastrar clube</button><button onClick={onChamp}>＋ Novo campeonato</button><button onClick={onRound}>＋ Adicionar rodada</button><button onClick={onPartidas}>◷ Lançar resultados</button></div></section></div></>;
+    <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Ações rápidas</h2></div></div><div className="quick"><button onClick={onClub}>＋ Cadastrar clube</button><button onClick={onChamp}>＋ Novo campeonato</button><button onClick={onRound}>＋ Adicionar rodada</button><button onClick={onPartidas}>◷ Lançar resultados</button><button onClick={onNextSeason}>⇄ Gerar próxima temporada</button></div></section></div></>;
 }
 
 function Manager({ title, button, onClick, children }: { title: string; button: string; onClick: () => void; children: React.ReactNode }) {
