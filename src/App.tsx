@@ -54,7 +54,7 @@ const COUNTRIES = [
   { name: "Ilhas Salomão", flag: "🇸🇧" },
 ];
 
-const DATA_VERSION = "4";
+const DATA_VERSION = "5";
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -86,7 +86,6 @@ export default function App() {
   const [selectedCountry, setSelectedCountry] = useState("Brasil");
 
   useEffect(() => {
-    if (localStorage.getItem("sports-brazil-regulations-v1")) return;
     if (championships.some((item) => item.country === "Brasil")) return;
     const base = Math.max(0, ...championships.map((item) => item.id));
     const brazil: Championship[] = [
