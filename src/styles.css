@@ -24,6 +24,11 @@ button { cursor: pointer; }
 .nav { margin: 1px 0; width: 100%; }
 .nav:hover, .nav.active, .champMini:hover, .champMini.active { background: #111c2a; color: #e8eef7; }
 .champMini { width: 100%; font-size: 11px; }
+.countryList { display: grid; gap: 2px; max-height: 310px; overflow-y: auto; padding-right: 2px; }
+.countryItem { width: 100%; display: flex; align-items: center; gap: 9px; border: 0; background: none; color: #8d9bad; text-align: left; padding: 7px 10px; border-radius: 6px; font-size: 10px; }
+.countryItem span { width: 18px; font-size: 15px; line-height: 1; }
+.countryItem:hover { background: #111c2a; color: #e8eef7; }
+
 .champMini small { display: block; color: #526177; margin-top: 3px; margin-left: 2px; }
 .profile { margin-top: auto; border-top: 1px solid #1e2b3b; padding: 15px 7px 2px; color: #aebbc9; font-size: 10px; }
 
