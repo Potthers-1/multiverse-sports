@@ -105,3 +105,9 @@ td:nth-child(2) { color: #d8e0e9; }
   .stats, .cards { grid-template-columns: 1fr 1fr; }
   .resultRow { flex-direction: column; align-items: flex-start; }
 }
+
+.emptySide { color: #536176; font-size: 10px; line-height: 1.5; padding: 0 10px; }
+.emptyState { min-height: 100vh; }
+.emptyPanel { max-width: 680px; margin: 90px auto; padding: 55px 45px; text-align: center; border: 1px solid #1e2b3b; background: #0c121c; border-radius: 12px; }
+.emptyPanel h2 { font-size: 28px; margin: 12px 0 10px; }
+.emptyPanel p { color: #718197; max-width: 520px; margin: 0 auto 25px; line-height: 1.7; font-size: 12px; }
