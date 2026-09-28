@@ -135,6 +135,26 @@ export default function App() {
   const [modal, setModal] = useState<"club" | "championship" | null>(null);
   const [selectedCountry, setSelectedCountry] = useState("Brasil");
 
+  // Reset único da simulação atual: mantém campeonatos, clubes e calendários regulares,
+  // mas remove resultados e fases eliminatórias geradas durante os testes.
+  useEffect(() => {
+    if (localStorage.getItem("sports-simulation-reset-v1") === "1") return;
+
+    setMatches((current) =>
+      current
+        .filter((match) => !match.stage || match.stage === "regular")
+        .map((match) => ({
+          ...match,
+          homeScore: null,
+          awayScore: null,
+          played: false,
+          stage: "regular" as const,
+          group: undefined,
+        }))
+    );
+    localStorage.setItem("sports-simulation-reset-v1", "1");
+  }, []);
+
   useEffect(() => {
     if (championships.some((item) => item.country === "Brasil")) return;
     const base = Math.max(0, ...championships.map((item) => item.id));
