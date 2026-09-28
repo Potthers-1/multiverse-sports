@@ -5,8 +5,18 @@ type Championship = {
   name: string;
   country: string;
   season: string;
+  sport: string;
+  category: string;
+  format: string;
+  teamCount: number;
+  legs: number;
+  rounds: number;
   pointsWin: number;
   pointsDraw: number;
+  pointsLoss: number;
+  tieBreakers: string[];
+  startDate: string;
+  endDate: string;
 };
 
 type Club = { id: number; name: string; championshipId: number };
@@ -86,11 +96,13 @@ export default function App() {
     return items.length ? Math.max(...items.map((item) => item.id)) + 1 : 1;
   }
 
-  function addChampionship(name: string, country: string, season: string) {
-    if (!name.trim()) return;
-    const item = { id: nextId(championships), name: name.trim(), country: country.trim() || "Não informado", season: season || "2026", pointsWin: 3, pointsDraw: 1 };
+  function addChampionship(data: Omit<Championship, "id">) {
+    if (!data.name.trim()) return;
+    const item: Championship = { ...data, id: nextId(championships), name: data.name.trim(), country: data.country.trim() || "Não informado" };
     setChampionships([...championships, item]);
     setSelectedId(item.id);
+    setRound(1);
+    setSection("Visão geral");
     setModal(null);
   }
 
@@ -199,9 +211,86 @@ function ResultRow({ match, home, away, onSave }: { match: Match; home: string; 
   return <div className="resultRow"><div><span className="eyebrow">RODADA {match.round}</span><b>{home}</b><small>vs</small><b>{away}</b></div><div className="scoreEdit"><input value={homeScore} onChange={(e) => setHomeScore(e.target.value)} inputMode="numeric" /><strong>×</strong><input value={awayScore} onChange={(e) => setAwayScore(e.target.value)} inputMode="numeric" /><button onClick={() => onSave(match.id, homeScore, awayScore)}>{match.played ? "Atualizar" : "Salvar resultado"}</button></div></div>;
 }
 
-function Modal({ type, onClose, addChampionship, addClub }: { type: "club" | "championship"; onClose: () => void; addChampionship: (name: string, country: string, season: string) => void; addClub: (name: string) => void }) {
+function Modal({ type, onClose, addChampionship, addClub }: {
+  type: "club" | "championship";
+  onClose: () => void;
+  addChampionship: (data: Omit<Championship, "id">) => void;
+  addClub: (name: string) => void;
+}) {
   const [name, setName] = useState("");
   const [country, setCountry] = useState("Brasil");
   const [season, setSeason] = useState("2026");
-  return <div className="overlay"><div className="modal"><button className="close" onClick={onClose}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>{type === "championship" ? "Novo campeonato" : "Novo clube"}</h2><input autoFocus placeholder={type === "championship" ? "Nome do campeonato" : "Nome do clube"} value={name} onChange={(e) => setName(e.target.value)} />{type === "championship" && <><input placeholder="País" value={country} onChange={(e) => setCountry(e.target.value)} /><input placeholder="Temporada" value={season} onChange={(e) => setSeason(e.target.value)} /></>}<button className="primary full" onClick={() => type === "championship" ? addChampionship(name, country, season) : addClub(name)}>Salvar</button></div></div>;
+  const [sport, setSport] = useState("Futebol");
+  const [category, setCategory] = useState("Profissional");
+  const [format, setFormat] = useState("Pontos corridos");
+  const [teamCount, setTeamCount] = useState("20");
+  const [legs, setLegs] = useState("2");
+  const [rounds, setRounds] = useState("38");
+  const [pointsWin, setPointsWin] = useState("3");
+  const [pointsDraw, setPointsDraw] = useState("1");
+  const [pointsLoss, setPointsLoss] = useState("0");
+  const [tieBreakers, setTieBreakers] = useState<string[]>(["Pontos", "Saldo de gols", "Gols pró"]);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  const toggleTieBreaker = (value: string) => {
+    setTieBreakers((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
+  };
+
+  const saveChampionship = () => {
+    if (!name.trim()) return;
+    addChampionship({
+      name, country, season, sport, category, format,
+      teamCount: Math.max(0, Number(teamCount) || 0),
+      legs: Math.max(1, Number(legs) || 1),
+      rounds: Math.max(0, Number(rounds) || 0),
+      pointsWin: Math.max(0, Number(pointsWin) || 0),
+      pointsDraw: Math.max(0, Number(pointsDraw) || 0),
+      pointsLoss: Math.max(0, Number(pointsLoss) || 0),
+      tieBreakers, startDate, endDate
+    });
+  };
+
+  if (type === "club") {
+    return <div className="overlay"><div className="modal modalSmall"><button className="close" onClick={onClose}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Novo clube</h2><input autoFocus placeholder="Nome do clube" value={name} onChange={(e) => setName(e.target.value)} /><button className="primary full" onClick={() => addClub(name)}>Salvar clube</button></div></div>;
+  }
+
+  return <div className="overlay"><div className="modal modalLarge">
+    <button className="close" onClick={onClose}>×</button>
+    <span className="eyebrow">CONFIGURAÇÃO DA COMPETIÇÃO</span>
+    <h2>Novo campeonato</h2>
+    <p className="modalIntro">Cadastre as regras da competição. Elas ficam salvas junto ao campeonato.</p>
+
+    <div className="formSection"><h3>1 · Identificação</h3><div className="formGrid">
+      <label className="field wideField">Nome da competição<input autoFocus placeholder="Ex.: Campeonato Brasileiro Série A" value={name} onChange={(e) => setName(e.target.value)} /></label>
+      <label className="field">País<input placeholder="Brasil" value={country} onChange={(e) => setCountry(e.target.value)} /></label>
+      <label className="field">Temporada<input placeholder="2026" value={season} onChange={(e) => setSeason(e.target.value)} /></label>
+      <label className="field">Esporte<select value={sport} onChange={(e) => setSport(e.target.value)}><option>Futebol</option><option>Futsal</option><option>Basquete</option><option>Vôlei</option><option>Handebol</option><option>Outro</option></select></label>
+      <label className="field">Categoria<select value={category} onChange={(e) => setCategory(e.target.value)}><option>Profissional</option><option>Feminino</option><option>Masculino</option><option>Base / Juvenil</option><option>Sub-20</option><option>Sub-17</option><option>Amador</option><option>Outro</option></select></label>
+    </div></div>
+
+    <div className="formSection"><h3>2 · Formato</h3><div className="formGrid">
+      <label className="field wideField">Modelo da competição<select value={format} onChange={(e) => setFormat(e.target.value)}><option>Pontos corridos</option><option>Grupos</option><option>Mata-mata</option><option>Grupos + mata-mata</option><option>Outro</option></select></label>
+      <label className="field">Número de equipes<input type="number" min="0" value={teamCount} onChange={(e) => setTeamCount(e.target.value)} /></label>
+      <label className="field">Turnos<input type="number" min="1" value={legs} onChange={(e) => setLegs(e.target.value)} /></label>
+      <label className="field">Número de rodadas<input type="number" min="0" value={rounds} onChange={(e) => setRounds(e.target.value)} /></label>
+    </div></div>
+
+    <div className="formSection"><h3>3 · Pontuação</h3><div className="formGrid pointsGrid">
+      <label className="field">Vitória<input type="number" min="0" value={pointsWin} onChange={(e) => setPointsWin(e.target.value)} /></label>
+      <label className="field">Empate<input type="number" min="0" value={pointsDraw} onChange={(e) => setPointsDraw(e.target.value)} /></label>
+      <label className="field">Derrota<input type="number" min="0" value={pointsLoss} onChange={(e) => setPointsLoss(e.target.value)} /></label>
+    </div></div>
+
+    <div className="formSection"><h3>4 · Desempates</h3><div className="checks">
+      {["Pontos", "Saldo de gols", "Gols pró", "Confronto direto", "Vitórias", "Fair play"].map((item) => <label className="check" key={item}><input type="checkbox" checked={tieBreakers.includes(item)} onChange={() => toggleTieBreaker(item)} />{item}</label>)}
+    </div></div>
+
+    <div className="formSection"><h3>5 · Calendário</h3><div className="formGrid">
+      <label className="field">Início<input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
+      <label className="field">Fim<input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label>
+    </div></div>
+
+    <div className="modalActions"><button className="ghost" onClick={onClose}>Cancelar</button><button className="primary" onClick={saveChampionship}>Criar campeonato</button></div>
+  </div></div>;
 }
