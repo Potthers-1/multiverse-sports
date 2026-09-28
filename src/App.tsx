@@ -75,7 +75,53 @@ function save(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-export default function App() {
+export default function generateRoundRobin(teamIds: number[], legs: number, championshipId: number, startId: number): Match[] {
+  const teams = [...teamIds];
+  if (teams.length < 2) return [];
+
+  if (teams.length % 2 !== 0) teams.push(-1);
+
+  const roundsPerLeg = teams.length - 1;
+  const matchesPerRound = teams.length / 2;
+  const generated: Match[] = [];
+  let id = startId;
+
+  for (let leg = 0; leg < legs; leg++) {
+    let rotation = [...teams];
+
+    for (let round = 1; round <= roundsPerLeg; round++) {
+      for (let i = 0; i < matchesPerRound; i++) {
+        let home = rotation[i];
+        let away = rotation[rotation.length - 1 - i];
+        if (home === -1 || away === -1) continue;
+
+        if (leg % 2 === 1) {
+          [home, away] = [away, home];
+        }
+
+        generated.push({
+          id: id++,
+          championshipId,
+          round: leg * roundsPerLeg + round,
+          home,
+          away,
+          homeScore: null,
+          awayScore: null,
+          played: false
+        });
+      }
+
+      const fixed = rotation[0];
+      const rest = rotation.slice(1);
+      rest.unshift(rest.pop()!);
+      rotation = [fixed, ...rest];
+    }
+  }
+
+  return generated;
+}
+
+function App() {
   const [championships, setChampionships] = useState(() => load("sports-championships", seedChampionships));
   const [clubs, setClubs] = useState(() => load("sports-clubs", seedClubs));
   const [matches, setMatches] = useState(() => load("sports-matches", seedMatches));
@@ -116,6 +162,33 @@ export default function App() {
     );
     setClubs(initialClubs);
   }, [championships, clubs.length]);
+
+  useEffect(() => {
+    const completed = championships.filter((champ) => {
+      const teamCount = clubs.filter((club) => club.championshipId === champ.id).length;
+      return teamCount >= champ.teamCount && champ.teamCount >= 2 && champ.rounds > 0 && champ.legs >= 1 &&
+        (champ.format === "Pontos corridos" || champ.format === "Pontos corridos + playoff" || champ.format === "Pontos corridos + grupos + final");
+    });
+
+    if (!completed.length) return;
+
+    let changed = false;
+    let nextMatches = [...matches];
+
+    completed.forEach((champ) => {
+      const teamIds = clubs.filter((club) => club.championshipId === champ.id).map((club) => club.id);
+      const existing = nextMatches.filter((match) => match.championshipId === champ.id);
+      if (existing.length > 0 || teamIds.length !== champ.teamCount) return;
+
+      const generated = generateRoundRobin(teamIds, champ.legs, champ.id, nextId(nextMatches));
+      if (generated.length > 0) {
+        nextMatches = [...nextMatches, ...generated];
+        changed = true;
+      }
+    });
+
+    if (changed) setMatches(nextMatches);
+  }, [clubs, championships]);
 
   useEffect(() => save("sports-championships", championships), [championships]);
   useEffect(() => save("sports-clubs", clubs), [clubs]);
@@ -160,6 +233,8 @@ export default function App() {
 
   function addClub(name: string) {
     if (!name.trim() || !championship) return;
+    const alreadyExists = clubs.some((club) => club.championshipId === championship.id && club.name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (alreadyExists) return;
     setClubs([...clubs, { id: nextId(clubs), name: name.trim(), championshipId: championship.id }]);
     setModal(null);
   }
@@ -179,10 +254,19 @@ export default function App() {
   function addRound() {
     if (!championship || myClubs.length < 2) return;
     const nextRound = Math.max(0, ...myMatches.map((match) => match.round)) + 1;
+    if (nextRound > championship.rounds) return;
     const created: Match[] = [];
     for (let i = 0; i + 1 < myClubs.length; i += 2) {
-      created.push({ id: nextId([...matches, ...created]), championshipId: championship.id, round: nextRound, home: myClubs[i].id, away: myClubs[i + 1].id, homeScore: null, awayScore: null, played: false });
+      const home = myClubs[i].id;
+      const away = myClubs[i + 1].id;
+      const duplicate = myMatches.some((match) =>
+        (match.home === home && match.away === away) || (match.home === away && match.away === home)
+      );
+      if (!duplicate) {
+        created.push({ id: nextId([...matches, ...created]), championshipId: championship.id, round: nextRound, home, away, homeScore: null, awayScore: null, played: false });
+      }
     }
+    if (!created.length) return;
     setMatches([...matches, ...created]);
     setRound(nextRound);
     setSection("Partidas");
@@ -414,7 +498,7 @@ export default function App() {
         {section === "Visão geral" && <Dashboard standings={standings} matches={myMatches} division={championship?.division ?? ""} clubName={clubName} onPartidas={() => setSection("Partidas")} onClub={() => setModal("club")} onChamp={() => setModal("championship")} onRound={addRound} onNextSeason={createNextBrazilSeason} />}
         {section === "Campeonatos" && <Manager title="Meus campeonatos" button="Novo campeonato" onClick={() => setModal("championship")}><div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.country} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>Abrir →</button><button className="dangerText" onClick={() => deleteChampionship(item.id)}>Excluir</button></div></div>)}</div></Manager>}
         {section === "Clubes" && <Manager title={"Clubes · " + championship?.name} button="Novo clube" onClick={() => setModal("club")}><div className="cards">{myClubs.map((club) => <div className="entityCard" key={club.id}><span>CLUBE</span><h2>{club.name}</h2><p>{championship?.country} · {championship?.season}</p></div>)}</div></Manager>}
-        {section === "Partidas" && <Manager title={(championship?.name ?? "") + " · Partidas"} button="Adicionar rodada" onClick={addRound}>
+        {section === "Partidas" && <Manager title={(championship?.name ?? "") + " · Partidas"} button="Ver rodadas" onClick={() => setSection("Partidas")}>
           <div className="roundBar"><label>RODADA<select value={round} onChange={(event) => setRound(Number(event.target.value))}>{rounds.map((item) => <option key={item} value={item}>Rodada {item}</option>)}</select></label></div>
           <div className="resultList">{myMatches.filter((match) => match.round === round).map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
         </Manager>}
@@ -433,7 +517,7 @@ function Dashboard({ standings, matches, division, clubName, onPartidas, onClub,
   return <><section className="stats"><div className="stat"><span>CLUBES</span><strong>{standings.length}</strong><small>neste campeonato</small></div><div className="stat"><span>PARTIDAS</span><strong>{matches.length}</strong><small>{matches.filter((m) => m.played).length} com resultado</small></div><div className="stat"><span>RODADAS</span><strong>{new Set(matches.map((m) => m.round)).size}</strong><small>cadastradas</small></div></section>
     <div className="grid"><section className="panel wide"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Classificação</h2></div><button className="textBtn" onClick={onPartidas}>Abrir partidas →</button></div><div className="tableLegend"><span className="legendItem direct"><i /> Acesso direto</span><span className="legendItem playoff"><i /> Play-offs de acesso</span><span className="legendItem secondPhase"><i /> Segunda fase</span><span className="legendItem relegation"><i /> Rebaixamento</span></div><table className="standingsTable"><thead><tr><th>#</th><th>CLUBE</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{standings.map((row, index) => { const position = index + 1; const rowClass = division === "Série A" ? (position >= 17 ? "zone-relegation" : "zone-neutral") : division === "Série B" ? (position <= 2 ? "zone-direct" : position <= 6 ? "zone-playoff" : position >= 17 ? "zone-relegation" : "zone-neutral") : division === "Série C" ? (position <= 8 ? "zone-second-phase" : "zone-neutral") : "zone-neutral"; return <tr key={row.club.id} className={rowClass}><td>{position}</td><td><b>{row.club.name}</b></td><td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.gf}</td><td>{row.ga}</td><td>{row.gd > 0 ? "+" : ""}{row.gd}</td><td><strong>{row.points}</strong></td></tr>; })}</tbody></table></section>
     <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Próximos jogos</h2></div></div>{matches.filter((m) => !m.played).slice(0, 5).map((m) => <div className="match" key={m.id}><div className="date">RODADA {m.round}</div><div className="teams"><span>{clubName(m.home)}</span><b>×</b><span>{clubName(m.away)}</span></div></div>)}</section>
-    <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Ações rápidas</h2></div></div><div className="quick"><button onClick={onClub}>＋ Cadastrar clube</button><button onClick={onChamp}>＋ Novo campeonato</button><button onClick={onRound}>＋ Adicionar rodada</button><button onClick={onPartidas}>◷ Lançar resultados</button><button onClick={onNextSeason}>⇄ Gerar próxima temporada</button></div></section></div></>;
+    <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Ações rápidas</h2></div></div><div className="quick"><button onClick={onClub}>＋ Cadastrar clube</button><button onClick={onChamp}>＋ Novo campeonato</button><button onClick={onPartidas}>◷ Ver rodadas</button><button onClick={onPartidas}>◷ Lançar resultados</button><button onClick={onNextSeason}>⇄ Gerar próxima temporada</button></div></section></div></>;
 }
 
 function Manager({ title, button, onClick, children }: { title: string; button: string; onClick: () => void; children: React.ReactNode }) {
