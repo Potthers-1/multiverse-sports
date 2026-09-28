@@ -167,3 +167,6 @@ td:nth-child(2) { color: #d8e0e9; }
 .standingsTable tbody tr.zone-playoff td:first-child { color:#e5b93f; font-weight:800; }
 .standingsTable tbody tr.zone-second-phase td:first-child { color:#e58a3f; font-weight:800; }
 .standingsTable tbody tr.zone-relegation td:first-child { color:#e04f5f; font-weight:800; }
+
+.generateBtn { border:1px solid #31516a !important; background:#102131 !important; color:#d9edf8 !important; }
+.generateBtn:hover { border-color:#4c7898 !important; background:#142b3d !important; }
