@@ -21,30 +21,20 @@ type Match = {
   played: boolean;
 };
 
-const seedChampionships: Championship[] = [
-  { id: 1, name: "Brasileirão Série A", country: "Brasil", season: "2026", pointsWin: 3, pointsDraw: 1 }
-];
+const seedChampionships: Championship[] = [];
+const seedClubs: Club[] = [];
+const seedMatches: Match[] = [];
 
-const seedClubs: Club[] = [
-  { id: 1, name: "Flamengo", championshipId: 1 },
-  { id: 2, name: "Palmeiras", championshipId: 1 },
-  { id: 3, name: "Atlético-MG", championshipId: 1 },
-  { id: 4, name: "Botafogo", championshipId: 1 },
-  { id: 5, name: "Fluminense", championshipId: 1 },
-  { id: 6, name: "Cruzeiro", championshipId: 1 },
-  { id: 7, name: "Grêmio", championshipId: 1 },
-  { id: 8, name: "Internacional", championshipId: 1 }
-];
-
-const seedMatches: Match[] = [
-  { id: 1, championshipId: 1, round: 1, home: 1, away: 2, homeScore: 2, awayScore: 1, played: true },
-  { id: 2, championshipId: 1, round: 1, home: 3, away: 6, homeScore: 1, awayScore: 1, played: true },
-  { id: 3, championshipId: 1, round: 1, home: 5, away: 4, homeScore: null, awayScore: null, played: false },
-  { id: 4, championshipId: 1, round: 1, home: 7, away: 8, homeScore: null, awayScore: null, played: false }
-];
+const DATA_VERSION = "3";
 
 function load<T>(key: string, fallback: T): T {
   try {
+    if (localStorage.getItem("sports-data-version") !== DATA_VERSION) {
+      localStorage.removeItem("sports-championships");
+      localStorage.removeItem("sports-clubs");
+      localStorage.removeItem("sports-matches");
+      localStorage.setItem("sports-data-version", DATA_VERSION);
+    }
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) as T : fallback;
   } catch {
@@ -60,7 +50,7 @@ export default function App() {
   const [championships, setChampionships] = useState(() => load("sports-championships", seedChampionships));
   const [clubs, setClubs] = useState(() => load("sports-clubs", seedClubs));
   const [matches, setMatches] = useState(() => load("sports-matches", seedMatches));
-  const [selectedId, setSelectedId] = useState(1);
+  const [selectedId, setSelectedId] = useState(0);
   const [section, setSection] = useState("Visão geral");
   const [round, setRound] = useState(1);
   const [modal, setModal] = useState<"club" | "championship" | null>(null);
@@ -86,7 +76,7 @@ export default function App() {
         else if (scored === conceded) draws++;
         else losses++;
       });
-      return { club, played, wins, draws, losses, gf, ga, gd: gf - ga, points: wins * championship.pointsWin + draws * championship.pointsDraw };
+      return { club, played, wins, draws, losses, gf, ga, gd: gf - ga, points: wins * (championship?.pointsWin ?? 3) + draws * (championship?.pointsDraw ?? 1) };
     }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
   }, [myClubs, myMatches, championship]);
 
@@ -130,6 +120,30 @@ export default function App() {
   }
 
   const nav = ["Visão geral", "Campeonatos", "Clubes", "Partidas"];
+
+  if (!championship) {
+    return (
+      <div className="app">
+        <aside className="side">
+          <div className="brand"><div className="mark">◈</div><div><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div></div>
+          <div className="label">NAVEGAÇÃO</div>
+          {nav.map((item) => <button key={item} className={section === item ? "nav active" : "nav"} onClick={() => setSection(item)}>{item}</button>)}
+          <div className="label lower">CAMPEONATOS</div>
+          <div className="emptySide">Nenhum campeonato cadastrado.</div>
+        </aside>
+        <main className="main emptyState">
+          <header><div><div className="crumb">SPORTS TABLE / INÍCIO</div><h1>Comece do zero</h1></div><button className="primary" onClick={() => setModal("championship")}>＋ Novo campeonato</button></header>
+          <section className="emptyPanel">
+            <span className="eyebrow">SEU GERENCIADOR</span>
+            <h2>Nenhum campeonato cadastrado</h2>
+            <p>Crie seu primeiro campeonato real para começar a cadastrar clubes, rodadas, partidas e resultados.</p>
+            <button className="primary" onClick={() => setModal("championship")}>＋ Criar primeiro campeonato</button>
+          </section>
+          {modal && <Modal type={modal} onClose={() => setModal(null)} addChampionship={addChampionship} addClub={addClub} />}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
