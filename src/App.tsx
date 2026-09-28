@@ -75,7 +75,7 @@ function save(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-export default function generateRoundRobin(teamIds: number[], legs: number, championshipId: number, startId: number): Match[] {
+function generateRoundRobin(teamIds: number[], legs: number, championshipId: number, startId: number): Match[] {
   if (teamIds.length < 2 || legs < 1) return [];
 
   const teams = [...teamIds];
@@ -122,7 +122,7 @@ export default function generateRoundRobin(teamIds: number[], legs: number, cham
   return generated;
 }
 
-function App() {
+export default function App() {
   const [championships, setChampionships] = useState(() => load("sports-championships", seedChampionships));
   const [clubs, setClubs] = useState(() => load("sports-clubs", seedClubs));
   const [matches, setMatches] = useState(() => load("sports-matches", seedMatches));
