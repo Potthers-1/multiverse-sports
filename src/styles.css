@@ -149,3 +149,21 @@ td:nth-child(2) { color: #d8e0e9; }
 .countryEmpty { padding: 45px 20px; text-align: center; border: 1px dashed #2a3b4f; border-radius: 8px; background: #0b131f; }
 .countryEmpty h3 { margin: 0 0 8px; color: #d8e0e9; font-size: 17px; }
 .countryEmpty p { margin: 0; color: #65758a; font-size: 11px; }
+
+
+.tableLegend { display:flex; flex-wrap:wrap; gap:8px; margin:-2px 0 10px; }
+.legendItem { display:inline-flex; align-items:center; gap:6px; padding:5px 8px; border-radius:5px; font-size:8px; color:#9eacbf; border:1px solid #1e2b3b; background:#0b131f; }
+.legendItem i { width:8px; height:8px; border-radius:2px; display:block; }
+.legendItem.direct i { background:#35c76f; }
+.legendItem.playoff i { background:#e5b93f; }
+.legendItem.secondPhase i { background:#e58a3f; }
+.legendItem.relegation i { background:#e04f5f; }
+.standingsTable tbody tr { transition:background .15s ease; }
+.standingsTable tbody tr.zone-direct { background:rgba(53,199,111,.09); box-shadow:inset 3px 0 #35c76f; }
+.standingsTable tbody tr.zone-playoff { background:rgba(229,185,63,.09); box-shadow:inset 3px 0 #e5b93f; }
+.standingsTable tbody tr.zone-second-phase { background:rgba(229,138,63,.10); box-shadow:inset 3px 0 #e58a3f; }
+.standingsTable tbody tr.zone-relegation { background:rgba(224,79,95,.09); box-shadow:inset 3px 0 #e04f5f; }
+.standingsTable tbody tr.zone-direct td:first-child { color:#35c76f; font-weight:800; }
+.standingsTable tbody tr.zone-playoff td:first-child { color:#e5b93f; font-weight:800; }
+.standingsTable tbody tr.zone-second-phase td:first-child { color:#e58a3f; font-weight:800; }
+.standingsTable tbody tr.zone-relegation td:first-child { color:#e04f5f; font-weight:800; }
