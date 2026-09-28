@@ -7,7 +7,11 @@ type Championship = {
   season: string;
   sport: string;
   category: string;
+  division: string;
   format: string;
+  regulation: string;
+  promotion: string;
+  relegation: string;
   teamCount: number;
   legs: number;
   rounds: number;
@@ -50,7 +54,7 @@ const COUNTRIES = [
   { name: "Ilhas Salomão", flag: "🇸🇧" },
 ];
 
-const DATA_VERSION = "3";
+const DATA_VERSION = "4";
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -80,6 +84,19 @@ export default function App() {
   const [round, setRound] = useState(1);
   const [modal, setModal] = useState<"club" | "championship" | null>(null);
   const [selectedCountry, setSelectedCountry] = useState("Brasil");
+
+  useEffect(() => {
+    if (localStorage.getItem("sports-brazil-regulations-v1")) return;
+    if (championships.some((item) => item.country === "Brasil")) return;
+    const base = Math.max(0, ...championships.map((item) => item.id));
+    const brazil: Championship[] = [
+      { id: base + 1, name: "Campeonato Brasileiro Série A", country: "Brasil", season: "2026", sport: "Futebol", category: "Profissional", division: "Série A", format: "Pontos corridos", regulation: "20 clubes; dois turnos; todos contra todos em cada turno; 38 rodadas; segundo turno com mando invertido; campeão definido pela maior pontuação após 38 rodadas.", promotion: "Nenhum acesso: divisão máxima.", relegation: "Regra de rebaixamento ainda não informada neste regulamento enviado.", teamCount: 20, legs: 2, rounds: 38, pointsWin: 3, pointsDraw: 1, pointsLoss: 0, tieBreakers: ["Pontos", "Saldo de gols", "Gols pró"], startDate: "", endDate: "" },
+      { id: base + 2, name: "Campeonato Brasileiro Série B", country: "Brasil", season: "2026", sport: "Futebol", category: "Profissional", division: "Série B", format: "Pontos corridos + playoff", regulation: "20 clubes; 38 rodadas em ida e volta. Após a fase regular, 1º e 2º sobem diretamente. 3º x 6º e 4º x 5º fazem playoffs de ida e volta pelas duas vagas restantes.", promotion: "1º e 2º sobem diretamente para a Série A; vencedores dos playoffs entre 3º-6º e 4º-5º também sobem.", relegation: "Os quatro últimos são rebaixados para a Série C.", teamCount: 20, legs: 2, rounds: 38, pointsWin: 3, pointsDraw: 1, pointsLoss: 0, tieBreakers: ["Pontos", "Saldo de gols", "Gols pró"], startDate: "", endDate: "" },
+      { id: base + 3, name: "Campeonato Brasileiro Série C", country: "Brasil", season: "2026", sport: "Futebol", category: "Profissional", division: "Série C", format: "Pontos corridos + grupos + final", regulation: "20 clubes em turno único na primeira fase; os 8 melhores avançam. Segunda fase em dois grupos de 4, definidos pelas posições 1-4-5-8 e 2-3-6-7. Cada grupo joga em turno e returno por 6 rodadas. Os dois melhores de cada grupo sobem; os líderes fazem a final em ida e volta.", promotion: "Os dois primeiros de cada grupo da segunda fase sobem para a Série B; os líderes dos grupos disputam a final.", relegation: "Regra de rebaixamento não informada no regulamento enviado.", teamCount: 20, legs: 1, rounds: 19, pointsWin: 3, pointsDraw: 1, pointsLoss: 0, tieBreakers: ["Pontos", "Saldo de gols", "Gols pró"], startDate: "", endDate: "" }
+    ];
+    setChampionships(brazil);
+    localStorage.setItem("sports-brazil-regulations-v1", "1");
+  }, []);
 
   useEffect(() => save("sports-championships", championships), [championships]);
   useEffect(() => save("sports-clubs", clubs), [clubs]);
@@ -227,7 +244,7 @@ export default function App() {
 }
 
 function CountryPage({ country, flag, championships, clubs, matches, onNew, onOpen, onDelete }: { country: string; flag: string; championships: Championship[]; clubs: Club[]; matches: Match[]; onNew: () => void; onOpen: (id: number) => void; onDelete: (id: number) => void }) {
-  return <section className="manager countryPage"><div className="managerHead"><div><span className="eyebrow">{flag} {country.toUpperCase()}</span><h2>Campeonatos de {country}</h2></div><button className="primary" onClick={onNew}>＋ Novo campeonato</button></div>{championships.length === 0 ? <div className="countryEmpty"><h3>Nenhum campeonato cadastrado</h3><p>Use o botão acima para criar uma competição dentro de {country}.</p></div> : <div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.season} · {item.category}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => onOpen(item.id)}>Abrir →</button><button className="dangerText" onClick={() => onDelete(item.id)}>Excluir</button></div></div>)}</div>}</section>;
+  return <section className="manager countryPage"><div className="managerHead"><div><span className="eyebrow">{flag} {country.toUpperCase()}</span><h2>Campeonatos de {country}</h2></div><button className="primary" onClick={onNew}>＋ Novo campeonato</button></div>{championships.length === 0 ? <div className="countryEmpty"><h3>Nenhum campeonato cadastrado</h3><p>Use o botão acima para criar uma competição dentro de {country}.</p></div> : <div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.division} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => onOpen(item.id)}>Abrir →</button><button className="dangerText" onClick={() => onDelete(item.id)}>Excluir</button></div></div>)}</div>}</section>;
 }
 
 function Dashboard({ standings, matches, clubName, onPartidas, onClub, onChamp, onRound }: { standings: any[]; matches: Match[]; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void }) {
@@ -255,11 +272,12 @@ function Modal({ type, onClose, addChampionship, addClub }: {
   addClub: (name: string) => void;
 }) {
   const [name, setName] = useState("");
-  const [country] = useState(country);
+  const fixedCountry = country;
   const [season, setSeason] = useState("2026");
   const [sport, setSport] = useState("Futebol");
   const [category, setCategory] = useState("Profissional");
-  const [format, setFormat] = useState("Pontos corridos");
+  const [division, setDivision] = useState("Divisão não definida");
+  const [format, setFormat = useState("Pontos corridos");
   const [teamCount, setTeamCount] = useState("20");
   const [legs, setLegs] = useState("2");
   const [rounds, setRounds] = useState("38");
@@ -277,7 +295,10 @@ function Modal({ type, onClose, addChampionship, addClub }: {
   const saveChampionship = () => {
     if (!name.trim()) return;
     addChampionship({
-      name, country, season, sport, category, format,
+      name, country: fixedCountry, season, sport, category, division, format,
+      regulation: "Regulamento cadastrado manualmente.",
+      promotion: "",
+      relegation: "",
       teamCount: Math.max(0, Number(teamCount) || 0),
       legs: Math.max(1, Number(legs) || 1),
       rounds: Math.max(0, Number(rounds) || 0),
@@ -300,9 +321,10 @@ function Modal({ type, onClose, addChampionship, addClub }: {
 
     <div className="formSection"><h3>1 · Identificação</h3><div className="formGrid">
       <label className="field wideField">Nome da competição<input autoFocus placeholder="Ex.: Campeonato Brasileiro Série A" value={name} onChange={(e) => setName(e.target.value)} /></label>
-      <label className="field">País<input value={country} readOnly /></label>
+      <label className="field">País<input value={fixedCountry} readOnly /></label>
       <label className="field">Temporada<input placeholder="2026" value={season} onChange={(e) => setSeason(e.target.value)} /></label>
       <label className="field">Esporte<select value={sport} onChange={(e) => setSport(e.target.value)}><option>Futebol</option><option>Futsal</option><option>Basquete</option><option>Vôlei</option><option>Handebol</option><option>Outro</option></select></label>
+      <label className="field">Divisão<input placeholder="Ex.: Série A" value={division} onChange={(e) => setDivision(e.target.value)} /></label>
       <label className="field">Categoria<select value={category} onChange={(e) => setCategory(e.target.value)}><option>Profissional</option><option>Feminino</option><option>Masculino</option><option>Base / Juvenil</option><option>Sub-20</option><option>Sub-17</option><option>Amador</option><option>Outro</option></select></label>
     </div></div>
 
