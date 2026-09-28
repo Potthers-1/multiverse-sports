@@ -191,6 +191,56 @@ export default function App() {
     if (changed) setMatches(nextMatches);
   }, [clubs, championships]);
 
+  useEffect(() => {
+    const seriesA = championships.find((champ) =>
+      champ.country === "Brasil" && champ.division === "Série A" && champ.season === "2026"
+    );
+    if (!seriesA || localStorage.getItem("sports-serie-a-calendar-v1") === "1") return;
+
+    const teamIds = clubs
+      .filter((club) => club.championshipId === seriesA.id)
+      .map((club) => club.id);
+
+    if (teamIds.length !== seriesA.teamCount) return;
+
+    const current = matches.filter((match) => match.championshipId === seriesA.id);
+    const expected = (teamIds.length / 2) * seriesA.rounds;
+    const seen = new Set<string>();
+    const hasDuplicate = current.some((match) => {
+      const key = [match.home, match.away].sort((a, b) => a - b).join("-");
+      if (seen.has(key)) return true;
+      seen.add(key);
+      return false;
+    });
+
+    if (current.length === expected && !hasDuplicate) {
+      localStorage.setItem("sports-serie-a-calendar-v1", "1");
+      return;
+    }
+
+    const generated = generateRoundRobin(teamIds, seriesA.legs, seriesA.id, nextId(matches));
+    const oldResults = new Map<string, Match[]>();
+
+    current.filter((match) => match.played && match.round > 6).forEach((match) => {
+      const key = [match.home, match.away].sort((a, b) => a - b).join("-");
+      const list = oldResults.get(key) ?? [];
+      list.push(match);
+      oldResults.set(key, list);
+    });
+
+    const repaired = generated.map((match) => {
+      const key = [match.home, match.away].sort((a, b) => a - b).join("-");
+      const list = oldResults.get(key);
+      const previous = list?.shift();
+      return previous
+        ? { ...match, homeScore: previous.homeScore, awayScore: previous.awayScore, played: true }
+        : match;
+    });
+
+    setMatches([...matches.filter((match) => match.championshipId !== seriesA.id), ...repaired]);
+    localStorage.setItem("sports-serie-a-calendar-v1", "1");
+  }, [clubs, championships, matches]);
+
   useEffect(() => save("sports-championships", championships), [championships]);
   useEffect(() => save("sports-clubs", clubs), [clubs]);
   useEffect(() => save("sports-matches", matches), [matches]);
