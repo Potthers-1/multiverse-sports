@@ -159,15 +159,11 @@ export default function App() {
     setMatches(matches.map((match) => match.id === id ? { ...match, homeScore: h, awayScore: a, played: true } : match));
   }
 
-  const nav = ["Visão geral", "Campeonatos", "Clubes", "Partidas"];
-
   if (!championship) {
     return (
       <div className="app">
         <aside className="side">
           <div className="brand"><div className="mark">◈</div><div><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div></div>
-          <div className="label">NAVEGAÇÃO</div>
-          {nav.map((item) => <button key={item} className={section === item ? "nav active" : "nav"} onClick={() => setSection(item)}>{item}</button>)}
           <div className="label lower">PAÍSES</div>
         <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSection("Campeonatos"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
         <div className="countrySubsection">
@@ -194,8 +190,6 @@ export default function App() {
     <div className="app">
       <aside className="side">
         <div className="brand"><div className="mark">◈</div><div><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div></div>
-        <div className="label">NAVEGAÇÃO</div>
-        {nav.map((item) => <button key={item} className={section === item ? "nav active" : "nav"} onClick={() => setSection(item)}>{item}</button>)}
         <div className="label lower">PAÍSES</div>
         <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSection("Campeonatos"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
         <div className="countrySubsection">
