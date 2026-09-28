@@ -405,9 +405,9 @@ function App() {
     const promotedCToB = new Set(promotedToB);
     const relegatedCToLower = new Set(relegatedFromC);
 
-    const nextAClubIds = currentAClubIds.filter((id) => !relegatedAToB.has(id)).concat(promotedBToA);
-    const nextBClubIds = currentBClubIds.filter((id) => !relegatedBToC.has(id) && !promotedBToA.has(id)).concat(relegatedAToB).concat(promotedCToB);
-    const nextCClubIds = currentCClubIds.filter((id) => !promotedCToB.has(id) && !relegatedCToLower.has(id)).concat(relegatedBToC);
+    const nextAClubIds = currentAClubIds.filter((id) => !relegatedAToB.has(id)).concat([...promotedBToA]);
+    const nextBClubIds = currentBClubIds.filter((id) => !relegatedBToC.has(id) && !promotedBToA.has(id)).concat([...relegatedAToB]).concat([...promotedCToB]);
+    const nextCClubIds = currentCClubIds.filter((id) => !promotedCToB.has(id) && !relegatedCToLower.has(id)).concat([...relegatedBToC]);
 
     if (nextAClubIds.length !== 20 || nextBClubIds.length !== 20 || nextCClubIds.length !== 20) {
       window.alert("A movimentação não fechou os números esperados. A temporada 2027 não foi criada.");
