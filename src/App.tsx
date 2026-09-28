@@ -79,6 +79,7 @@ export default function App() {
   const [section, setSection] = useState("Visão geral");
   const [round, setRound] = useState(1);
   const [modal, setModal] = useState<"club" | "championship" | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState("Brasil");
 
   useEffect(() => save("sports-championships", championships), [championships]);
   useEffect(() => save("sports-clubs", clubs), [clubs]);
@@ -168,10 +169,13 @@ export default function App() {
           <div className="label">NAVEGAÇÃO</div>
           {nav.map((item) => <button key={item} className={section === item ? "nav active" : "nav"} onClick={() => setSection(item)}>{item}</button>)}
           <div className="label lower">PAÍSES</div>
-          <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className="countryItem" onClick={() => setSection("Campeonatos")}><span>{country.flag}</span>{country.name}</button>)}</div>
-          <div className="label lower">CAMPEONATOS</div>
-          <div className="emptySide">Nenhum campeonato cadastrado.</div>
-        </aside>
+        <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSection("Campeonatos"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
+        <div className="countrySubsection">
+          <div className="countrySubhead">{COUNTRIES.find((country) => country.name === selectedCountry)?.flag} {selectedCountry}</div>
+          {championships.filter((item) => item.country === selectedCountry).map((item) => <button key={item.id} className={selectedId === item.id ? "champMini active" : "champMini"} onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>{item.name}<small>{item.season}</small></button>)}
+          {!championships.some((item) => item.country === selectedCountry) && <div className="emptySide">Nenhum campeonato cadastrado.</div>}
+        </div>
+</aside>
         <main className="main emptyState">
           <header><div><div className="crumb">SPORTS TABLE / INÍCIO</div><h1>Comece do zero</h1></div><button className="primary" onClick={() => setModal("championship")}>＋ Novo campeonato</button></header>
           <section className="emptyPanel">
@@ -193,10 +197,13 @@ export default function App() {
         <div className="label">NAVEGAÇÃO</div>
         {nav.map((item) => <button key={item} className={section === item ? "nav active" : "nav"} onClick={() => setSection(item)}>{item}</button>)}
         <div className="label lower">PAÍSES</div>
-        <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className="countryItem" onClick={() => setSection("Campeonatos")}><span>{country.flag}</span>{country.name}</button>)}</div>
-        <div className="label lower">CAMPEONATOS</div>
-        {championships.map((item) => <button key={item.id} className={selectedId === item.id ? "champMini active" : "champMini"} onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>{item.name}<small>{item.season}</small></button>)}
-      </aside>
+        <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSection("Campeonatos"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
+        <div className="countrySubsection">
+          <div className="countrySubhead">{COUNTRIES.find((country) => country.name === selectedCountry)?.flag} {selectedCountry}</div>
+          {championships.filter((item) => item.country === selectedCountry).map((item) => <button key={item.id} className={selectedId === item.id ? "champMini active" : "champMini"} onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>{item.name}<small>{item.season}</small></button>)}
+          {!championships.some((item) => item.country === selectedCountry) && <div className="emptySide">Nenhum campeonato cadastrado.</div>}
+        </div>
+</aside>
 
       <main className="main">
         <header>
