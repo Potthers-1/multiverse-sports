@@ -111,3 +111,24 @@ td:nth-child(2) { color: #d8e0e9; }
 .emptyPanel { max-width: 680px; margin: 90px auto; padding: 55px 45px; text-align: center; border: 1px solid #1e2b3b; background: #0c121c; border-radius: 12px; }
 .emptyPanel h2 { font-size: 28px; margin: 12px 0 10px; }
 .emptyPanel p { color: #718197; max-width: 520px; margin: 0 auto 25px; line-height: 1.7; font-size: 12px; }
+
+.modalLarge { width: min(760px, 94vw); max-height: 88vh; overflow-y: auto; }
+.modalSmall { width: min(420px, 90vw); }
+.modalIntro { color: #65758a; font-size: 11px; margin: -3px 0 18px; line-height: 1.5; }
+.formSection { border-top: 1px solid #1e2b3b; padding-top: 16px; margin-top: 16px; }
+.formSection h3 { margin: 0 0 12px; color: #aebbc9; font-size: 11px; letter-spacing: .7px; }
+.formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.wideField { grid-column: 1 / -1; }
+.field { display: grid; gap: 6px; color: #65758a; font-size: 9px; letter-spacing: .5px; }
+.field input, .field select { width: 100%; margin: 0; background: #070b12; border: 1px solid #304155; color: #dfe7ef; padding: 10px; border-radius: 6px; }
+.pointsGrid { grid-template-columns: repeat(3, 1fr); }
+.checks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.check { display: flex; align-items: center; gap: 8px; border: 1px solid #1e2b3b; background: #0b131f; color: #8d9bad; padding: 10px; border-radius: 6px; font-size: 10px; cursor: pointer; }
+.check input { accent-color: #26d9ff; }
+.modalActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #1e2b3b; }
+.modalActions .ghost { border: 1px solid #2a3b4f; background: #0d1622; color: #aebbc9; padding: 9px 13px; border-radius: 7px; }
+@media (max-width: 650px) {
+  .formGrid, .pointsGrid, .checks { grid-template-columns: 1fr; }
+  .wideField { grid-column: auto; }
+  .modalLarge { max-height: 92vh; }
+}
