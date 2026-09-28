@@ -264,7 +264,7 @@ function ResultRow({ match, home, away, onSave }: { match: Match; home: string; 
   return <div className="resultRow"><div><span className="eyebrow">RODADA {match.round}</span><b>{home}</b><small>vs</small><b>{away}</b></div><div className="scoreEdit"><input value={homeScore} onChange={(e) => setHomeScore(e.target.value)} inputMode="numeric" /><strong>×</strong><input value={awayScore} onChange={(e) => setAwayScore(e.target.value)} inputMode="numeric" /><button onClick={() => onSave(match.id, homeScore, awayScore)}>{match.played ? "Atualizar" : "Salvar resultado"}</button></div></div>;
 }
 
-function Modal({ type, onClose, addChampionship, addClub }: {
+function Modal({ type, country, onClose, addChampionship, addClub }: {
   type: "club" | "championship";
   country: string;
   onClose: () => void;
@@ -277,7 +277,7 @@ function Modal({ type, onClose, addChampionship, addClub }: {
   const [sport, setSport] = useState("Futebol");
   const [category, setCategory] = useState("Profissional");
   const [division, setDivision] = useState("Divisão não definida");
-  const [format, setFormat = useState("Pontos corridos");
+  const [format, setFormat] = useState("Pontos corridos");
   const [teamCount, setTeamCount] = useState("20");
   const [legs, setLegs] = useState("2");
   const [rounds, setRounds] = useState("38");
