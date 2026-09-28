@@ -114,7 +114,7 @@ export default function App() {
 
   function addChampionship(data: Omit<Championship, "id">) {
     if (!data.name.trim()) return;
-    const item: Championship = { ...data, id: nextId(championships), name: data.name.trim(), country: data.country.trim() || "Não informado" };
+    const item: Championship = { ...data, id: nextId(championships), name: data.name.trim(), country: selectedCountry };
     setChampionships([...championships, item]);
     setSelectedId(item.id);
     setRound(1);
@@ -165,22 +165,21 @@ export default function App() {
         <aside className="side">
           <div className="brand"><div className="mark">◈</div><div><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div></div>
           <div className="label lower">PAÍSES</div>
-        <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSection("Campeonatos"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
-        <div className="countrySubsection">
-          <div className="countrySubhead">{COUNTRIES.find((country) => country.name === selectedCountry)?.flag} {selectedCountry}</div>
-          {championships.filter((item) => item.country === selectedCountry).map((item) => <button key={item.id} className={selectedId === item.id ? "champMini active" : "champMini"} onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>{item.name}<small>{item.season}</small></button>)}
-          {!championships.some((item) => item.country === selectedCountry) && <div className="emptySide">Nenhum campeonato cadastrado.</div>}
-        </div>
-</aside>
+          <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSelectedId(0); setSection("País"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
+          <div className="countrySubsection">
+            <div className="countrySubhead">{COUNTRIES.find((country) => country.name === selectedCountry)?.flag} {selectedCountry}</div>
+            <div className="emptySide">Nenhum campeonato cadastrado.</div>
+          </div>
+        </aside>
         <main className="main emptyState">
-          <header><div><div className="crumb">SPORTS TABLE / INÍCIO</div><h1>Comece do zero</h1></div><button className="primary" onClick={() => setModal("championship")}>＋ Novo campeonato</button></header>
+          <header><div><div className="crumb">PAÍSES / <strong>{selectedCountry.toUpperCase()}</strong></div><h1>{selectedCountry}</h1></div><button className="primary" onClick={() => setModal("championship")}>＋ Novo campeonato</button></header>
           <section className="emptyPanel">
-            <span className="eyebrow">SEU GERENCIADOR</span>
+            <span className="eyebrow">PAÍS</span>
             <h2>Nenhum campeonato cadastrado</h2>
-            <p>Crie seu primeiro campeonato real para começar a cadastrar clubes, rodadas, partidas e resultados.</p>
-            <button className="primary" onClick={() => setModal("championship")}>＋ Criar primeiro campeonato</button>
+            <p>Crie o primeiro campeonato de {selectedCountry}. Ele ficará vinculado a este país.</p>
+            <button className="primary" onClick={() => setModal("championship")}>＋ Criar campeonato</button>
           </section>
-          {modal && <Modal type={modal} onClose={() => setModal(null)} addChampionship={addChampionship} addClub={addClub} />}
+          {modal && <Modal type={modal} country={selectedCountry} onClose={() => setModal(null)} addChampionship={addChampionship} addClub={addClub} />}
         </main>
       </div>
     );
@@ -201,17 +200,18 @@ export default function App() {
 
       <main className="main">
         <header>
-          <div><div className="crumb">CAMPEONATOS / <strong>{championship?.name?.toUpperCase()}</strong></div><h1>{section}</h1></div>
-          <button className="ghost" onClick={() => setModal("championship")}>＋ Novo campeonato</button>
+          <div><div className="crumb">{section === "País" ? "PAÍSES / " + selectedCountry.toUpperCase() : "CAMPEONATOS / " + (championship?.name?.toUpperCase() ?? "")}</div><h1>{section === "País" ? selectedCountry : section}</h1></div>
+          {section === "País" ? <button className="primary" onClick={() => setModal("championship")}>＋ Novo campeonato</button> : <button className="ghost" onClick={() => setSection("País")}>← Voltar para {selectedCountry}</button>}
         </header>
 
-        <div className="champBar">
+        {section !== "País" && <div className="champBar">
           <div><span className="liveDot" /><b>{championship?.name}</b><em>{championship?.country} · {championship?.season}</em></div>
           <select value={selectedId} onChange={(event) => { setSelectedId(Number(event.target.value)); setRound(1); }}>
             {championships.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.season}</option>)}
           </select>
-        </div>
+        </div>}
 
+        {section === "País" && <CountryPage country={selectedCountry} flag={COUNTRIES.find((item) => item.name === selectedCountry)?.flag ?? ""} championships={championships.filter((item) => item.country === selectedCountry)} clubs={clubs} matches={matches} onNew={() => setModal("championship")} onOpen={(id) => { setSelectedId(id); setSection("Visão geral"); }} onDelete={deleteChampionship} />}
         {section === "Visão geral" && <Dashboard standings={standings} matches={myMatches} clubName={clubName} onPartidas={() => setSection("Partidas")} onClub={() => setModal("club")} onChamp={() => setModal("championship")} onRound={addRound} />}
         {section === "Campeonatos" && <Manager title="Meus campeonatos" button="Novo campeonato" onClick={() => setModal("championship")}><div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.country} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>Abrir →</button><button className="dangerText" onClick={() => deleteChampionship(item.id)}>Excluir</button></div></div>)}</div></Manager>}
         {section === "Clubes" && <Manager title={"Clubes · " + championship?.name} button="Novo clube" onClick={() => setModal("club")}><div className="cards">{myClubs.map((club) => <div className="entityCard" key={club.id}><span>CLUBE</span><h2>{club.name}</h2><p>{championship?.country} · {championship?.season}</p></div>)}</div></Manager>}
@@ -221,9 +221,13 @@ export default function App() {
         </Manager>}
       </main>
 
-      {modal && <Modal type={modal} onClose={() => setModal(null)} addChampionship={addChampionship} addClub={addClub} />}
+      {modal && <Modal type={modal} country={selectedCountry} onClose={() => setModal(null)} addChampionship={addChampionship} addClub={addClub} />}
     </div>
   );
+}
+
+function CountryPage({ country, flag, championships, clubs, matches, onNew, onOpen, onDelete }: { country: string; flag: string; championships: Championship[]; clubs: Club[]; matches: Match[]; onNew: () => void; onOpen: (id: number) => void; onDelete: (id: number) => void }) {
+  return <section className="manager countryPage"><div className="managerHead"><div><span className="eyebrow">{flag} {country.toUpperCase()}</span><h2>Campeonatos de {country}</h2></div><button className="primary" onClick={onNew}>＋ Novo campeonato</button></div>{championships.length === 0 ? <div className="countryEmpty"><h3>Nenhum campeonato cadastrado</h3><p>Use o botão acima para criar uma competição dentro de {country}.</p></div> : <div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.season} · {item.category}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => onOpen(item.id)}>Abrir →</button><button className="dangerText" onClick={() => onDelete(item.id)}>Excluir</button></div></div>)}</div>}</section>;
 }
 
 function Dashboard({ standings, matches, clubName, onPartidas, onClub, onChamp, onRound }: { standings: any[]; matches: Match[]; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void }) {
@@ -245,12 +249,13 @@ function ResultRow({ match, home, away, onSave }: { match: Match; home: string; 
 
 function Modal({ type, onClose, addChampionship, addClub }: {
   type: "club" | "championship";
+  country: string;
   onClose: () => void;
   addChampionship: (data: Omit<Championship, "id">) => void;
   addClub: (name: string) => void;
 }) {
   const [name, setName] = useState("");
-  const [country, setCountry] = useState("Brasil");
+  const [country] = useState(country);
   const [season, setSeason] = useState("2026");
   const [sport, setSport] = useState("Futebol");
   const [category, setCategory] = useState("Profissional");
@@ -295,7 +300,7 @@ function Modal({ type, onClose, addChampionship, addClub }: {
 
     <div className="formSection"><h3>1 · Identificação</h3><div className="formGrid">
       <label className="field wideField">Nome da competição<input autoFocus placeholder="Ex.: Campeonato Brasileiro Série A" value={name} onChange={(e) => setName(e.target.value)} /></label>
-      <label className="field">País<input placeholder="Brasil" value={country} onChange={(e) => setCountry(e.target.value)} /></label>
+      <label className="field">País<input value={country} readOnly /></label>
       <label className="field">Temporada<input placeholder="2026" value={season} onChange={(e) => setSeason(e.target.value)} /></label>
       <label className="field">Esporte<select value={sport} onChange={(e) => setSport(e.target.value)}><option>Futebol</option><option>Futsal</option><option>Basquete</option><option>Vôlei</option><option>Handebol</option><option>Outro</option></select></label>
       <label className="field">Categoria<select value={category} onChange={(e) => setCategory(e.target.value)}><option>Profissional</option><option>Feminino</option><option>Masculino</option><option>Base / Juvenil</option><option>Sub-20</option><option>Sub-17</option><option>Amador</option><option>Outro</option></select></label>
