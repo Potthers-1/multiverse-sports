@@ -132,3 +132,9 @@ td:nth-child(2) { color: #d8e0e9; }
   .wideField { grid-column: auto; }
   .modalLarge { max-height: 92vh; }
 }
+
+.headerActions { display: flex; gap: 8px; align-items: center; }
+.danger { border: 1px solid #71333b; background: #211116; color: #ff8b97; padding: 9px 13px; border-radius: 7px; font-size: 10px; }
+.cardActions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.dangerText { border: 0 !important; color: #ff7d89 !important; background: transparent !important; font-size: 9px; }
+@media (max-width: 700px) { .headerActions { flex-wrap: wrap; justify-content: flex-end; } }
