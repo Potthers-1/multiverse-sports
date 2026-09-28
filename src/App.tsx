@@ -75,7 +75,54 @@ function save(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-export default function App() {
+export default function generateRoundRobin(teamIds: number[], legs: number, championshipId: number, startId: number): Match[] {
+  if (teamIds.length < 2 || legs < 1) return [];
+
+  const teams = [...teamIds];
+  if (teams.length % 2 !== 0) teams.push(-1);
+
+  const roundsPerLeg = teams.length - 1;
+  const matchesPerRound = teams.length / 2;
+  const generated: Match[] = [];
+  let id = startId;
+
+  for (let leg = 0; leg < legs; leg++) {
+    let rotation = [...teams];
+
+    for (let roundIndex = 0; roundIndex < roundsPerLeg; roundIndex++) {
+      const round = leg * roundsPerLeg + roundIndex + 1;
+
+      for (let i = 0; i < matchesPerRound; i++) {
+        const first = rotation[i];
+        const second = rotation[rotation.length - 1 - i];
+        if (first === -1 || second === -1) continue;
+
+        const home = leg % 2 === 0 ? first : second;
+        const away = leg % 2 === 0 ? second : first;
+
+        generated.push({
+          id: id++,
+          championshipId,
+          round,
+          home,
+          away,
+          homeScore: null,
+          awayScore: null,
+          played: false,
+        });
+      }
+
+      const fixed = rotation[0];
+      const rest = rotation.slice(1);
+      rest.unshift(rest.pop()!);
+      rotation = [fixed, ...rest];
+    }
+  }
+
+  return generated;
+}
+
+function App() {
   const [championships, setChampionships] = useState(() => load("sports-championships", seedChampionships));
   const [clubs, setClubs] = useState(() => load("sports-clubs", seedClubs));
   const [matches, setMatches] = useState(() => load("sports-matches", seedMatches));
