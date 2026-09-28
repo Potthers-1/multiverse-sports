@@ -35,6 +35,21 @@ const seedChampionships: Championship[] = [];
 const seedClubs: Club[] = [];
 const seedMatches: Match[] = [];
 
+const COUNTRIES = [
+  { name: "Espanha", flag: "🇪🇸" },
+  { name: "França", flag: "🇫🇷" },
+  { name: "Argentina", flag: "🇦🇷" },
+  { name: "Brasil", flag: "🇧🇷" },
+  { name: "Japão", flag: "🇯🇵" },
+  { name: "Irã", flag: "🇮🇷" },
+  { name: "Marrocos", flag: "🇲🇦" },
+  { name: "Senegal", flag: "🇸🇳" },
+  { name: "México", flag: "🇲🇽" },
+  { name: "EUA", flag: "🇺🇸" },
+  { name: "Nova Zelândia", flag: "🇳🇿" },
+  { name: "Ilhas Salomão", flag: "🇸🇧" },
+];
+
 const DATA_VERSION = "3";
 
 function load<T>(key: string, fallback: T): T {
@@ -152,6 +167,8 @@ export default function App() {
           <div className="brand"><div className="mark">◈</div><div><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div></div>
           <div className="label">NAVEGAÇÃO</div>
           {nav.map((item) => <button key={item} className={section === item ? "nav active" : "nav"} onClick={() => setSection(item)}>{item}</button>)}
+          <div className="label lower">PAÍSES</div>
+          <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className="countryItem" onClick={() => setSection("Campeonatos")}><span>{country.flag}</span>{country.name}</button>)}</div>
           <div className="label lower">CAMPEONATOS</div>
           <div className="emptySide">Nenhum campeonato cadastrado.</div>
         </aside>
@@ -175,6 +192,8 @@ export default function App() {
         <div className="brand"><div className="mark">◈</div><div><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div></div>
         <div className="label">NAVEGAÇÃO</div>
         {nav.map((item) => <button key={item} className={section === item ? "nav active" : "nav"} onClick={() => setSection(item)}>{item}</button>)}
+        <div className="label lower">PAÍSES</div>
+        <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className="countryItem" onClick={() => setSection("Campeonatos")}><span>{country.flag}</span>{country.name}</button>)}</div>
         <div className="label lower">CAMPEONATOS</div>
         {championships.map((item) => <button key={item.id} className={selectedId === item.id ? "champMini active" : "champMini"} onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>{item.name}<small>{item.season}</small></button>)}
       </aside>
