@@ -112,6 +112,18 @@ export default function App() {
     setModal(null);
   }
 
+  function deleteChampionship(id: number) {
+    const target = championships.find((item) => item.id === id);
+    if (!target) return;
+    const confirmed = window.confirm(`Excluir o campeonato "${target.name}"? Isso também removerá todos os clubes, partidas e resultados vinculados a ele.`);
+    if (!confirmed) return;
+    setChampionships(championships.filter((item) => item.id !== id));
+    setClubs(clubs.filter((club) => club.championshipId !== id));
+    setMatches(matches.filter((match) => match.championshipId !== id));
+    setSelectedId(0);
+    setSection("Visão geral");
+  }
+
   function addRound() {
     if (!championship || myClubs.length < 2) return;
     const nextRound = Math.max(0, ...myMatches.map((match) => match.round)) + 1;
@@ -181,7 +193,7 @@ export default function App() {
         </div>
 
         {section === "Visão geral" && <Dashboard standings={standings} matches={myMatches} clubName={clubName} onPartidas={() => setSection("Partidas")} onClub={() => setModal("club")} onChamp={() => setModal("championship")} onRound={addRound} />}
-        {section === "Campeonatos" && <Manager title="Meus campeonatos" button="Novo campeonato" onClick={() => setModal("championship")}><div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.country} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><button onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>Abrir →</button></div>)}</div></Manager>}
+        {section === "Campeonatos" && <Manager title="Meus campeonatos" button="Novo campeonato" onClick={() => setModal("championship")}><div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.country} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>Abrir →</button><button className="dangerText" onClick={() => deleteChampionship(item.id)}>Excluir</button></div></div>)}</div></Manager>}
         {section === "Clubes" && <Manager title={"Clubes · " + championship?.name} button="Novo clube" onClick={() => setModal("club")}><div className="cards">{myClubs.map((club) => <div className="entityCard" key={club.id}><span>CLUBE</span><h2>{club.name}</h2><p>{championship?.country} · {championship?.season}</p></div>)}</div></Manager>}
         {section === "Partidas" && <Manager title={(championship?.name ?? "") + " · Partidas"} button="Adicionar rodada" onClick={addRound}>
           <div className="roundBar"><label>RODADA<select value={round} onChange={(event) => setRound(Number(event.target.value))}>{rounds.map((item) => <option key={item} value={item}>Rodada {item}</option>)}</select></label></div>
