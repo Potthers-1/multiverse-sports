@@ -1051,24 +1051,19 @@ function ChampionshipHistory({ championship, championships, clubs, matches }: { 
       return championshipIds[0] ?? "outra divisão";
     };
 
-    const incomingPromotion = entered.filter((name) => findDivision(next.season.season, name) === current.season.division);
-    const incomingFromLower = entered.filter((name) => {
-      const division = findDivision(current.season.season, name);
-      return division !== current.season.division && Number(division.replace(/\\D/g, "")) > Number(current.season.division.replace(/\\D/g, ""));
-    });
-    const incomingFromHigher = entered.filter((name) => {
-      const division = findDivision(current.season.season, name);
-      return division !== current.season.division && Number(division.replace(/\\D/g, "")) < Number(current.season.division.replace(/\\D/g, ""));
-    });
+    const divisionLevel = (division: string) => {
+      if (division === "Série A") return 1;
+      if (division === "Série B") return 2;
+      if (division === "Série C") return 3;
+      const number = Number(division.match(/\d+/)?.[0]);
+      return Number.isFinite(number) ? number : 999;
+    };
 
-    const outgoingToHigher = left.filter((name) => {
-      const division = findDivision(next.season.season, name);
-      return division !== current.season.division && Number(division.replace(/\\D/g, "")) < Number(current.season.division.replace(/\\D/g, ""));
-    });
-    const outgoingToLower = left.filter((name) => {
-      const division = findDivision(next.season.season, name);
-      return division !== current.season.division && Number(division.replace(/\\D/g, "")) > Number(current.season.division.replace(/\\D/g, ""));
-    });
+    const currentLevel = divisionLevel(current.season.division);
+    const incomingFromLower = entered.filter((name) => divisionLevel(findDivision(current.season.season, name)) > currentLevel);
+    const incomingFromHigher = entered.filter((name) => divisionLevel(findDivision(current.season.season, name)) < currentLevel);
+    const outgoingToHigher = left.filter((name) => divisionLevel(findDivision(next.season.season, name)) < currentLevel);
+    const outgoingToLower = left.filter((name) => divisionLevel(findDivision(next.season.season, name)) > currentLevel);
 
     return [{
       from: current.season.season,
