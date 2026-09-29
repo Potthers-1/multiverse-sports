@@ -450,6 +450,37 @@ export default function App() {
   const myClubs = clubs.filter((club) => club.championshipId === championship?.id);
   const myMatches = matches.filter((match) => match.championshipId === championship?.id);
   const rounds = [...new Set(myMatches.map((match) => match.round))].sort((a, b) => a - b);
+  // Avanço automático do mata-mata da Série D: terminou uma fase, a próxima é criada sem ação manual.
+  useEffect(() => {
+    if (championship?.division !== "Série D") return;
+    const knockout = myMatches.filter((match) => match.stage === "knockout");
+    if (!knockout.length) return;
+
+    const currentStage = Math.max(...knockout.map((match) => match.knockoutRound ?? 0));
+    if (!currentStage || currentStage <= 2) return;
+
+    const currentMatches = knockout.filter((match) => match.knockoutRound === currentStage);
+    const nextStage = currentStage / 2;
+    if (knockout.some((match) => match.knockoutRound === nextStage)) return;
+    if (currentMatches.length !== currentStage || !currentMatches.every((match) => match.played)) return;
+
+    const winners = getKnockoutWinners(myMatches, currentStage);
+    if (winners.length !== currentStage / 2) return;
+
+    const roundStart: Record<number, number> = { 32: 13, 16: 15, 8: 17, 4: 19, 2: 21 };
+    let id = nextId(matches);
+    const created: Match[] = [];
+    for (let i = 0; i < winners.length; i += 2) {
+      const home = winners[i];
+      const away = winners[i + 1];
+      created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage], home, away, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
+      created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage] + 1, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
+    }
+    setMatches((current) => current.some((match) => match.championshipId === championship.id && match.knockoutRound === nextStage && match.stage === "knockout") ? current : [...current, ...created]);
+    setRound(roundStart[nextStage]);
+    setSection(`Série D · ${nextStage}`);
+  }, [championship?.id, championship?.division, myMatches, matches]);
+
 
   const standings = useMemo(() => {
     return myClubs.map((club) => {
