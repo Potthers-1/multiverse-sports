@@ -73,6 +73,25 @@ function load<T>(key: string, fallback: T): T {
   }
 }
 
+function resetSimulation() {
+  const confirmed = window.confirm(
+    "Zerar todas as simulações de teste?\n\nIsso apagará campeonatos, clubes, resultados e fases criadas durante os testes e restaurará o estado inicial do sistema."
+  );
+  if (!confirmed) return;
+
+  [
+    "sports-championships",
+    "sports-clubs",
+    "sports-matches",
+    "sports-data-version",
+    "sports-brazil-regulations-v1",
+    "sports-serie-a-calendar-v1",
+    "sports-simulation-reset-v1",
+  ].forEach((key) => localStorage.removeItem(key));
+
+  window.location.reload();
+}
+
 function save(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value));
 }
@@ -681,7 +700,7 @@ export default function App() {
     return (
       <div className="app">
         <aside className="side">
-          <div className="brand"><div className="mark">◈</div><div><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div></div>
+          <div className="brand"><div className="mark">◈</div><div className="brandInfo"><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div><button className="resetTestBtn" onClick={resetSimulation} title="Zerar simulações de teste" aria-label="Zerar simulações de teste">↺</button></div>
           <div className="label lower">PAÍSES</div>
           <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSelectedId(0); setSection("País"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
           <div className="countrySubsection">
@@ -706,7 +725,7 @@ export default function App() {
   return (
     <div className="app">
       <aside className="side">
-        <div className="brand"><div className="mark">◈</div><div><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div></div>
+        <div className="brand"><div className="mark">◈</div><div className="brandInfo"><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div><button className="resetTestBtn" onClick={resetSimulation} title="Zerar simulações de teste" aria-label="Zerar simulações de teste">↺</button></div>
         <div className="label lower">PAÍSES</div>
         <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSelectedId(0); setSection("País"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
         <div className="countrySubsection">
