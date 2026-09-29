@@ -363,9 +363,10 @@ export default function App() {
 
       const regularTable = standings;
       if (regularTable.length < 6) return;
+      // Ida: 6º x 3º e 5º x 4º. Volta com mando invertido.
       const pairs = [
-        [regularTable[2].club.id, regularTable[5].club.id],
-        [regularTable[3].club.id, regularTable[4].club.id],
+        [regularTable[5].club.id, regularTable[2].club.id],
+        [regularTable[4].club.id, regularTable[3].club.id],
       ];
       const start = nextId(matches);
       const created: Match[] = [];
