@@ -1270,15 +1270,15 @@ export default function App() {
     );
 
     if (
-      dPromotionMatches.length !== 16 ||
+      dPromotionMatches.length !== 8 ||
       !dPromotionMatches.every((match) => match.played)
     ) {
-      window.alert("Finalize os 16 jogos das oitavas de final da Série D antes de gerar a próxima temporada. Os 4 vencedores serão os semifinalistas que garantem acesso à Série C.");
+      window.alert("Finalize os 8 jogos das quartas de final da Série D antes de gerar a próxima temporada. Os 4 vencedores serão os semifinalistas que garantem acesso à Série C.");
       return;
     }
 
-    const promotedDToC = getKnockoutWinners(matches, 8);
-    if (promotedDToC.length !== 4 || new Set(promotedDToC).size !== 4) {
+    const dAccessToC = getKnockoutWinners(matches, 8);
+    if (dAccessToC.length !== 4 || new Set(dAccessToC).size !== 4) {
       window.alert("Não foi possível identificar os 4 semifinalistas da Série D que garantem acesso à Série C.");
       return;
     }
@@ -1312,7 +1312,7 @@ export default function App() {
     const relegatedBToC = new Set(bRelegated);
     const promotedCToB = new Set(promotedToB);
     const relegatedCToD = new Set(relegatedFromC);
-    const promotedDToC = new Set(promotedDToC);
+    const promotedDToC = new Set(dAccessToC);
 
     const nextAClubIds = currentAClubIds
       .filter((id) => !relegatedAToB.has(id))
