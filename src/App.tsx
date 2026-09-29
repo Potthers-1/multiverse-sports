@@ -559,9 +559,9 @@ function App() {
     const promotedC=[cA[0].clubId,cA[1].clubId,cB[0].clubId,cB[1].clubId];
 
     // CRITICAL RULE: the 4 Série D semifinalists are the 4 winners of the QUARTER-FINALS (phase 16).
-    const dSemi = matches.filter((m)=>m.championshipId===D.id&&m.stage==="knockout"&&m.knockoutRound===4);
-    if(dSemi.length!==4||!dSemi.every((m)=>m.played)){alert("Finalize os 4 jogos das semifinais da Série D. Os 4 semifinalistas garantem acesso à Série C.");return;}
-    const promotedD=knockoutWinner(matches,4);
+    const dQuarter = matches.filter((m)=>m.championshipId===D.id&&m.stage==="knockout"&&m.knockoutRound===8);
+    if(dQuarter.length!==8||!dQuarter.every((m)=>m.played)){alert("Finalize os 8 jogos das quartas de final da Série D. Os 4 vencedores se tornam semifinalistas e garantem acesso à Série C.");return;}
+    const promotedD=knockoutWinner(matches,8);
     if(promotedD.length!==4){alert("Não foi possível identificar os 4 semifinalistas da Série D.");return;}
 
     const aRelegated=aTable.slice(-4).map((r)=>r.clubId);
