@@ -611,6 +611,25 @@ export default function App() {
       });
     }
 
+    if (scope === "final") {
+      const finalMatches = nextMatches.filter((match) => match.stage === "final" && match.played);
+      if (finalMatches.length === 2) {
+        const teams = [...new Set(finalMatches.flatMap((match) => [match.home, match.away]))];
+        const totals = teams.map((clubId) => ({
+          clubId,
+          goals: finalMatches.reduce((sum, match) =>
+            sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
+        }));
+        if (totals.length === 2 && totals[0].goals === totals[1].goals) {
+          const secondLeg = finalMatches.find((match) => match.round === 2) ?? finalMatches[1];
+          const penaltyWinner = teams[Math.floor(Math.random() * teams.length)];
+          nextMatches = nextMatches.map((match) =>
+            match.id === secondLeg.id ? { ...match, penaltyWinner } : match
+          );
+        }
+      }
+    }
+
     setMatches(nextMatches);
     setSection("Partidas");
   }
