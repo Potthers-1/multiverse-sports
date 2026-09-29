@@ -595,10 +595,24 @@ export default function App() {
           clubId,
           goals: legs.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
         })).sort((a, b) => b.goals - a.goals);
-        const penaltyWinner = legs.map((match) => match.penaltyWinner).find((id): id is number => id !== undefined);
-        if (teams.length !== 2 || legs.length !== 2 || (totals[0].goals === totals[1].goals && !penaltyWinner)) {
-          window.alert("Há um confronto empatado no agregado e sem vencedor nos pênaltis.");
+        let penaltyWinner = legs.map((match) => match.penaltyWinner).find((id): id is number => id !== undefined);
+        if (teams.length !== 2 || legs.length !== 2) {
+          window.alert("Há um confronto incompleto no mata-mata. Verifique os dois jogos antes de avançar.");
           return;
+        }
+        if (totals[0].goals === totals[1].goals && !penaltyWinner) {
+          const secondLeg = [...legs].sort((a, b) => b.round - a.round)[0];
+          const winnerInput = window.prompt(
+            "Empate no agregado. A decisão será por pênaltis.\n\nDigite exatamente o nome do clube vencedor:\n" +
+            clubName(secondLeg.home) + " ou " + clubName(secondLeg.away)
+          );
+          if (!winnerInput) return;
+          penaltyWinner = teams.find((clubId) => clubName(clubId).toLowerCase() === winnerInput.trim().toLowerCase());
+          if (!penaltyWinner) {
+            window.alert("Nome do clube inválido. Nenhum clube foi eliminado e você pode tentar novamente.");
+            return;
+          }
+          setMatches(matches.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner } : match));
         }
         winners.push(penaltyWinner ?? totals[0].clubId);
       }
