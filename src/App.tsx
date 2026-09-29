@@ -450,36 +450,60 @@ export default function App() {
   const myClubs = clubs.filter((club) => club.championshipId === championship?.id);
   const myMatches = matches.filter((match) => match.championshipId === championship?.id);
   const rounds = [...new Set(myMatches.map((match) => match.round))].sort((a, b) => a - b);
-  // Avanço automático do mata-mata da Série D: terminou uma fase, a próxima é criada sem ação manual.
+  // Avanço automático do mata-mata da Série D.
+  // Usa sempre a menor fase ainda pendente, evitando saltos de etapa.
   useEffect(() => {
     if (championship?.division !== "Série D") return;
+
     const knockout = myMatches.filter((match) => match.stage === "knockout");
     if (!knockout.length) return;
 
+    const pendingPhases = [...new Set(
+      knockout
+        .filter((match) => !match.played)
+        .map((match) => match.knockoutRound ?? 0)
+        .filter((phase) => phase > 0)
+    )];
+
+    if (pendingPhases.length) {
+      const pending = Math.min(...pendingPhases);
+      if (section.startsWith("Série D · ")) {
+        const shown = Number(section.replace("Série D · ", ""));
+        if (shown !== pending) setSection(`Série D · ${pending}`);
+      }
+      return;
+    }
+
     const currentStage = Math.max(...knockout.map((match) => match.knockoutRound ?? 0));
-    if (!currentStage || currentStage <= 2) return;
+    if (currentStage <= 2) return;
 
     const currentMatches = knockout.filter((match) => match.knockoutRound === currentStage);
-    const nextStage = currentStage / 2;
-    if (knockout.some((match) => match.knockoutRound === nextStage)) return;
     if (currentMatches.length !== currentStage || !currentMatches.every((match) => match.played)) return;
 
+    const nextStage = currentStage / 2;
+    if (knockout.some((match) => match.knockoutRound === nextStage)) return;
+
     const winners = getKnockoutWinners(myMatches, currentStage);
-    if (winners.length !== currentStage / 2) return;
+    if (winners.length !== nextStage) return;
 
     const roundStart: Record<number, number> = { 32: 13, 16: 15, 8: 17, 4: 19, 2: 21 };
     let id = nextId(matches);
     const created: Match[] = [];
+
     for (let i = 0; i < winners.length; i += 2) {
       const home = winners[i];
       const away = winners[i + 1];
       created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage], home, away, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
       created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage] + 1, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
     }
-    setMatches((current) => current.some((match) => match.championshipId === championship.id && match.knockoutRound === nextStage && match.stage === "knockout") ? current : [...current, ...created]);
+
+    setMatches((current) => current.some((match) => match.championshipId === championship.id && match.stage === "knockout" && match.knockoutRound === nextStage)
+      ? current
+      : [...current, ...created]
+    );
     setRound(roundStart[nextStage]);
     setSection(`Série D · ${nextStage}`);
-  }, [championship?.id, championship?.division, myMatches, matches]);
+  }, [championship?.id, championship?.division, myMatches, matches, section]);
 
 
   const standings = useMemo(() => {
@@ -608,7 +632,8 @@ export default function App() {
             const home = match.home === clubId;
             const scored = home ? (match.homeScore ?? 0) : (match.awayScore ?? 0);
             const conceded = home ? (match.awayScore ?? 0) : (match.homeScore ?? 0);
-            gf += scored; gd += scored - conceded;
+            gf += scored;
+            gd += scored - conceded;
             if (scored > conceded) { wins++; points += championship.pointsWin; }
             else if (scored === conceded) points += championship.pointsDraw;
           });
@@ -621,9 +646,11 @@ export default function App() {
           window.alert("Finalize as 480 partidas da primeira fase da Série D antes de gerar o mata-mata.");
           return;
         }
+
         const groups = getSerieDGroups(championship.season);
         const letters = Object.keys(groups);
         const pairings: Array<[number, number]> = [];
+
         for (let i = 0; i < letters.length; i += 2) {
           const a = groupTable(letters[i]);
           const b = groupTable(letters[i + 1]);
@@ -631,6 +658,7 @@ export default function App() {
             window.alert(`O grupo ${letters[i]} ou ${letters[i + 1]} não possui 6 clubes.`);
             return;
           }
+
           pairings.push(
             [a[0].clubId, b[3].clubId],
             [b[0].clubId, a[3].clubId],
@@ -638,75 +666,100 @@ export default function App() {
             [b[1].clubId, a[2].clubId]
           );
         }
+
         let id = nextId(matches);
         const created: Match[] = [];
         pairings.forEach(([home, away]) => {
           created.push({ id: id++, championshipId: championship.id, round: 11, home, away, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: 64 });
           created.push({ id: id++, championshipId: championship.id, round: 12, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: 64 });
         });
+
         setMatches([...matches, ...created]);
         setRound(11);
         setSection("Série D · 64");
         return;
       }
 
-      const currentStage = Math.max(...knockout.map((match) => match.knockoutRound ?? 0));
+      // No mata-mata, a fase em uso na tela é a fonte da verdade.
+      const sectionPhase = section.startsWith("Série D · ") ? Number(section.replace("Série D · ", "")) : NaN;
+      const openPhases = knockout.filter((match) => !match.played).map((match) => match.knockoutRound ?? 0);
+      const currentStage = Number.isFinite(sectionPhase) && sectionPhase > 0
+        ? sectionPhase
+        : (openPhases.length ? Math.min(...openPhases) : Math.max(...knockout.map((match) => match.knockoutRound ?? 0)));
+
       const currentMatches = knockout.filter((match) => match.knockoutRound === currentStage);
-      if (!currentStage || currentMatches.length !== currentStage || currentMatches.some((match) => !match.played)) {
-        window.alert("Finalize todos os jogos da fase atual antes de avançar.");
-        return;
-      }
-      const existingNext = knockout.some((match) => match.knockoutRound === currentStage / 2);
-      if (existingNext) {
-        setSection(`Série D · ${currentStage / 2}`);
-        return;
-      }
-
-      const confrontations = new Map<string, Match[]>();
-      currentMatches.forEach((match) => {
-        const key = [match.home, match.away].sort((a, b) => a - b).join("-");
-        const list = confrontations.get(key) ?? [];
-        list.push(match);
-        confrontations.set(key, list);
-      });
-
-      const winners: number[] = [];
-      for (const legs of confrontations.values()) {
-        if (legs.length !== 2) {
-          window.alert("Um confronto do mata-mata está incompleto.");
-          return;
-        }
-        const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
-        if (teams.length !== 2) return;
-        const totals = teams.map((clubId) => ({
-          clubId,
-          goals: legs.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
-        })).sort((a, b) => b.goals - a.goals);
-        const penaltyWinner = legs.map((match) => match.penaltyWinner).find((id): id is number => id !== undefined);
-        winners.push(penaltyWinner ?? totals[0].clubId);
-      }
-
-      if (currentStage === 2) {
+      if (!currentStage || currentStage <= 2) {
         setSection("Série D · 2");
         return;
       }
 
+      if (currentMatches.length !== currentStage || currentMatches.some((match) => !match.played)) {
+        window.alert(`Finalize os ${currentStage} jogos da fase atual antes de avançar.`);
+        return;
+      }
+
       const nextStage = currentStage / 2;
+      if (![32, 16, 8, 4, 2].includes(nextStage)) {
+        window.alert("Não foi possível identificar a próxima fase do mata-mata.");
+        return;
+      }
+
+      if (knockout.some((match) => match.knockoutRound === nextStage)) {
+        setSection(`Série D · ${nextStage}`);
+        return;
+      }
+
+      const winners = getKnockoutWinners(myMatches, currentStage);
+      if (winners.length !== nextStage) {
+        window.alert(`A fase foi concluída, mas não foi possível identificar os ${nextStage} classificados.`);
+        return;
+      }
+
       const roundStart: Record<number, number> = { 32: 13, 16: 15, 8: 17, 4: 19, 2: 21 };
       let id = nextId(matches);
       const created: Match[] = [];
+
       for (let i = 0; i < winners.length; i += 2) {
         const home = winners[i];
         const away = winners[i + 1];
-        created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage], home, away, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
-        created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage] + 1, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
+
+        created.push({
+          id: id++,
+          championshipId: championship.id,
+          round: roundStart[nextStage],
+          home,
+          away,
+          homeScore: null,
+          awayScore: null,
+          played: false,
+          stage: "knockout",
+          knockoutRound: nextStage
+        });
+
+        created.push({
+          id: id++,
+          championshipId: championship.id,
+          round: roundStart[nextStage] + 1,
+          home: away,
+          away: home,
+          homeScore: null,
+          awayScore: null,
+          played: false,
+          stage: "knockout",
+          knockoutRound: nextStage
+        });
       }
+
+      if (created.length !== nextStage) {
+        window.alert("A próxima fase não pôde ser montada corretamente.");
+        return;
+      }
+
       setMatches([...matches, ...created]);
       setRound(roundStart[nextStage]);
       setSection(`Série D · ${nextStage}`);
       return;
     }
-
     if (championship.division === "Série C") {
       const regular = myMatches.filter((match) => (match.stage ?? "regular") === "regular");
       const secondPhase = myMatches.filter((match) => match.stage === "secondPhase");
