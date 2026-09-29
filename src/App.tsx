@@ -1101,6 +1101,22 @@ export default function App() {
               <PlayoffAccessSummary matches={myMatches.filter((match) => match.stage === "playoff")} clubName={clubName} />
               <div className="playoffGrid">{myMatches.filter((match) => match.stage === "playoff").sort((a, b) => a.round - b.round || a.id - b.id).map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
             </div>
+          ) : championship?.division === "Série D" && myMatches.some((match) => match.stage === "knockout") ? (
+            <div className="phasePage">
+              <div className="phaseIntro">
+                <div><span className="eyebrow">MATA-MATA DA SÉRIE D</span><h2>{Math.max(...myMatches.filter((match) => match.stage === "knockout").map((match) => match.knockoutRound ?? 0))} clubes na fase atual</h2><p>Todos os confrontos são de ida e volta. Em empate no agregado, a decisão é por pênaltis.</p></div>
+                <div className="phaseActions"><button className="generateBtn phaseGenerate" onClick={() => generateResults("knockout")}>⚡ Gerar resultados</button><button className="primary phaseGenerate" onClick={generateNextStage}>→ Gerar próxima fase</button></div>
+              </div>
+              {myMatches.some((m) => m.stage === "knockout" && m.knockoutRound === 4) && <div className="championCard"><span>🎟️ ACESSO À SÉRIE C</span><strong>Os 4 semifinalistas garantem o acesso</strong><small>Os clubes presentes nesta fase já estão classificados para a Série C.</small></div>}
+              {myMatches.some((m) => m.stage === "knockout" && m.knockoutRound === 2 && myMatches.filter((x) => x.stage === "knockout" && x.knockoutRound === 2).every((x) => x.played)) && <div className="championCard"><span>🏆 CAMPEÃO DA SÉRIE D</span><strong>{(() => {
+                const final = myMatches.filter((m) => m.stage === "knockout" && m.knockoutRound === 2).sort((a, b) => a.round - b.round);
+                const teams = [...new Set(final.flatMap((m) => [m.home, m.away]))];
+                const totals = teams.map((clubId) => ({ clubId, goals: final.reduce((sum, m) => sum + (m.home === clubId ? (m.homeScore ?? 0) : m.away === clubId ? (m.awayScore ?? 0) : 0), 0) })).sort((a, b) => b.goals - a.goals);
+                const penaltyWinner = final.find((m) => m.penaltyWinner)?.penaltyWinner;
+                return penaltyWinner ? clubName(penaltyWinner) : totals[0]?.goals !== totals[1]?.goals ? clubName(totals[0].clubId) : "Aguardando pênaltis";
+              })()}</strong><small>Final em ida e volta.</small></div>}
+              <div className="playoffGrid">{myMatches.filter((match) => match.stage === "knockout").sort((a, b) => (a.knockoutRound ?? 0) - (b.knockoutRound ?? 0) || a.round - b.round || a.id - b.id).map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
+            </div>
           ) : championship?.division === "Série C" && myMatches.some((match) => match.stage === "final") ? (
             <div className="phasePage">
               <div className="phaseIntro">
@@ -1140,6 +1156,15 @@ export default function App() {
                 })}
               </div>
               <div className="phaseMatches"><h3>Jogos da segunda fase</h3><div className="playoffGrid">{myMatches.filter((match) => match.stage === "secondPhase").map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div></div>
+            </div>
+          ) : championship?.division === "Série D" ? (
+            <div className="phasePage">
+              <div className="phaseIntro">
+                <div><span className="eyebrow">PRIMEIRA FASE DA SÉRIE D</span><h2>16 grupos · 480 jogos</h2><p>Quatro primeiros de cada grupo avançam para o mata-mata.</p></div>
+                <div className="phaseActions"><button className="generateBtn phaseGenerate" onClick={() => generateResults("remaining")}>⚡ Gerar restantes</button><button className="primary phaseGenerate" onClick={generateNextStage}>→ Gerar segunda fase</button></div>
+              </div>
+              <div className="roundBar"><label>RODADA<select value={round} onChange={(event) => setRound(Number(event.target.value))}>{rounds.filter((item) => item <= 10).map((item) => <option key={item} value={item}>Rodada {item}</option>)}</select></label></div>
+              <div className="resultList">{myMatches.filter((match) => match.stage === "regular" && match.group && match.round === round).map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
             </div>
           ) : (
             <>
@@ -1200,8 +1225,8 @@ function ClubHistory({ clubName, championships, clubs, matches, onBack }: { club
       const complete = allRegular.length > 0 && allRegular.every((match) => match.played);
 
       let champion = complete && position === 1;
-      if (complete && championship.division === "Série C") {
-        const final = matches.filter((match) => match.championshipId === championship.id && match.stage === "final").sort((x, y) => x.round - y.round);
+      if (complete && (championship.division === "Série C" || championship.division === "Série D")) {
+        const final = matches.filter((match) => match.championshipId === championship.id && (championship.division === "Série D" ? match.stage === "knockout" && match.knockoutRound === 2 : match.stage === "final")).sort((x, y) => x.round - y.round);
         if (final.length === 2 && final.every((match) => match.played)) {
           const teams = [...new Set(final.flatMap((match) => [match.home, match.away]))];
           const totals = teams.map((id) => ({
@@ -1295,8 +1320,8 @@ function ChampionshipHistory({ championship, championships, clubs, matches }: { 
     let championId = rows[0]?.clubId;
     let championPoints = rows[0]?.points ?? 0;
     let championGd = rows[0]?.gd ?? 0;
-    if (season.division === "Série C") {
-      const final = seasonMatches.filter((match) => match.stage === "final").sort((a, b) => a.round - b.round);
+    if (season.division === "Série C" || season.division === "Série D") {
+      const final = seasonMatches.filter((match) => season.division === "Série D" ? match.stage === "knockout" && match.knockoutRound === 2 : match.stage === "final").sort((a, b) => a.round - b.round);
       if (final.length !== 2 || !final.every((match) => match.played)) return null;
       const teams = [...new Set(final.flatMap((match) => [match.home, match.away]))];
       const totals = teams.map((clubId) => ({
@@ -1419,6 +1444,41 @@ function ChampionshipHistory({ championship, championships, clubs, matches }: { 
 
 
 function Dashboard({ standings, matches, division, clubName, onPartidas, onClub, onChamp, onRound, onNextSeason, onGenerateRound, onGenerateRemaining, onGenerateNextStage, onHistory, onClubHistory }: { standings: any[]; matches: Match[]; division: string; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void; onNextSeason: () => void; onGenerateRound: () => void; onGenerateRemaining: () => void; onGenerateNextStage: () => void; onHistory: () => void; onClubHistory: (name: string) => void }) {
+
+  if (division === "Série D") {
+    const groups = Object.keys(SERIE_D_GROUPS);
+    const groupRows = (group: string) => {
+      const groupMatches = matches.filter((match) => match.group === group && (match.stage ?? "regular") === "regular");
+      const ids = [...new Set(groupMatches.flatMap((match) => [match.home, match.away]))];
+      return ids.map((clubId) => {
+        let played = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
+        groupMatches.filter((match) => match.played && (match.home === clubId || match.away === clubId)).forEach((match) => {
+          const home = match.home === clubId;
+          const scored = home ? match.homeScore! : match.awayScore!;
+          const conceded = home ? match.awayScore! : match.homeScore!;
+          played++; gf += scored; ga += conceded;
+          if (scored > conceded) wins++; else if (scored === conceded) draws++; else losses++;
+        });
+        return { clubId, played, wins, draws, losses, gf, ga, gd: gf - ga, points: wins * 3 + draws };
+      }).sort((a, b) => b.points - a.points || b.wins - a.wins || b.gd - a.gd || b.gf - a.gf);
+    });
+
+    return <>
+      <section className="stats">
+        <div className="stat"><span>CLUBES</span><strong>96</strong><small>16 grupos de 6</small></div>
+        <div className="stat"><span>PARTIDAS</span><strong>{matches.length}</strong><small>{matches.filter((m) => m.played).length} com resultado</small></div>
+        <div className="stat"><span>FASE</span><strong>{matches.some((m) => m.stage === "knockout") ? "MATA-MATA" : "GRUPOS"}</strong><small>ida e volta</small></div>
+      </section>
+      <section className="panel wide">
+        <div className="panelHead"><div><span className="eyebrow">SÉRIE D</span><h2>16 grupos · 6 clubes</h2><p>Os 4 primeiros de cada grupo avançam para o mata-mata.</p></div><div className="quick"><button onClick={onPartidas}>Ver partidas</button><button className="generateBtn" onClick={onGenerateNextStage}>⇢ Gerar próxima fase</button><button className="generateBtn" onClick={onGenerateRemaining}>⚡ Gerar restantes</button></div></div>
+        <div className="groupBoards">{groups.map((group) => {
+          const rows = groupRows(group);
+          return <section className="groupBoard" key={group}><div className="groupBoardHead"><b>GRUPO {group}</b><span>4 primeiros = classificados</span></div><table className="standingsTable"><thead><tr><th>#</th><th>CLUBE</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th><th>PTS</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.clubId} className={index < 4 ? "zone-direct" : "zone-neutral"}><td>{index + 1}</td><td><button className="clubLink" onClick={() => onClubHistory(clubName(row.clubId))}>{clubName(row.clubId)}</button></td><td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.gd > 0 ? "+" : ""}{row.gd}</td><td><strong>{row.points}</strong></td></tr>)}</tbody></table></section>;
+        })}</div>
+      </section>
+    </>;
+  }
+
   return <><section className="stats"><div className="stat"><span>CLUBES</span><strong>{standings.length}</strong><small>neste campeonato</small></div><div className="stat"><span>PARTIDAS</span><strong>{matches.length}</strong><small>{matches.filter((m) => m.played).length} com resultado</small></div><div className="stat"><span>RODADAS</span><strong>{new Set(matches.map((m) => m.round)).size}</strong><small>cadastradas</small></div></section>
     <div className="grid"><section className="panel wide"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Classificação</h2></div><button className="textBtn" onClick={onPartidas}>Abrir partidas →</button></div><div className="tableLegend"><span className="legendItem direct"><i /> Acesso direto</span><span className="legendItem playoff"><i /> Play-offs de acesso</span><span className="legendItem secondPhase"><i /> Segunda fase</span><span className="legendItem relegation"><i /> Rebaixamento</span></div><table className="standingsTable"><thead><tr><th>#</th><th>CLUBE</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{standings.map((row, index) => { const position = index + 1; const rowClass = division === "Série A" ? (position >= 17 ? "zone-relegation" : "zone-neutral") : division === "Série B" ? (position <= 2 ? "zone-direct" : position <= 6 ? "zone-playoff" : position >= 17 ? "zone-relegation" : "zone-neutral") : division === "Série C" ? (position <= 8 ? "zone-second-phase" : "zone-neutral") : "zone-neutral"; return <tr key={row.club.id} className={rowClass}><td>{position}</td><td><button className="clubLink" onClick={() => onClubHistory(row.club.name)}>{row.club.name}</button></td><td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.gf}</td><td>{row.ga}</td><td>{row.gd > 0 ? "+" : ""}{row.gd}</td><td><strong>{row.points}</strong></td></tr>; })}</tbody></table></section>
     <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Próximos jogos</h2></div></div>{matches.filter((m) => !m.played).slice(0, 5).map((m) => <div className="match" key={m.id}><div className="date">RODADA {m.round}</div><div className="teams"><span>{clubName(m.home)}</span><b>×</b><span>{clubName(m.away)}</span></div></div>)}</section>
