@@ -883,7 +883,8 @@ export default function App() {
         </div>}
 
         {section === "País" && <CountryPage country={selectedCountry} flag={COUNTRIES.find((item) => item.name === selectedCountry)?.flag ?? ""} championships={championships.filter((item) => item.country === selectedCountry)} clubs={clubs} matches={matches} onNew={() => setModal("championship")} onOpen={(id) => { setSelectedId(id); setSection("Visão geral"); }} onDelete={deleteChampionship} />}
-        {section === "Visão geral" && <Dashboard standings={standings} matches={myMatches} division={championship?.division ?? ""} clubName={clubName} onPartidas={() => setSection("Partidas")} onClub={() => setModal("club")} onChamp={() => setModal("championship")} onRound={addRound} onNextSeason={createNextBrazilSeason} onGenerateRound={() => generateResults("round")} onGenerateRemaining={() => generateResults("remaining")} onGenerateNextStage={generateNextStage} />}
+        {section === "Visão geral" && <Dashboard standings={standings} matches={myMatches} division={championship?.division ?? ""} clubName={clubName} onPartidas={() => setSection("Partidas")} onClub={() => setModal("club")} onChamp={() => setModal("championship")} onRound={addRound} onNextSeason={createNextBrazilSeason} onGenerateRound={() => generateResults("round")} onGenerateRemaining={() => generateResults("remaining")} onGenerateNextStage={generateNextStage} onHistory={() => setSection("Histórico")} />}
+        {section === "Histórico" && championship && <ChampionshipHistory championship={championship} championships={championships} clubs={clubs} matches={matches} />}
         {section === "Campeonatos" && <Manager title="Meus campeonatos" button="Novo campeonato" onClick={() => setModal("championship")}><div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.country} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>Abrir →</button><button className="dangerText" onClick={() => deleteChampionship(item.id)}>Excluir</button></div></div>)}</div></Manager>}
         {section === "Clubes" && <Manager title={"Clubes · " + championship?.name} button="Novo clube" onClick={() => setModal("club")}><div className="cards">{myClubs.map((club) => <div className="entityCard" key={club.id}><span>CLUBE</span><h2>{club.name}</h2><p>{championship?.country} · {championship?.season}</p></div>)}</div></Manager>}
         {section === "Partidas" && <Manager title={(championship?.name ?? "") + " · Partidas"} button="Ver rodadas" onClick={() => setSection("Partidas")}>
@@ -954,11 +955,78 @@ function CountryPage({ country, flag, championships, clubs, matches, onNew, onOp
   return <section className="manager countryPage"><div className="managerHead"><div><span className="eyebrow">{flag} {country.toUpperCase()}</span><h2>Campeonatos de {country}</h2></div><button className="primary" onClick={onNew}>＋ Novo campeonato</button></div>{championships.length === 0 ? <div className="countryEmpty"><h3>Nenhum campeonato cadastrado</h3><p>Use o botão acima para criar uma competição dentro de {country}.</p></div> : <div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.division} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => onOpen(item.id)}>Abrir →</button><button className="dangerText" onClick={() => onDelete(item.id)}>Excluir</button></div></div>)}</div>}</section>;
 }
 
-function Dashboard({ standings, matches, division, clubName, onPartidas, onClub, onChamp, onRound, onNextSeason, onGenerateRound, onGenerateRemaining, onGenerateNextStage }: { standings: any[]; matches: Match[]; division: string; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void; onNextSeason: () => void; onGenerateRound: () => void; onGenerateRemaining: () => void; onGenerateNextStage: () => void }) {
+function ChampionshipHistory({ championship, championships, clubs, matches }: { championship: Championship; championships: Championship[]; clubs: Club[]; matches: Match[] }) {
+  const seasons = championships
+    .filter((item) => item.country === championship.country && item.name === championship.name)
+    .sort((a, b) => Number(b.season) - Number(a.season));
+
+  const getClubName = (id: number) => clubs.find((club) => club.id === id)?.name ?? "Clube";
+  const completed = seasons.map((season) => {
+    const seasonMatches = matches.filter((match) => match.championshipId === season.id);
+    const regular = seasonMatches.filter((match) => (match.stage ?? "regular") === "regular");
+    if (!regular.length || !regular.every((match) => match.played)) return null;
+
+    const rows = clubs.filter((club) => club.championshipId === season.id).map((club) => {
+      let points = 0, gd = 0, gf = 0;
+      regular.filter((match) => match.home === club.id || match.away === club.id).forEach((match) => {
+        const home = match.home === club.id;
+        const scored = home ? (match.homeScore ?? 0) : (match.awayScore ?? 0);
+        const conceded = home ? (match.awayScore ?? 0) : (match.homeScore ?? 0);
+        gf += scored; gd += scored - conceded;
+        points += scored > conceded ? season.pointsWin : scored === conceded ? season.pointsDraw : season.pointsLoss;
+      });
+      return { clubId: club.id, points, gd, gf };
+    }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
+
+    let championId = rows[0]?.clubId;
+    if (season.division === "Série C") {
+      const final = seasonMatches.filter((match) => match.stage === "final").sort((a, b) => a.round - b.round);
+      if (final.length !== 2 || !final.every((match) => match.played)) return null;
+      const teams = [...new Set(final.flatMap((match) => [match.home, match.away]))];
+      const totals = teams.map((clubId) => ({
+        clubId,
+        goals: final.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
+      })).sort((a, b) => b.goals - a.goals);
+      const penaltyWinner = final.find((match) => match.penaltyWinner)?.penaltyWinner;
+      if (totals.length !== 2 || (totals[0].goals === totals[1].goals && !penaltyWinner)) return null;
+      championId = penaltyWinner ?? totals[0].clubId;
+    }
+
+    return { season: season.season, championId: championId! };
+  }).filter((item): item is { season: string; championId: number } => Boolean(item?.championId));
+
+  const titleCounts = new Map<string, { count: number; seasons: string[] }>();
+  completed.forEach((item) => {
+    const name = getClubName(item.championId);
+    const current = titleCounts.get(name) ?? { count: 0, seasons: [] };
+    current.count++;
+    current.seasons.push(item.season);
+    titleCounts.set(name, current);
+  });
+  const ranking = [...titleCounts.entries()].sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
+  const editions = seasons.length;
+  const playedEditions = completed.length;
+
+  return <div className="historyPage">
+    <div className="historyHero">
+      <div><span className="eyebrow">HISTÓRICO</span><h2>{championship.name}</h2><p>{editions} temporadas cadastradas · {playedEditions} com campeão definido</p></div>
+    </div>
+    {ranking.length > 0 ? <section className="historyPanel">
+      <div className="panelHead"><div><span className="eyebrow">PALMARÉS</span><h2>Maiores campeões</h2></div></div>
+      <div className="historyCards">{ranking.map(([name, data], index) => <div className="historyCard" key={name}><span>#{index + 1}</span><div><strong>{name}</strong><small>{data.count} {data.count === 1 ? "título" : "títulos"}</small></div><em>{data.seasons.join(" · ")}</em></div>)}</div>
+    </section> : <div className="championPending">🏆 Ainda não há uma temporada concluída com campeão definido.</div>}
+    <section className="historyPanel">
+      <div className="panelHead"><div><span className="eyebrow">TEMPORADAS</span><h2>Campeões por ano</h2></div></div>
+      {completed.length > 0 ? <div className="seasonHistory">{completed.map((item) => <div className="seasonHistoryRow" key={item.season}><span>{item.season}</span><strong>🏆 {getClubName(item.championId)}</strong></div>)}</div> : <div className="emptySide">Nenhum campeão registrado ainda.</div>}
+    </section>
+  </div>;
+}
+
+function Dashboard({ standings, matches, division, clubName, onPartidas, onClub, onChamp, onRound, onNextSeason, onGenerateRound, onGenerateRemaining, onGenerateNextStage, onHistory }: { standings: any[]; matches: Match[]; division: string; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void; onNextSeason: () => void; onGenerateRound: () => void; onGenerateRemaining: () => void; onGenerateNextStage: () => void; onHistory: () => void }) {
   return <><section className="stats"><div className="stat"><span>CLUBES</span><strong>{standings.length}</strong><small>neste campeonato</small></div><div className="stat"><span>PARTIDAS</span><strong>{matches.length}</strong><small>{matches.filter((m) => m.played).length} com resultado</small></div><div className="stat"><span>RODADAS</span><strong>{new Set(matches.map((m) => m.round)).size}</strong><small>cadastradas</small></div></section>
     <div className="grid"><section className="panel wide"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Classificação</h2></div><button className="textBtn" onClick={onPartidas}>Abrir partidas →</button></div><div className="tableLegend"><span className="legendItem direct"><i /> Acesso direto</span><span className="legendItem playoff"><i /> Play-offs de acesso</span><span className="legendItem secondPhase"><i /> Segunda fase</span><span className="legendItem relegation"><i /> Rebaixamento</span></div><table className="standingsTable"><thead><tr><th>#</th><th>CLUBE</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{standings.map((row, index) => { const position = index + 1; const rowClass = division === "Série A" ? (position >= 17 ? "zone-relegation" : "zone-neutral") : division === "Série B" ? (position <= 2 ? "zone-direct" : position <= 6 ? "zone-playoff" : position >= 17 ? "zone-relegation" : "zone-neutral") : division === "Série C" ? (position <= 8 ? "zone-second-phase" : "zone-neutral") : "zone-neutral"; return <tr key={row.club.id} className={rowClass}><td>{position}</td><td><b>{row.club.name}</b></td><td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.gf}</td><td>{row.ga}</td><td>{row.gd > 0 ? "+" : ""}{row.gd}</td><td><strong>{row.points}</strong></td></tr>; })}</tbody></table></section>
     <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Próximos jogos</h2></div></div>{matches.filter((m) => !m.played).slice(0, 5).map((m) => <div className="match" key={m.id}><div className="date">RODADA {m.round}</div><div className="teams"><span>{clubName(m.home)}</span><b>×</b><span>{clubName(m.away)}</span></div></div>)}</section>
-    <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Ações rápidas</h2></div></div><div className="quick"><button onClick={onClub}>＋ Cadastrar clube</button><button onClick={onChamp}>＋ Novo campeonato</button><button onClick={onPartidas}>◷ Ver rodadas</button><button onClick={onPartidas}>◷ Lançar resultados</button><button className="generateBtn" onClick={onGenerateRound}>⚡ Gerar rodada</button><button className="generateBtn" onClick={onGenerateRemaining}>⚡ Gerar restantes</button>{(division === "Série B" || division === "Série C") && <button className="generateBtn" onClick={onGenerateNextStage}>⇢ Gerar próxima fase</button>}<button onClick={onNextSeason}>⇄ Gerar próxima temporada</button></div></section></div></>;
+    <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Ações rápidas</h2></div></div><div className="quick"><button onClick={onClub}>＋ Cadastrar clube</button><button onClick={onChamp}>＋ Novo campeonato</button><button onClick={onPartidas}>◷ Ver rodadas</button><button onClick={onPartidas}>◷ Lançar resultados</button><button onClick={onHistory}>🏆 Histórico</button><button className="generateBtn" onClick={onGenerateRound}>⚡ Gerar rodada</button><button className="generateBtn" onClick={onGenerateRemaining}>⚡ Gerar restantes</button>{(division === "Série B" || division === "Série C") && <button className="generateBtn" onClick={onGenerateNextStage}>⇢ Gerar próxima fase</button>}<button onClick={onNextSeason}>⇄ Gerar próxima temporada</button></div></section></div></>;
 }
 
 function Manager({ title, button, onClick, children }: { title: string; button: string; onClick: () => void; children: React.ReactNode }) {
