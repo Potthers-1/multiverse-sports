@@ -1136,6 +1136,25 @@ export default function App() {
         {section === "Clube" && selectedClubName && <ClubHistory clubName={selectedClubName} championships={championships} clubs={clubs} matches={matches} onBack={() => setSection("Visão geral")} />}
         {section === "Campeonatos" && <Manager title="Meus campeonatos" button="Novo campeonato" onClick={() => setModal("championship")}><div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.country} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>Abrir →</button><button className="dangerText" onClick={() => deleteChampionship(item.id)}>Excluir</button></div></div>)}</div></Manager>}
         {section === "Clubes" && <Manager title={"Clubes · " + championship?.name} button="Novo clube" onClick={() => setModal("club")}><div className="cards">{myClubs.map((club) => <button className="entityCard clubEntityCard" key={club.id} onClick={() => openClubHistory(club.name)}><span>CLUBE</span><h2>{club.name}</h2><p>{championship?.country} · {championship?.season}</p><small>Ver histórico →</small></button>)}</div></Manager>}
+        {["64","32","16","8","4","2"].includes(section.replace("Série D · ","")) && championship?.division === "Série D" && (() => {
+          const roundNumber = Number(section.replace("Série D · ",""));
+          const labels: Record<number,string> = {64:"1ª fase do mata-mata",32:"2ª fase do mata-mata",16:"3ª fase do mata-mata",8:"Quartas de final",4:"Semifinais · acesso à Série C",2:"Final · campeão"};
+          const phaseMatches = myMatches.filter((m) => m.stage === "knockout" && m.knockoutRound === roundNumber).sort((a,b) => a.round-b.round || a.id-b.id);
+          const winners = getKnockoutWinners(myMatches, roundNumber);
+          const accessTeams = getKnockoutTeams(myMatches,4);
+          const champion = getKnockoutWinners(myMatches,2);
+          const complete = phaseMatches.length > 0 && phaseMatches.every((m) => m.played);
+          return <div className="phasePage">
+            <div className="phaseIntro">
+              <div><span className="eyebrow">SÉRIE D · MATA-MATA</span><h2>{labels[roundNumber]}</h2><p>{roundNumber === 4 ? "Os 4 semifinalistas conquistam o acesso à Série C." : roundNumber === 2 ? "A decisão do título acontece em dois jogos." : "Confrontos de ida e volta. Em empate no agregado, decisão por pênaltis."}</p></div>
+              <div className="phaseActions"><button className="ghost phaseGenerate" onClick={() => setSection("Partidas")}>← Fases</button><button className="generateBtn phaseGenerate" onClick={() => generateResults("knockout")}>⚡ Gerar resultados</button>{complete && roundNumber !== 2 && <button className="primary phaseGenerate" onClick={generateNextStage}>→ Gerar próxima fase</button>}</div>
+            </div>
+            {complete && winners.length > 0 && <div className="championCard"><span>✓ CLASSIFICADOS</span><strong>{winners.length} clube{winners.length > 1 ? "s" : ""} avançaram</strong><div className="accessTeamList">{winners.map((clubId) => <button key={clubId} onClick={() => openClubHistory(clubName(clubId))}>{clubName(clubId)}</button>)}</div></div>}
+            {roundNumber === 4 && accessTeams.length === 4 && <div className="championCard accessCard"><span>🎟️ ACESSO À SÉRIE C</span><strong>4 clubes conquistaram o acesso</strong><div className="accessTeamList">{accessTeams.map((clubId) => <button key={clubId} onClick={() => openClubHistory(clubName(clubId))}>{clubName(clubId)}</button>)}</div></div>}
+            {roundNumber === 2 && champion.length === 1 && <div className="championCard"><span>🏆 CAMPEÃO DA SÉRIE D</span><strong>{clubName(champion[0])}</strong><small>Campeão definido após a final em ida e volta.</small></div>}
+            {roundNumber === 2 && complete && champion.length === 0 && <div className="championPending">O agregado terminou empatado. Aguardando a definição por pênaltis.</div>}
+            <div className="playoffGrid">{phaseMatches.map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
+          </div>;
         {section === "Partidas" && championship?.division === "Série D" ? (
           <div className="phasePage">
             <div className="phaseIntro">
@@ -1161,25 +1180,6 @@ export default function App() {
               })}
             </div>
           </div>
-        ) :         {["64","32","16","8","4","2"].includes(section.replace("Série D · ","")) && championship?.division === "Série D" && (() => {
-          const roundNumber = Number(section.replace("Série D · ",""));
-          const labels: Record<number,string> = {64:"1ª fase do mata-mata",32:"2ª fase do mata-mata",16:"3ª fase do mata-mata",8:"Quartas de final",4:"Semifinais · acesso à Série C",2:"Final · campeão"};
-          const phaseMatches = myMatches.filter((m) => m.stage === "knockout" && m.knockoutRound === roundNumber).sort((a,b) => a.round-b.round || a.id-b.id);
-          const winners = getKnockoutWinners(myMatches, roundNumber);
-          const accessTeams = getKnockoutTeams(myMatches,4);
-          const champion = getKnockoutWinners(myMatches,2);
-          const complete = phaseMatches.length > 0 && phaseMatches.every((m) => m.played);
-          return <div className="phasePage">
-            <div className="phaseIntro">
-              <div><span className="eyebrow">SÉRIE D · MATA-MATA</span><h2>{labels[roundNumber]}</h2><p>{roundNumber === 4 ? "Os 4 semifinalistas conquistam o acesso à Série C." : roundNumber === 2 ? "A decisão do título acontece em dois jogos." : "Confrontos de ida e volta. Em empate no agregado, decisão por pênaltis."}</p></div>
-              <div className="phaseActions"><button className="ghost phaseGenerate" onClick={() => setSection("Partidas")}>← Fases</button><button className="generateBtn phaseGenerate" onClick={() => generateResults("knockout")}>⚡ Gerar resultados</button>{complete && roundNumber !== 2 && <button className="primary phaseGenerate" onClick={generateNextStage}>→ Gerar próxima fase</button>}</div>
-            </div>
-            {complete && winners.length > 0 && <div className="championCard"><span>✓ CLASSIFICADOS</span><strong>{winners.length} clube{winners.length > 1 ? "s" : ""} avançaram</strong><div className="accessTeamList">{winners.map((clubId) => <button key={clubId} onClick={() => openClubHistory(clubName(clubId))}>{clubName(clubId)}</button>)}</div></div>}
-            {roundNumber === 4 && accessTeams.length === 4 && <div className="championCard accessCard"><span>🎟️ ACESSO À SÉRIE C</span><strong>4 clubes conquistaram o acesso</strong><div className="accessTeamList">{accessTeams.map((clubId) => <button key={clubId} onClick={() => openClubHistory(clubName(clubId))}>{clubName(clubId)}</button>)}</div></div>}
-            {roundNumber === 2 && champion.length === 1 && <div className="championCard"><span>🏆 CAMPEÃO DA SÉRIE D</span><strong>{clubName(champion[0])}</strong><small>Campeão definido após a final em ida e volta.</small></div>}
-            {roundNumber === 2 && complete && champion.length === 0 && <div className="championPending">O agregado terminou empatado. Aguardando a definição por pênaltis.</div>}
-            <div className="playoffGrid">{phaseMatches.map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
-          </div>;
         })()}
         {section === "Partidas" && <Manager title={(championship?.name ?? "") + " · Partidas"} button="Ver rodadas" onClick={() => setSection("Partidas")}>
           {championship?.division === "Série B" && myMatches.some((match) => match.stage === "playoff") ? (
