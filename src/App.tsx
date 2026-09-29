@@ -601,17 +601,16 @@ function App() {
   const currentDPhase=section.startsWith("Série D ·")?Number(section.replace("Série D · ","")):null;
   const phaseLabel=currentDPhase?({64:"1ª fase do mata-mata",32:"2ª fase do mata-mata",16:"Quartas de final",8:"Semifinais",4:"??",2:"Final"} as Record<number,string>)[currentDPhase]:"";
 
-  const panel = (title:string,children:React.ReactNode)=><section style={{background:"#fff",border:"1px solid #e6e6e6",borderRadius:18,padding:24,marginBottom:18}}><h2 style={{marginTop:0}}>{title}</h2>{children}</section>;
-  const button=(label:string,onClick:()=>void,primary=false)=><button onClick={onClick} style={{border:0,borderRadius:10,padding:"10px 14px",cursor:"pointer",fontWeight:700,background:primary?"#5b2a68":"#eee",color:primary?"#fff":"#222",marginRight:8,marginBottom:8}}>{label}</button>;
+  const panel = (title:string,children:React.ReactNode)=><section style={{background:"#0c121c",border:"1px solid #1e2b3b",borderRadius:18,padding:24,marginBottom:18}}><h2 style={{marginTop:0}}>{title}</h2>{children}</section>;
+  const button=(label:string,onClick:()=>void,primary=false)=><button onClick={onClick} style={{border:0,borderRadius:10,padding:"10px 14px",cursor:"pointer",fontWeight:700,background:primary?"#26d9ff":"#0d1622",color:primary?"#031018":"#aebbc9",marginRight:8,marginBottom:8}}>{label}</button>;
 
-  return (
-    <div style={{minHeight:"100vh",background:"#f6f3f7",fontFamily:"Arial, sans-serif",color:"#252126"}}>
-      <header style={{background:"#211f23",color:"#fff",padding:"18px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+  return (\n    <style>{"\n      input, select { background:#070b12; color:#dfe7ef; border:1px solid #304155; border-radius:6px; padding:8px 10px; }\n      input::placeholder { color:#65758a; }\n      table th { color:#65758a; }\n      table td { border-top:1px solid #172331; color:#8291a5; }\n      table td:nth-child(2) { color:#d8e0e9; }\n    "}</style>\n    <div style={{minHeight:"100vh",background:"#070b12",fontFamily:"Arial, sans-serif",color:"#e8eef7"}}>
+      <header style={{background:"#0a1019",color:"#fff",padding:"18px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div><strong style={{fontSize:22}}>Sports Manager</strong><div style={{opacity:.7,fontSize:12}}>Brasil · competições reais</div></div>
         <div>{button("↻ Reconstruir 2026",reset)}</div>
       </header>
       <div style={{display:"grid",gridTemplateColumns:"250px 1fr",minHeight:"calc(100vh - 70px)"}}>
-        <aside style={{background:"#2b2730",color:"#fff",padding:18}}>
+        <aside style={{background:"#0a1019",color:"#fff",padding:18}}>
           <div style={{fontSize:12,opacity:.6,marginBottom:12}}>PAÍSES</div>
           <button onClick={()=>setSelectedId(championships.find((c)=>c.division==="Série A"&&c.season===String(Math.max(...championships.map((x)=>Number(x.season)))))?.id??1)} style={{width:"100%",textAlign:"left",background:"transparent",border:0,color:"#fff",padding:"10px",cursor:"pointer"}}>🇧🇷 Brasil</button>
           <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>CAMPEONATOS</div>
@@ -619,7 +618,7 @@ function App() {
             <div key={d} style={{marginBottom:8}}>
               <div style={{fontWeight:800,padding:"7px 10px"}}>{d}</div>
               {championships.filter((c)=>c.division===d).sort((a,b)=>Number(b.season)-Number(a.season)).map((c)=>(
-                <button key={c.id} onClick={()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}} style={{display:"block",width:"100%",textAlign:"left",border:0,borderRadius:8,padding:"7px 14px",background:selectedId===c.id?"#5b2a68":"transparent",color:"#fff",cursor:"pointer"}}>{c.season}</button>
+                <button key={c.id} onClick={()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}} style={{display:"block",width:"100%",textAlign:"left",border:0,borderRadius:8,padding:"7px 14px",background:selectedId===c.id?"#111c2a":"transparent",color:"#fff",cursor:"pointer"}}>{c.season}</button>
               ))}
             </div>
           ))}
@@ -627,7 +626,7 @@ function App() {
 
         <main style={{padding:28,maxWidth:1250,width:"100%",boxSizing:"border-box"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
-            <div><div style={{fontSize:13,color:"#777"}}>Brasil / {championship.division} / {championship.season}</div><h1 style={{margin:"6px 0"}}>{championship.name}</h1></div>
+            <div><div style={{fontSize:13,color:"#65758a"}}>Brasil / {championship.division} / {championship.season}</div><h1 style={{margin:"6px 0"}}>{championship.name}</h1></div>
             <div>
               {button("Visão geral",()=>setSection("Visão geral"))}
               {button("Classificação",()=>setSection("Classificação"))}
@@ -652,21 +651,21 @@ function App() {
           </>)}
 
           {section==="Classificação" && panel("Classificação",<>
-            <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #eee"}}>{x}</th>)}</tr></thead><tbody>
+            <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
               {currentTable.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
             </tbody></table></div>
           </>)}
 
-          {section==="Clubes" && panel("Clubes",<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>{myClubs.map(c=><button key={c.id} onClick={()=>setSelectedClub(c.name)} style={{padding:14,border:"1px solid #ddd",borderRadius:12,background:"#fafafa",textAlign:"left",cursor:"pointer",fontWeight:700}}>{c.name}</button>)}</div>)}
+          {section==="Clubes" && panel("Clubes",<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>{myClubs.map(c=><button key={c.id} onClick={()=>setSelectedClub(c.name)} style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f",textAlign:"left",cursor:"pointer",fontWeight:700}}>{c.name}</button>)}</div>)}
 
           {section==="Jogos" && panel("Jogos",<>
             <div style={{marginBottom:14}}>{button("⚡ Gerar rodada",()=>generateResults("round"),true)} {button("⚡ Gerar restantes",()=>generateResults("remaining"))} {button("⚙ Preparar fase",prepareNextPhase)}</div>
-            <div style={{display:"grid",gap:8}}>{displayedMatches.slice(0,100).map(m=><div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 70px 1fr 110px",alignItems:"center",gap:10,padding:12,border:"1px solid #eee",borderRadius:10,background:"#fff"}}><span style={{textAlign:"right"}}>{clubName(m.home)}</span><input value={newResult[m.id]?.[0]??(m.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[e.target.value,x[m.id]?.[1]??(m.awayScore??"").toString()]}))} style={{width:50}}/><span>{clubName(m.away)}</span><div><input value={newResult[m.id]?.[1]??(m.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[x[m.id]?.[0]??(m.homeScore??"").toString(),e.target.value]}))} style={{width:50}}/> {button(m.played?"Salvar":"Salvar",()=>saveScore(m.id))}</div></div>)}</div>
+            <div style={{display:"grid",gap:8}}>{displayedMatches.slice(0,100).map(m=><div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 70px 1fr 110px",alignItems:"center",gap:10,padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f"}}><span style={{textAlign:"right"}}>{clubName(m.home)}</span><input value={newResult[m.id]?.[0]??(m.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[e.target.value,x[m.id]?.[1]??(m.awayScore??"").toString()]}))} style={{width:50}}/><span>{clubName(m.away)}</span><div><input value={newResult[m.id]?.[1]??(m.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[x[m.id]?.[0]??(m.homeScore??"").toString(),e.target.value]}))} style={{width:50}}/> {button(m.played?"Salvar":"Salvar",()=>saveScore(m.id))}</div></div>)}</div>
           </>)}
 
           {(section==="Play-offs"||section==="Segunda fase"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
             <div style={{marginBottom:14}}>{button("⚡ Gerar resultados desta fase",()=>generateResults("phase"),true)} {button("→ Avançar automaticamente",prepareNextPhase)}</div>
-            <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=><div key={m.id} style={{padding:12,border:"1px solid #eee",borderRadius:10,background:"#fff",display:"flex",justifyContent:"space-between",gap:10}}><span>{clubName(m.home)}</span><strong>{m.played?m.homeScore+" × "+m.awayScore:"— × —"}</strong><span>{clubName(m.away)}</span></div>)}</div>
+            <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=><div key={m.id} style={{padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f",display:"flex",justifyContent:"space-between",gap:10}}><span>{clubName(m.home)}</span><strong>{m.played?m.homeScore+" × "+m.awayScore:"— × —"}</strong><span>{clubName(m.away)}</span></div>)}</div>
           </>)}
 
           {selectedClub && panel("Histórico do clube",<>
