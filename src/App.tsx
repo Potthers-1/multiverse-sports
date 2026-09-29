@@ -961,66 +961,121 @@ function ChampionshipHistory({ championship, championships, clubs, matches }: { 
     .sort((a, b) => Number(b.season) - Number(a.season));
 
   const getClubName = (id: number) => clubs.find((club) => club.id === id)?.name ?? "Clube";
-  const completed = seasons.map((season) => {
+
+  const seasonData = seasons.map((season) => {
     const seasonMatches = matches.filter((match) => match.championshipId === season.id);
     const regular = seasonMatches.filter((match) => (match.stage ?? "regular") === "regular");
     if (!regular.length || !regular.every((match) => match.played)) return null;
 
     const rows = clubs.filter((club) => club.championshipId === season.id).map((club) => {
-      let points = 0, gd = 0, gf = 0;
+      let points = 0, gd = 0, gf = 0, games = 0;
       regular.filter((match) => match.home === club.id || match.away === club.id).forEach((match) => {
         const home = match.home === club.id;
         const scored = home ? (match.homeScore ?? 0) : (match.awayScore ?? 0);
         const conceded = home ? (match.awayScore ?? 0) : (match.homeScore ?? 0);
-        gf += scored; gd += scored - conceded;
+        games++; gf += scored; gd += scored - conceded;
         points += scored > conceded ? season.pointsWin : scored === conceded ? season.pointsDraw : season.pointsLoss;
       });
-      return { clubId: club.id, points, gd, gf };
+      return { clubId: club.id, name: club.name, games, points, gd, gf };
     }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
 
     let championId = rows[0]?.clubId;
+    let championPoints = rows[0]?.points ?? 0;
+    let championGd = rows[0]?.gd ?? 0;
     if (season.division === "Série C") {
       const final = seasonMatches.filter((match) => match.stage === "final").sort((a, b) => a.round - b.round);
       if (final.length !== 2 || !final.every((match) => match.played)) return null;
       const teams = [...new Set(final.flatMap((match) => [match.home, match.away]))];
       const totals = teams.map((clubId) => ({
         clubId,
-        goals: final.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
+        goals: final.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0)
       })).sort((a, b) => b.goals - a.goals);
       const penaltyWinner = final.find((match) => match.penaltyWinner)?.penaltyWinner;
       if (totals.length !== 2 || (totals[0].goals === totals[1].goals && !penaltyWinner)) return null;
       championId = penaltyWinner ?? totals[0].clubId;
+      championPoints = rows.find((r) => r.clubId === championId)?.points ?? 0;
+      championGd = rows.find((r) => r.clubId === championId)?.gd ?? 0;
     }
 
-    return { season: season.season, championId: championId! };
-  }).filter((item): item is { season: string; championId: number } => Boolean(item?.championId));
+    return { season, rows, championId: championId!, championPoints, championGd };
+  }).filter((item): item is NonNullable<typeof item> => Boolean(item?.championId));
 
   const titleCounts = new Map<string, { count: number; seasons: string[] }>();
-  completed.forEach((item) => {
+  seasonData.forEach((item) => {
     const name = getClubName(item.championId);
     const current = titleCounts.get(name) ?? { count: 0, seasons: [] };
-    current.count++;
-    current.seasons.push(item.season);
+    current.count++; current.seasons.push(item.season.season);
     titleCounts.set(name, current);
   });
   const ranking = [...titleCounts.entries()].sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
-  const editions = seasons.length;
-  const playedEditions = completed.length;
+
+  const longestStreak = (() => {
+    let best = { name: "", count: 0, seasons: [] as string[] };
+    const byClub = new Map<string, string[]>();
+    seasonData.sort((a, b) => Number(a.season.season) - Number(b.season.season)).forEach((item) => {
+      const name = getClubName(item.championId);
+      const list = byClub.get(name) ?? [];
+      list.push(item.season.season); byClub.set(name, list);
+    });
+    byClub.forEach((years, name) => {
+      let run: string[] = [];
+      let previous = -Infinity;
+      years.forEach((year) => {
+        if (Number(year) === previous + 1) run.push(year);
+        else run = [year];
+        previous = Number(year);
+        if (run.length > best.count) best = { name, count: run.length, seasons: [...run] };
+      });
+    });
+    return best;
+  })();
+
+  const latestChampion = seasonData.sort((a, b) => Number(b.season.season) - Number(a.season.season))[0];
+  const championPointsRecord = [...seasonData].sort((a, b) => b.championPoints - a.championPoints)[0];
+  const championGdRecord = [...seasonData].sort((a, b) => b.championGd - a.championGd)[0];
+
+  const movements = seasonData.slice().sort((a, b) => Number(a.season.season) - Number(b.season.season)).flatMap((current, index, all) => {
+    const next = all[index + 1];
+    if (!next) return [];
+    const currentNames = new Set(current.rows.map((r) => r.name));
+    const nextNames = new Set(next.rows.map((r) => r.name));
+    const promoted = [...nextNames].filter((name) => !currentNames.has(name));
+    const relegated = [...currentNames].filter((name) => !nextNames.has(name));
+    return [{ from: current.season.season, to: next.season.season, promoted, relegated }];
+  });
 
   return <div className="historyPage">
-    <div className="historyHero">
-      <div><span className="eyebrow">HISTÓRICO</span><h2>{championship.name}</h2><p>{editions} temporadas cadastradas · {playedEditions} com campeão definido</p></div>
-    </div>
-    {ranking.length > 0 ? <section className="historyPanel">
+    <div className="historyHero"><div><span className="eyebrow">HISTÓRICO</span><h2>{championship.name}</h2><p>{seasons.length} temporadas cadastradas · {seasonData.length} com campeão definido</p></div></div>
+
+    {ranking.length > 0 && <section className="historyPanel">
       <div className="panelHead"><div><span className="eyebrow">PALMARÉS</span><h2>Maiores campeões</h2></div></div>
       <div className="historyCards">{ranking.map(([name, data], index) => <div className="historyCard" key={name}><span>#{index + 1}</span><div><strong>{name}</strong><small>{data.count} {data.count === 1 ? "título" : "títulos"}</small></div><em>{data.seasons.join(" · ")}</em></div>)}</div>
-    </section> : <div className="championPending">🏆 Ainda não há uma temporada concluída com campeão definido.</div>}
+    </section>}
+
     <section className="historyPanel">
-      <div className="panelHead"><div><span className="eyebrow">TEMPORADAS</span><h2>Campeões por ano</h2></div></div>
-      {completed.length > 0 ? <div className="seasonHistory">{completed.map((item) => <div className="seasonHistoryRow" key={item.season}><span>{item.season}</span><strong>🏆 {getClubName(item.championId)}</strong></div>)}</div> : <div className="emptySide">Nenhum campeão registrado ainda.</div>}
+      <div className="panelHead"><div><span className="eyebrow">RECORDES</span><h2>Marcas históricas</h2></div></div>
+      <div className="recordGrid">
+        <div className="recordCard"><span>🏆 MAIOR CAMPEÃO</span><strong>{ranking[0]?.[0] ?? "—"}</strong><small>{ranking[0] ? ranking[0][1].count + " títulos" : "—"}</small></div>
+        <div className="recordCard"><span>🔥 MAIOR SEQUÊNCIA</span><strong>{longestStreak.name || "—"}</strong><small>{longestStreak.count ? longestStreak.count + " consecutivos · " + longestStreak.seasons.join(", ") : "—"}</small></div>
+        <div className="recordCard"><span>📅 CAMPEÃO MAIS RECENTE</span><strong>{latestChampion ? getClubName(latestChampion.championId) : "—"}</strong><small>{latestChampion?.season.season ?? "—"}</small></div>
+        <div className="recordCard"><span>📊 MAIOR PONTUAÇÃO DO CAMPEÃO</span><strong>{championPointsRecord ? getClubName(championPointsRecord.championId) : "—"}</strong><small>{championPointsRecord ? championPointsRecord.championPoints + " pontos · " + championPointsRecord.season.season : "—"}</small></div>
+        <div className="recordCard"><span>⚽ MAIOR SALDO DO CAMPEÃO</span><strong>{championGdRecord ? getClubName(championGdRecord.championId) : "—"}</strong><small>{championGdRecord ? (championGdRecord.championGd > 0 ? "+" : "") + championGdRecord.championGd + " · " + championGdRecord.season.season : "—"}</small></div>
+        <div className="recordCard"><span>👑 CAMPEÕES DIFERENTES</span><strong>{ranking.length}</strong><small>clubes já campeões</small></div>
+      </div>
+    </section>
+
+    <section className="historyPanel">
+      <div className="panelHead"><div><span className="eyebrow">LINHA DO TEMPO</span><h2>Campeões por ano</h2></div></div>
+      {seasonData.length > 0 ? <div className="seasonHistory">{seasonData.map((item) => <div className="seasonHistoryRow" key={item.season.id}><span>{item.season.season}</span><strong>🏆 {getClubName(item.championId)}</strong></div>)}</div> : <div className="emptySide">Nenhum campeão registrado ainda.</div>}
+    </section>
+
+    <section className="historyPanel">
+      <div className="panelHead"><div><span className="eyebrow">MOVIMENTAÇÕES</span><h2>Acessos e rebaixamentos</h2></div></div>
+      {movements.length > 0 ? <div className="movementList">{movements.slice().reverse().map((move) => <div className="movementRow" key={move.from + "-" + move.to}><div className="movementSeason">{move.from} → {move.to}</div><div className="movementColumns"><div><span className="movementUp">⬆ ACESSOS</span>{move.promoted.length ? move.promoted.map((name) => <strong key={name}>{name}</strong>) : <small>Nenhum</small>}</div><div><span className="movementDown">⬇ REBAIXADOS</span>{move.relegated.length ? move.relegated.map((name) => <strong key={name}>{name}</strong>) : <small>Nenhum</small>}</div></div></div>)}</div> : <div className="emptySide">Ainda não há movimentações entre temporadas.</div>}
     </section>
   </div>;
 }
+
 
 function Dashboard({ standings, matches, division, clubName, onPartidas, onClub, onChamp, onRound, onNextSeason, onGenerateRound, onGenerateRemaining, onGenerateNextStage, onHistory }: { standings: any[]; matches: Match[]; division: string; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void; onNextSeason: () => void; onGenerateRound: () => void; onGenerateRemaining: () => void; onGenerateNextStage: () => void; onHistory: () => void }) {
   return <><section className="stats"><div className="stat"><span>CLUBES</span><strong>{standings.length}</strong><small>neste campeonato</small></div><div className="stat"><span>PARTIDAS</span><strong>{matches.length}</strong><small>{matches.filter((m) => m.played).length} com resultado</small></div><div className="stat"><span>RODADAS</span><strong>{new Set(matches.map((m) => m.round)).size}</strong><small>cadastradas</small></div></section>
