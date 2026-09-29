@@ -655,7 +655,9 @@ export default function App() {
           const home = match.home === clubId;
           const scored = home ? match.homeScore! : match.awayScore!;
           const conceded = home ? match.awayScore! : match.homeScore!;
-          played++; gf += scored; gd += scored - conceded;
+          played++;
+          gf += scored;
+          gd += scored - conceded;
           if (scored > conceded) points += champ.pointsWin;
           else if (scored === conceded) points += champ.pointsDraw;
           else points += champ.pointsLoss;
@@ -669,74 +671,97 @@ export default function App() {
     const cTable = tableFor(currentC);
 
     if (aTable.length < 20 || bTable.length < 20 || cTable.length < 20) {
-      window.alert("As três divisões precisam ter os 20 clubes cadastrados antes de gerar 2027.");
+      window.alert("As três divisões precisam ter os 20 clubes cadastrados antes de gerar a próxima temporada.");
       return;
     }
 
-    const bRelegated = bTable.slice(-4).map((row) => row.clubId);
+    const regularComplete = (champ: Championship) => {
+      const regular = matches.filter((match) => match.championshipId === champ.id && (match.stage ?? "regular") === "regular");
+      return regular.length > 0 && regular.every((match) => match.played);
+    };
+
+    if (!regularComplete(currentA) || !regularComplete(currentB) || !regularComplete(currentC)) {
+      window.alert("Finalize todas as partidas da fase regular das Séries A, B e C antes de gerar a próxima temporada.");
+      return;
+    }
+
+    // Série A: os 4 últimos da classificação regular são rebaixados para a Série B.
+    const relegatedFromA = aTable.slice(-4).map((row) => row.clubId);
+
+    // Série B: 1º e 2º sobem diretamente. 3º x 6º e 4º x 5º definem as outras 2 vagas.
     const directToA = bTable.slice(0, 2).map((row) => row.clubId);
-    const playoffCandidates = bTable.slice(2, 6).map((row) => row.clubId);
-    const playoffText = playoffCandidates.map((id, index) => (index + 3) + ". " + clubName(id)).join("\n");
-    const playoffInput = window.prompt(
-      "Série B: informe os 2 clubes que venceram os playoffs de acesso à Série A.\n\nCandidatos:\n" + playoffText + "\n\nDigite os nomes separados por vírgula:"
-    );
-    if (!playoffInput) return;
+    const playoffMatches = matches.filter((match) => match.championshipId === currentB.id && match.stage === "playoff");
+    const confrontations = new Map<string, Match[]>();
+    playoffMatches.forEach((match) => {
+      const key = [match.home, match.away].sort((x, y) => x - y).join("-");
+      const list = confrontations.get(key) ?? [];
+      list.push(match);
+      confrontations.set(key, list);
+    });
 
-    const playoffWinners = playoffInput.split(",").map((name) => name.trim()).filter(Boolean).map((name) => {
-      const found = playoffCandidates.find((id) => clubName(id).toLowerCase() === name.toLowerCase());
-      return found;
-    }).filter((id): id is number => id !== undefined);
-
-    if (playoffWinners.length !== 2 || new Set(playoffWinners).size !== 2) {
-      window.alert("Informe exatamente 2 vencedores diferentes entre os 4 clubes dos playoffs.");
+    if (confrontations.size !== 2 || [...confrontations.values()].some((legs) => legs.length !== 2 || !legs.every((match) => match.played))) {
+      window.alert("Finalize os 4 jogos dos play-offs da Série B antes de gerar a próxima temporada.");
       return;
     }
 
-    const cInput = window.prompt(
-      "Série C: informe os 4 clubes que conquistaram o acesso à Série B na segunda fase.\n\nDigite os nomes separados por vírgula:"
-    );
-    if (!cInput) return;
-    const cPromoted = cInput.split(",").map((name) => name.trim()).filter(Boolean).map((name) => {
-      const found = cTable.find((row) => clubName(row.clubId).toLowerCase() === name.toLowerCase());
-      return found?.clubId;
-    }).filter((id): id is number => id !== undefined);
+    const playoffWinners: number[] = [];
+    for (const legs of confrontations.values()) {
+      const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
+      const totals = teams.map((clubId) => ({
+        clubId,
+        goals: legs.reduce((sum, match) =>
+          sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
+      }));
+      const penaltyWinner = legs.map((match) => match.penaltyWinner).find((id): id is number => id !== undefined);
+      if (teams.length !== 2) {
+        window.alert("Não foi possível identificar um dos confrontos dos play-offs da Série B.");
+        return;
+      }
+      if (totals[0].goals === totals[1].goals && !penaltyWinner) {
+        window.alert("Um dos play-offs da Série B terminou empatado no agregado e ainda não possui vencedor nos pênaltis.");
+        return;
+      }
+      playoffWinners.push(penaltyWinner ?? (totals[0].goals > totals[1].goals ? totals[0].clubId : totals[1].clubId));
+    }
 
-    if (cPromoted.length !== 4 || new Set(cPromoted).size !== 4) {
-      window.alert("Informe exatamente 4 clubes diferentes da Série C.");
+    // Série C: os 2 primeiros de cada grupo da segunda fase sobem para a Série B.
+    const secondPhase = matches.filter((match) => match.championshipId === currentC.id && match.stage === "secondPhase");
+    if (secondPhase.length === 0 || !secondPhase.every((match) => match.played)) {
+      window.alert("Finalize todos os jogos da segunda fase da Série C antes de gerar a próxima temporada.");
       return;
     }
 
-    const aInput = window.prompt(
-      "A regra de rebaixamento da Série A ainda não foi informada. Informe os 4 clubes rebaixados da Série A para a Série B.\n\nDigite os nomes separados por vírgula:"
-    );
-    if (!aInput) return;
-    const relegatedFromA = aInput.split(",").map((name) => name.trim()).filter(Boolean).map((name) => {
-      const found = aTable.find((row) => clubName(row.clubId).toLowerCase() === name.toLowerCase());
-      return found?.clubId;
-    }).filter((id): id is number => id !== undefined);
+    const groupTable = (group: "A" | "B") => {
+      const ids = [...new Set(secondPhase.filter((match) => match.group === group).flatMap((match) => [match.home, match.away]))];
+      return ids.map((clubId) => {
+        let points = 0, gd = 0, gf = 0;
+        secondPhase.filter((match) => match.group === group && (match.home === clubId || match.away === clubId)).forEach((match) => {
+          const home = match.home === clubId;
+          const scored = home ? match.homeScore! : match.awayScore!;
+          const conceded = home ? match.awayScore! : match.homeScore!;
+          gf += scored;
+          gd += scored - conceded;
+          if (scored > conceded) points += currentC.pointsWin;
+          else if (scored === conceded) points += currentC.pointsDraw;
+          else points += currentC.pointsLoss;
+        });
+        return { clubId, points, gd, gf };
+      }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
+    };
 
-    if (relegatedFromA.length !== 4 || new Set(relegatedFromA).size !== 4) {
-      window.alert("Informe exatamente 4 clubes diferentes da Série A.");
+    const cGroupA = groupTable("A");
+    const cGroupB = groupTable("B");
+    if (cGroupA.length !== 4 || cGroupB.length !== 4) {
+      window.alert("A segunda fase da Série C precisa ter 2 grupos completos de 4 clubes.");
       return;
     }
 
-    const cRelegationInput = window.prompt(
-      "A regra de rebaixamento da Série C ainda não foi informada. Informe os 4 clubes rebaixados da Série C para a divisão abaixo.\n\nDigite os nomes separados por vírgula:"
-    );
-    if (!cRelegationInput) return;
-    const relegatedFromC = cRelegationInput.split(",").map((name) => name.trim()).filter(Boolean).map((name) => {
-      const found = cTable.find((row) => clubName(row.clubId).toLowerCase() === name.toLowerCase());
-      return found?.clubId;
-    }).filter((id): id is number => id !== undefined);
+    const promotedToB = [cGroupA[0].clubId, cGroupA[1].clubId, cGroupB[0].clubId, cGroupB[1].clubId];
 
-    if (relegatedFromC.length !== 4 || new Set(relegatedFromC).size !== 4) {
-      window.alert("Informe exatamente 4 clubes diferentes da Série C.");
-      return;
-    }
-
+    // A regra de rebaixamento da Série C para uma divisão inferior ainda não foi definida.
+    // Portanto, nenhum clube é removido da Série C por rebaixamento neste momento.
+    const bRelegated = bTable.slice(-4).map((row) => row.clubId);
     const promotedToA = [...directToA, ...playoffWinners];
-    const promotedToB = cPromoted;
-    const relegatedFromB = bRelegated;
 
     const nextBase = Math.max(0, ...championships.map((item) => item.id));
     const nextChampionships: Championship[] = [
@@ -756,13 +781,12 @@ export default function App() {
 
     const promotedBToA = new Set(promotedToA);
     const relegatedAToB = new Set(relegatedFromA);
-    const relegatedBToC = new Set(relegatedFromB);
+    const relegatedBToC = new Set(bRelegated);
     const promotedCToB = new Set(promotedToB);
-    const relegatedCToLower = new Set(relegatedFromC);
 
     const nextAClubIds = currentAClubIds.filter((id) => !relegatedAToB.has(id)).concat([...promotedBToA]);
     const nextBClubIds = currentBClubIds.filter((id) => !relegatedBToC.has(id) && !promotedBToA.has(id)).concat([...relegatedAToB]).concat([...promotedCToB]);
-    const nextCClubIds = currentCClubIds.filter((id) => !promotedCToB.has(id) && !relegatedCToLower.has(id)).concat([...relegatedBToC]);
+    const nextCClubIds = currentCClubIds.filter((id) => !promotedCToB.has(id)).concat([...relegatedBToC]);
 
     if (nextAClubIds.length !== 20 || nextBClubIds.length !== 20 || nextCClubIds.length !== 20) {
       window.alert("A movimentação não fechou os números esperados. A temporada 2027 não foi criada.");
@@ -790,13 +814,12 @@ export default function App() {
     setRound(1);
 
     window.alert(
-      "Temporada 2027 criada. A temporada 2026 foi preservada.\n\n" +
-      "Série A: " + nextAClubIds.length + " clubes\n" +
-      "Série B: " + nextBClubIds.length + " clubes\n" +
-      "Série C: " + nextCClubIds.length + " clubes"
+      "Temporada 2027 criada automaticamente com base nos resultados de 2026.\n\n" +
+      "A → B: " + relegatedFromA.length + " rebaixados / " + promotedToA.length + " promovidos\n" +
+      "B → C: " + bRelegated.length + " rebaixados / " + promotedToB.length + " promovidos\n" +
+      "C → B: " + promotedToB.length + " promovidos"
     );
   }
-
   if (!championship) {
     return (
       <div className="app">
