@@ -635,15 +635,21 @@ export default function App() {
   }
 
   function createNextBrazilSeason() {
-    const currentA = championships.find((item) => item.country === "Brasil" && item.division === "Série A" && item.season === "2026");
-    const currentB = championships.find((item) => item.country === "Brasil" && item.division === "Série B" && item.season === "2026");
-    const currentC = championships.find((item) => item.country === "Brasil" && item.division === "Série C" && item.season === "2026");
+    const brazilSeasons = championships
+      .filter((item) => item.country === "Brasil" && ["Série A", "Série B", "Série C"].includes(item.division))
+      .map((item) => Number(item.season))
+      .filter((season) => Number.isFinite(season));
+    const currentSeason = Math.max(...brazilSeasons);
+    const nextSeason = currentSeason + 1;
+    const currentA = championships.find((item) => item.country === "Brasil" && item.division === "Série A" && Number(item.season) === currentSeason);
+    const currentB = championships.find((item) => item.country === "Brasil" && item.division === "Série B" && Number(item.season) === currentSeason);
+    const currentC = championships.find((item) => item.country === "Brasil" && item.division === "Série C" && Number(item.season) === currentSeason);
     if (!currentA || !currentB || !currentC) {
-      window.alert("As Séries A, B e C de 2026 precisam existir para gerar a próxima temporada.");
+      window.alert("As Séries A, B e C da temporada mais recente precisam existir para gerar a próxima temporada.");
       return;
     }
-    if (championships.some((item) => item.country === "Brasil" && item.season === "2027" && ["Série A", "Série B", "Série C"].includes(item.division))) {
-      window.alert("A temporada 2027 das Séries A, B ou C já foi criada.");
+    if (championships.some((item) => item.country === "Brasil" && Number(item.season) === nextSeason && ["Série A", "Série B", "Série C"].includes(item.division))) {
+      window.alert("A próxima temporada já foi criada.");
       return;
     }
 
@@ -765,9 +771,9 @@ export default function App() {
 
     const nextBase = Math.max(0, ...championships.map((item) => item.id));
     const nextChampionships: Championship[] = [
-      { ...currentA, id: nextBase + 1, season: "2027" },
-      { ...currentB, id: nextBase + 2, season: "2027" },
-      { ...currentC, id: nextBase + 3, season: "2027" }
+      { ...currentA, id: nextBase + 1, season: String(nextSeason) },
+      { ...currentB, id: nextBase + 2, season: String(nextSeason) },
+      { ...currentC, id: nextBase + 3, season: String(nextSeason) }
     ];
 
     const nextAId = nextBase + 1;
@@ -814,7 +820,7 @@ export default function App() {
     setRound(1);
 
     window.alert(
-      "Temporada 2027 criada automaticamente com base nos resultados de 2026.\n\n" +
+      "Temporada " + nextSeason + " criada automaticamente com base nos resultados de " + currentSeason + ".\n\n" +
       "A → B: " + relegatedFromA.length + " rebaixados / " + promotedToA.length + " promovidos\n" +
       "B → C: " + bRelegated.length + " rebaixados / " + promotedToB.length + " promovidos\n" +
       "C → B: " + promotedToB.length + " promovidos"
