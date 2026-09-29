@@ -294,3 +294,31 @@ td:nth-child(2) { color: #d8e0e9; }
 .movementDown { color:#e04f5f; }
 @media (max-width: 800px) { .recordGrid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width: 520px) { .recordGrid, .movementColumns { grid-template-columns:1fr; } }
+
+
+.movementHistoryPanel .panelHead { padding-bottom: 14px; }
+.movementYear { border-top: 1px solid #182535; }
+.movementYear:first-child { border-top: 0; }
+.movementYearHead { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:14px 12px; background:#0d1723; border-bottom:1px solid #182535; }
+.movementYearHead > div:first-child { display:flex; flex-direction:column; gap:4px; }
+.movementYearHead strong { color:#e5edf5; font-size:13px; }
+.movementTotals { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+.movementTotals span { padding:5px 7px; border:1px solid #243446; border-radius:5px; color:#8190a3; background:#0b131f; font-size:8px; font-weight:800; letter-spacing:.04em; }
+.movementColumns { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:10px; }
+.movementBlock { min-width:0; border:1px solid #1e2b3b; border-radius:7px; background:#0b131f; overflow:hidden; }
+.movementBlockTitle { display:flex; align-items:center; gap:7px; padding:9px 10px; border-bottom:1px solid #1e2b3b; font-size:8px; letter-spacing:.06em; }
+.movementBlockUp .movementBlockTitle { color:#35c76f; }
+.movementBlockDown .movementBlockTitle { color:#e04f5f; }
+.movementTeams { display:flex; flex-direction:column; }
+.movementTeam { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 10px; border-top:1px solid #182535; }
+.movementTeam:first-child { border-top:0; }
+.movementTeam span { color:#d9e2ec; font-size:10px; }
+.movementTeam b { font-size:7px; letter-spacing:.06em; }
+.movementBlockUp .movementTeam b { color:#35c76f; }
+.movementBlockDown .movementTeam b { color:#e04f5f; }
+.movementNone { display:block; padding:11px 10px; color:#718196; font-size:9px; }
+@media (max-width: 650px) {
+  .movementYearHead { align-items:flex-start; flex-direction:column; }
+  .movementTotals { justify-content:flex-start; }
+  .movementColumns { grid-template-columns:1fr; }
+}
