@@ -381,6 +381,19 @@ function App() {
   const clubName = (id: number) => clubs.find((c) => c.id === id)?.name ?? "Clube";
   const clubByName = (name: string) => clubs.find((c) => c.name === name);
 
+  const finalWinner = (finalMatches: Match[]) => {
+    if (finalMatches.length !== 2 || !finalMatches.every(m => m.played)) return null;
+    const teams = [...new Set(finalMatches.flatMap(m => [m.home, m.away]))];
+    if (teams.length !== 2) return null;
+    const goals = teams.map(t => ({
+      clubId: t,
+      goals: finalMatches.reduce((sum,m) => sum + (m.home === t ? (m.homeScore ?? 0) : m.away === t ? (m.awayScore ?? 0) : 0),0)
+    })).sort((a,b)=>b.goals-a.goals);
+    if (goals[0].goals !== goals[1].goals) return goals[0].clubId;
+    const second = [...finalMatches].sort((a,b)=>b.round-a.round)[0];
+    return second.penaltyWinner ?? null;
+  };
+
   const regularComplete = (champ: Championship) => {
     const games = matches.filter((m) => m.championshipId === champ.id && m.stage === "regular");
     return games.length > 0 && games.every((m) => m.played);
@@ -685,7 +698,7 @@ function App() {
           {(section==="Play-offs"||section==="Segunda fase"||section==="Final"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
             {section==="Play-offs" && <div style={{padding:14,marginBottom:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>Acesso à Série A</strong><div style={{marginTop:8,display:"grid",gap:6}}>{(() => {const ps=myMatches.filter(m=>m.stage==="playoff"); const groups=new Map<string,Match[]>(); ps.forEach(m=>{const k=[m.home,m.away].sort((a,b)=>a-b).join("-"); const l=groups.get(k)||[]; l.push(m); groups.set(k,l);}); return [...groups.values()].map((legs,i)=>{const teams=[...new Set(legs.flatMap(m=>[m.home,m.away]))]; const goals=teams.map(t=>({t,g:legs.reduce((sum,m)=>sum+(m.home===t?(m.homeScore??0):(m.away===t?(m.awayScore??0):0)),0)})).sort((a,b)=>b.g-a.g); const winner=legs.every(m=>m.played)&&goals.length===2&&goals[0].g!==goals[1].g?goals[0].t:legs.find(m=>m.penaltyWinner)?.penaltyWinner; return <div key={i}>{legs.every(m=>m.played)&&winner ? "✓ "+clubName(winner)+" garantiu o acesso" : "Confronto "+(i+1)+" em andamento"}</div>})})()}</div></div>}
             {section==="Segunda fase" && <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:14,marginBottom:14}}>{["A","B"].map(g=>{const rows=tableFor(championship,[...new Set(myMatches.filter(m=>m.stage==="secondPhase"&&m.group===g).flatMap(m=>[m.home,m.away]))],myMatches,"secondPhase",g); return <div style={{background:"#0b131f",border:"1px solid #1e2b3b",borderRadius:12,padding:14}}><h3>Grupo {g}</h3>{rows.map((r,i)=><div style={{display:"flex",justifyContent:"space-between",padding:7,borderTop:i?"1px solid #172331":"none"}}><span>{i+1}. {clubName(r.clubId)}</span><strong>{r.points}</strong></div>)}</div>})}</div>}
-            {section==="Final" && <div style={{padding:14,marginBottom:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>Final da Série C</strong><p>{displayedMatches.every(m=>m.played)&&displayedMatches.length===2 ? (() => {const w=knockoutWinner(displayedMatches,0); return ""})() : "Disputa entre os líderes dos grupos A e B em ida e volta."}</p></div>}
+            {section==="Final" && <div style={{padding:14,marginBottom:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>Final da Série C</strong><p>{(() => {const winner=finalWinner(displayedMatches); return winner ? "🏆 Campeão: "+clubName(winner) : "Disputa entre os líderes dos grupos A e B em ida e volta."})()}</p></div>}
             <div style={{marginBottom:14}}>{button("⚡ Gerar resultados desta fase",()=>generateResults("phase"),true)} {button("→ Avançar automaticamente",prepareNextPhase)}</div>
             <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=><div key={m.id} style={{padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f",display:"flex",justifyContent:"space-between",gap:10}}><span>{clubName(m.home)}</span><strong>{m.played?m.homeScore+" × "+m.awayScore:"— × —"}</strong><span>{clubName(m.away)}</span></div>)}</div>
           </>)}
