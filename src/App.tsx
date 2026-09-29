@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
+type Division = "Série A" | "Série B" | "Série C" | "Série D";
+type Stage = "regular" | "playoff" | "secondPhase" | "knockout" | "final";
+
 type Championship = {
   id: number;
   name: string;
@@ -7,7 +10,7 @@ type Championship = {
   season: string;
   sport: string;
   category: string;
-  division: string;
+  division: Division;
   format: string;
   regulation: string;
   promotion: string;
@@ -18,12 +21,10 @@ type Championship = {
   pointsWin: number;
   pointsDraw: number;
   pointsLoss: number;
-  tieBreakers: string[];
-  startDate: string;
-  endDate: string;
 };
 
 type Club = { id: number; name: string; championshipId: number };
+
 type Match = {
   id: number;
   championshipId: number;
@@ -33,25 +34,75 @@ type Match = {
   homeScore: number | null;
   awayScore: number | null;
   played: boolean;
-  stage?: "regular" | "playoff" | "secondPhase" | "final" | "knockout";
+  stage: Stage;
   group?: string;
-  penaltyWinner?: number;
   knockoutRound?: number;
+  penaltyWinner?: number;
 };
 
-const seedChampionships: Championship[] = [];
-const seedClubs: Club[] = [];
-const seedMatches: Match[] = [];
+type TableRow = {
+  clubId: number;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  gf: number;
+  ga: number;
+  gd: number;
+  points: number;
+};
 
-const COUNTRIES = [
-  { name: "Brasil", flag: "🇧🇷" },
+const DATA_VERSION = "clean-rebuild-cd-2026-09-29-v1";
+const LS = {
+  version: "sports-data-version",
+  championships: "sports-championships",
+  clubs: "sports-clubs",
+  matches: "sports-matches",
+};
+
+const A_CLUBS = [
+  "Athletico Paranaense","Atlético Mineiro","Bahia","Botafogo","Chapecoense",
+  "Corinthians","Coritiba","Cruzeiro","Flamengo","Fluminense","Grêmio",
+  "Internacional","Mirassol","Palmeiras","Red Bull Bragantino","Remo",
+  "Santos","São Paulo","Vasco da Gama","Vitória",
 ];
 
-const SERIE_D_GROUPS: Record<string, string[]> = {"A":["Noroeste","RIo Branco - ES","Sergipe","São Luiz","Real Noroeste","Humaitá"],"B":["Luverdense","Sampaio Corrêa - RJ","São Joseense","Inhumas","ABC","Galvez"],"C":["Goiatuba","XV de Piracicaba","Trem","IAPE","Fluminense - PI","Ceilândia"],"D":["Brasiliense","Monte Roraima","Atlético Cearense","Águia de Marabá","FC Cascavel","Joinville"],"E":["Manaus","São José - RS","GAS","Marcílio Dias","Guaporé","Vitória - ES"],"F":["União Rondonópolis","Maracanã - CE","Lagarto","Mixto","Aparecidense","Sampaio Corrêa"],"G":["Tombense","Imperatriz","Nova Iguaçu","Azuriz","Ferroviário","São Raimundo - RR"],"H":["Serra Branca","Pouso Alegre","Tuna Luso","Gama","Blumenau","Laguna"],"I":["Brasil de Pelotas","América de Natal","Central","Maguary","Oratório","Decisão Goiana"],"J":["Tocantinópolis","Moto Club","Uberlândia","Operário - MS","Santa Catarina","Manauara"],"K":["Retrô","Independência","Água Santa","Ivinhema","Tirol","Parnahyba"],"L":["Porto - BA","Portuguesa","Guarany de Bagé","CRAC","Operário VG","Gazin Porto Velho"],"M":["Primavera - MT","Jacuipense","Velo Club","ASA","CSE","CSA"],"N":["America","Portuguesa - RJ","Maricá","Altos","Nacional - AM","ABECAT"],"O":["Araguaína","Betim Futebol","Sousa","Madureira","Iguatu","Juazeirense"],"P":["Capital - DF","Atlético de Alagoinhas","Cianorte","Piauí","Democrata GV","Treze"]};
+const B_CLUBS = [
+  "América Mineiro","Athletic","Atlético Goianiense","Avaí","Botafogo - SP",
+  "Ceará","CRB","Criciúma","Cuiabá","Fortaleza","Goiás","Juventude",
+  "Londrina","Náutico","Novorizontino","Operário - PR","Ponte Preta",
+  "São Bernardo","Sport","Vila Nova",
+];
 
-const SERIE_D_CLUB_NAMES = [...new Set(Object.values(SERIE_D_GROUPS).flat())];
+const C_CLUBS = [
+  "Amazonas","Anápolis","Barra - SC","Botafogo - PB","Brusque","Caxias",
+  "Confiança","Ferroviária","Figueirense","Floresta","Guarani","Inter de Limeira",
+  "Itabaiana","Ituano","Maranhão","Maringá","Paysandu","Santa Cruz",
+  "Volta Redonda","Ypiranga de Erechim",
+];
 
-function shuffle<T>(items: T[]): T[] {
+const D_CLUBS = [
+  "Manauara","Nacional - AM","São Raimundo - RR","Monte Roraima","Manaus","GAS",
+  "Guaporé","Gazin Porto Velho","Araguaína","Independência","Galvez","Humaitá",
+  "Gama","Luverdense","Brasiliense","Aparecidense","Primavera - MT","Inhumas",
+  "Capital - DF","Goiatuba","Ceilândia","Mixto","União Rondonópolis","Operário VG",
+  "Trem","Águia de Marabá","Imperatriz","Tuna Luso","Tocantinópolis","Oratório",
+  "Iguatu","Maracanã - CE","Parnahyba","Sampaio Corrêa","Moto Club","IAPE",
+  "Ferroviário","Piauí","Fluminense - PI","Altos","Tirol","Atlético Cearense",
+  "ABC","América de Natal","Maguary","Central","Sousa","Laguna","Treze","Sergipe",
+  "Serra Branca","Lagarto","Retrô","Decisão Goiana","CSA","Juazeirense","ASA",
+  "Jacuipense","CSE","Atlético de Alagoinhas","Uberlândia","Betim Futebol","CRAC",
+  "Ivinhema","ABECAT","Operário - MS","Democrata GV","Tombense","Vitória - ES",
+  "RIo Branco - ES","Porto - BA","Real Noroeste","Portuguesa","Água Santa",
+  "Portuguesa - RJ","America","Madureira","Pouso Alegre","XV de Piracicaba",
+  "Noroeste","Velo Club","Sampaio Corrêa - RJ","Nova Iguaçu","Maricá",
+  "Santa Catarina","Cianorte","FC Cascavel","São Luiz","Joinville","Guarany de Bagé",
+  "Blumenau","Marcílio Dias","São Joseense","São José - RS","Brasil de Pelotas","Azuriz",
+];
+
+const D_GROUPS = "ABCDEFGHIJKLMNOP".split("");
+
+function shuffle<T>(items: T[]) {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -60,1967 +111,579 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-function getSerieDGroups(season: string, clubNames: string[] = SERIE_D_CLUB_NAMES): Record<string, string[]> {
-  const key = `sports-serie-d-groups-${season}-v2`;
-  const expected = new Set(clubNames);
-  try {
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      const parsed = JSON.parse(stored) as Record<string, string[]>;
-      const names = Object.values(parsed).flat();
-      if (
-        names.length === clubNames.length &&
-        names.every((name) => expected.has(name)) &&
-        expected.size === names.length
-      ) {
-        return parsed;
-      }
-    }
-  } catch {}
-  const shuffled = shuffle(clubNames);
-  const groups: Record<string, string[]> = {};
-  Object.keys(SERIE_D_GROUPS).forEach((letter, index) => {
-    groups[letter] = shuffled.slice(index * 6, index * 6 + 6);
-  });
-  localStorage.setItem(key, JSON.stringify(groups));
-  return groups;
+function nextId<T extends { id: number }>(items: T[]) {
+  return Math.max(0, ...items.map((x) => x.id)) + 1;
 }
 
-const DATA_VERSION = "6";
-
-function load<T>(key: string, fallback: T): T {
-  try {
-    if (localStorage.getItem("sports-data-version") !== DATA_VERSION) {
-      localStorage.removeItem("sports-championships");
-      localStorage.removeItem("sports-clubs");
-      localStorage.removeItem("sports-matches");
-      localStorage.setItem("sports-data-version", DATA_VERSION);
-    }
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) as T : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function resetSimulation() {
-  const confirmed = window.confirm(
-    "Zerar todas as simulações de teste?\n\nIsso apagará campeonatos, clubes, resultados e fases criadas durante os testes e restaurará o estado inicial do sistema."
-  );
-  if (!confirmed) return;
-
-  [
-    "sports-championships",
-    "sports-clubs",
-    "sports-matches",
-    "sports-data-version",
-    "sports-brazil-regulations-v1",
-    "sports-serie-a-calendar-v1",
-    "sports-simulation-reset-v1",
-  ].forEach((key) => localStorage.removeItem(key));
-
-  window.location.reload();
-}
-
-function save(key: string, value: unknown) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-function getKnockoutWinners(matches: Match[], knockoutRound: number): number[] {
-  const phase = matches.filter((match) => match.stage === "knockout" && match.knockoutRound === knockoutRound);
-  if (phase.length === 0 || !phase.every((match) => match.played)) return [];
-
-  const confrontations = new Map<string, Match[]>();
-  phase.forEach((match) => {
-    const key = [match.home, match.away].sort((a, b) => a - b).join("-");
-    const list = confrontations.get(key) ?? [];
-    list.push(match);
-    confrontations.set(key, list);
-  });
-
-  const winners: number[] = [];
-  for (const legs of confrontations.values()) {
-    if (legs.length !== 2) return [];
-    const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
-    if (teams.length !== 2) return [];
-
-    const totals = teams.map((clubId) => ({
-      clubId,
-      goals: legs.reduce((sum, match) =>
-        sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
-    })).sort((a, b) => b.goals - a.goals);
-
-    if (totals[0].goals !== totals[1].goals) {
-      winners.push(totals[0].clubId);
-      continue;
-    }
-
-    const secondLeg = [...legs].sort((a, b) => b.round - a.round)[0];
-    if (!secondLeg.penaltyWinner) return [];
-    winners.push(secondLeg.penaltyWinner);
-  }
-
-  return winners;
-}
-
-function getKnockoutTeams(matches: Match[], knockoutRound: number): number[] {
-  return [...new Set(
-    matches
-      .filter((match) => match.stage === "knockout" && match.knockoutRound === knockoutRound)
-      .flatMap((match) => [match.home, match.away])
-  )];
-}
-
-function generateRoundRobin(teamIds: number[], legs: number, championshipId: number, startId: number): Match[] {
-  if (teamIds.length < 2 || legs < 1) return [];
-
+function roundRobin(teamIds: number[], championshipId: number, startId: number, legs = 2, roundOffset = 0, group?: string): Match[] {
   const teams = [...teamIds];
-  if (teams.length % 2 !== 0) teams.push(-1);
-
-  const roundsPerLeg = teams.length - 1;
-  const matchesPerRound = teams.length / 2;
-  const generated: Match[] = [];
+  if (teams.length % 2) teams.push(-1);
+  const n = teams.length;
+  const rounds = n - 1;
+  const half = n / 2;
+  const result: Match[] = [];
   let id = startId;
 
-  for (let leg = 0; leg < legs; leg++) {
-    let rotation = [...teams];
-
-    for (let roundIndex = 0; roundIndex < roundsPerLeg; roundIndex++) {
-      const round = leg * roundsPerLeg + roundIndex + 1;
-
-      for (let i = 0; i < matchesPerRound; i++) {
-        const first = rotation[i];
-        const second = rotation[rotation.length - 1 - i];
-        if (first === -1 || second === -1) continue;
-
-        const home = leg % 2 === 0 ? first : second;
-        const away = leg % 2 === 0 ? second : first;
-
-        generated.push({
+  for (let r = 0; r < rounds; r++) {
+    for (let i = 0; i < half; i++) {
+      const a = teams[i];
+      const b = teams[n - 1 - i];
+      if (a !== -1 && b !== -1) {
+        const home = r % 2 === 0 ? a : b;
+        const away = r % 2 === 0 ? b : a;
+        result.push({
           id: id++,
           championshipId,
-          round,
+          round: roundOffset + r + 1,
           home,
           away,
           homeScore: null,
           awayScore: null,
           played: false,
           stage: "regular",
+          ...(group ? { group } : {}),
         });
       }
-
-      const fixed = rotation[0];
-      const rest = rotation.slice(1);
-      rest.unshift(rest.pop()!);
-      rotation = [fixed, ...rest];
     }
+    const fixed = teams[0];
+    const rest = teams.slice(1);
+    rest.unshift(rest.pop()!);
+    teams.splice(0, teams.length, fixed, ...rest);
   }
 
-  return generated;
+  if (legs === 2) {
+    const firstLeg = result.map((m) => ({
+      ...m,
+      id: id++,
+      round: m.round + rounds,
+      home: m.away,
+      away: m.home,
+    }));
+    result.push(...firstLeg);
+  }
+  return result;
 }
 
-export default function App() {
-  const [championships, setChampionships] = useState(() => load("sports-championships", seedChampionships));
-  const [clubs, setClubs] = useState(() => load("sports-clubs", seedClubs));
-  const [matches, setMatches] = useState(() => load("sports-matches", seedMatches));
-  const [selectedId, setSelectedId] = useState(0);
+function makeChampionship(
+  id: number,
+  division: Division,
+  season: string,
+  name: string,
+  format: string,
+  regulation: string,
+  promotion: string,
+  relegation: string,
+  teamCount: number,
+  rounds: number,
+  legs: number
+): Championship {
+  return {
+    id, name, country: "Brasil", season, sport: "Futebol", category: "Profissional",
+    division, format, regulation, promotion, relegation, teamCount, rounds, legs,
+    pointsWin: 3, pointsDraw: 1, pointsLoss: 0,
+  };
+}
+
+function tableFor(
+  championship: Championship,
+  clubIds: number[],
+  matches: Match[],
+  stage: Stage = "regular",
+  group?: string
+): TableRow[] {
+  const rows = clubIds.map((clubId) => ({
+    clubId, played: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, gd: 0, points: 0,
+  }));
+
+  const byId = new Map(rows.map((r) => [r.clubId, r]));
+  matches
+    .filter((m) =>
+      m.championshipId === championship.id &&
+      m.played &&
+      m.stage === stage &&
+      (group === undefined || m.group === group)
+    )
+    .forEach((m) => {
+      const home = byId.get(m.home);
+      const away = byId.get(m.away);
+      if (!home || !away) return;
+      const hs = m.homeScore ?? 0;
+      const as = m.awayScore ?? 0;
+      home.played++; away.played++;
+      home.gf += hs; home.ga += as; home.gd += hs - as;
+      away.gf += as; away.ga += hs; away.gd += as - hs;
+      if (hs > as) { home.wins++; away.losses++; home.points += championship.pointsWin; }
+      else if (hs < as) { away.wins++; home.losses++; away.points += championship.pointsWin; }
+      else { home.draws++; away.draws++; home.points += championship.pointsDraw; away.points += championship.pointsDraw; }
+    });
+
+  return rows.sort((a, b) =>
+    b.points - a.points || b.gd - a.gd || b.gf - a.gf || b.wins - a.wins || a.clubId - b.clubId
+  );
+}
+
+function score() {
+  const r = Math.random();
+  if (r < 0.55) return Math.floor(Math.random() * 4);
+  if (r < 0.9) return Math.floor(Math.random() * 3);
+  return Math.floor(Math.random() * 6);
+}
+
+function createDGroups(clubNames: string[]) {
+  const shuffled = shuffle(clubNames);
+  const groups: Record<string, string[]> = {};
+  D_GROUPS.forEach((letter, index) => {
+    groups[letter] = shuffled.slice(index * 6, index * 6 + 6);
+  });
+  return groups;
+}
+
+function buildDMatches(championshipId: number, clubs: Club[], startId: number): Match[] {
+  const groups = createDGroups(clubs.map((c) => c.name));
+  const result: Match[] = [];
+  let id = startId;
+  for (const group of D_GROUPS) {
+    const ids = groups[group]
+      .map((name) => clubs.find((c) => c.name === name)?.id)
+      .filter((x): x is number => x !== undefined);
+    const generated = roundRobin(ids, championshipId, id, 2, 0, group);
+    result.push(...generated);
+    id = nextId(result);
+  }
+  return result;
+}
+
+function knockoutWinner(matches: Match[], phase: number) {
+  const phaseMatches = matches.filter((m) => m.stage === "knockout" && m.knockoutRound === phase);
+  if (!phaseMatches.length || !phaseMatches.every((m) => m.played)) return [];
+  const map = new Map<string, Match[]>();
+  phaseMatches.forEach((m) => {
+    const key = [m.home, m.away].sort((a, b) => a - b).join("-");
+    const list = map.get(key) ?? [];
+    list.push(m);
+    map.set(key, list);
+  });
+  const winners: number[] = [];
+  for (const legs of map.values()) {
+    if (legs.length !== 2) return [];
+    const teams = [...new Set(legs.flatMap((m) => [m.home, m.away]))];
+    if (teams.length !== 2) return [];
+    const totals = teams.map((clubId) => ({
+      clubId,
+      goals: legs.reduce((sum, m) =>
+        sum + (m.home === clubId ? (m.homeScore ?? 0) : m.away === clubId ? (m.awayScore ?? 0) : 0), 0),
+    })).sort((a, b) => b.goals - a.goals || a.clubId - b.clubId);
+    if (totals[0].goals > totals[1].goals) winners.push(totals[0].clubId);
+    else {
+      const second = [...legs].sort((a, b) => b.round - a.round)[0];
+      winners.push(second.penaltyWinner ?? second.home);
+    }
+  }
+  return winners;
+}
+
+function App() {
+  const [championships, setChampionships] = useState<Championship[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [section, setSection] = useState("Visão geral");
-  const [selectedClubName, setSelectedClubName] = useState<string | null>(null);
-  const [round, setRound] = useState(1);
-  const [modal, setModal] = useState<"club" | "championship" | null>(null);
-  const [selectedCountry, setSelectedCountry] = useState("Brasil");
+  const [selectedClub, setSelectedClub] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newResult, setNewResult] = useState<Record<number, [string, string]>>({});
+  const [newChamp, setNewChamp] = useState({
+    name: "", season: "2026", division: "Série A" as Division, teams: 20,
+  });
 
-  // Reset único da simulação atual: mantém campeonatos, clubes e calendários regulares,
-  // mas remove resultados e fases eliminatórias geradas durante os testes.
-  useEffect(() => {
-    if (localStorage.getItem("sports-simulation-reset-v1") === "1") return;
-
-    setMatches((current) =>
-      current
-        .filter((match) => !match.stage || match.stage === "regular")
-        .map((match) => ({
-          ...match,
-          homeScore: null,
-          awayScore: null,
-          played: false,
-          stage: "regular" as const,
-          group: match.group ?? (() => {
-            const champ = championships.find((item) => item.id === match.championshipId);
-            if (!champ || champ.division !== "Série D" || champ.season !== "2026") return undefined;
-            const home = clubs.find((club) => club.id === match.home)?.name;
-            const away = clubs.find((club) => club.id === match.away)?.name;
-            return Object.entries(SERIE_D_GROUPS).find(([, names]) => home && away && names.includes(home) && names.includes(away))?.[0];
-          })(),
-        }))
-    );
-    localStorage.setItem("sports-simulation-reset-v1", "1");
-  }, []);
-
-  // Reconstrói a Série D 2026 uma única vez para eliminar dados das versões antigas e começar com grupos sorteados.
-  useEffect(() => {
-    const flag = "sports-serie-d-rebuild-v2";
-    if (localStorage.getItem(flag) === "1") return;
-    const hasD = championships.some((champ) => champ.country === "Brasil" && champ.division === "Série D" && champ.season === "2026");
-    localStorage.setItem(flag, "1");
-    if (!hasD) return;
-    const dIds = new Set(championships.filter((champ) => champ.country === "Brasil" && champ.division === "Série D").map((champ) => champ.id));
-    setMatches((current) => current.filter((match) => !dIds.has(match.championshipId)));
-    setClubs((current) => current.filter((club) => !dIds.has(club.championshipId)));
-    setChampionships((current) => current.filter((champ) => !dIds.has(champ.id)));
-    localStorage.removeItem("sports-serie-d-groups-2026-v2");
-  }, []);
-  
-  // Repara grupos da Série D 2026 caso uma versão anterior do reset tenha apagado o campo group.
-  useEffect(() => {
-    if (localStorage.getItem("sports-serie-d-groups-repair-v1") === "1") return;
-    const seriesD = championships.find((champ) => champ.country === "Brasil" && champ.division === "Série D" && champ.season === "2026");
-    if (!seriesD) return;
-
-    const groupByClubId = new Map<number, string>();
-    Object.entries(SERIE_D_GROUPS).forEach(([group, names]) => {
-      names.forEach((name) => {
-        const club = clubs.find((item) => item.championshipId === seriesD.id && item.name === name);
-        if (club) groupByClubId.set(club.id, group);
-      });
-    });
-
-    let changed = false;
-    const repaired = matches.map((match) => {
-      if (match.championshipId !== seriesD.id || match.stage === "knockout" || match.group) return match;
-      const group = groupByClubId.get(match.home);
-      const awayGroup = groupByClubId.get(match.away);
-      if (!group || group !== awayGroup) return match;
-      changed = true;
-      return { ...match, group };
-    });
-
-    if (changed) setMatches(repaired);
-    localStorage.setItem("sports-serie-d-groups-repair-v1", "1");
-  }, [clubs, championships, matches]);
-
-  useEffect(() => {
-    if (championships.some((item) => item.country === "Brasil")) return;
-    const base = Math.max(0, ...championships.map((item) => item.id));
-    const brazil: Championship[] = [
-      { id: base + 1, name: "Campeonato Brasileiro Série A", country: "Brasil", season: "2026", sport: "Futebol", category: "Profissional", division: "Série A", format: "Pontos corridos", regulation: "20 clubes; dois turnos; todos contra todos em cada turno; 38 rodadas; segundo turno com mando invertido; campeão definido pela maior pontuação após 38 rodadas.", promotion: "Nenhum acesso: divisão máxima.", relegation: "Regra de rebaixamento ainda não informada neste regulamento enviado.", teamCount: 20, legs: 2, rounds: 38, pointsWin: 3, pointsDraw: 1, pointsLoss: 0, tieBreakers: ["Pontos", "Saldo de gols", "Gols pró"], startDate: "", endDate: "" },
-      { id: base + 2, name: "Campeonato Brasileiro Série B", country: "Brasil", season: "2026", sport: "Futebol", category: "Profissional", division: "Série B", format: "Pontos corridos + playoff", regulation: "20 clubes; 38 rodadas em ida e volta. Após a fase regular, 1º e 2º sobem diretamente. 3º x 6º e 4º x 5º fazem playoffs de ida e volta pelas duas vagas restantes.", promotion: "1º e 2º sobem diretamente para a Série A; vencedores dos playoffs entre 3º-6º e 4º-5º também sobem.", relegation: "Os quatro últimos são rebaixados para a Série C.", teamCount: 20, legs: 2, rounds: 38, pointsWin: 3, pointsDraw: 1, pointsLoss: 0, tieBreakers: ["Pontos", "Saldo de gols", "Gols pró"], startDate: "", endDate: "" },
-      { id: base + 3, name: "Campeonato Brasileiro Série C", country: "Brasil", season: "2026", sport: "Futebol", category: "Profissional", division: "Série C", format: "Pontos corridos + grupos + final", regulation: "20 clubes em turno único na primeira fase; os 8 melhores avançam. Segunda fase em dois grupos de 4, definidos pelas posições 1-4-5-8 e 2-3-6-7. Cada grupo joga em turno e returno por 6 rodadas. Os dois melhores de cada grupo sobem; os líderes fazem a final em ida e volta.", promotion: "Os dois primeiros de cada grupo da segunda fase sobem para a Série B; os líderes dos grupos disputam a final.", relegation: "Os quatro últimos colocados são rebaixados para a Série D.", teamCount: 20, legs: 1, rounds: 19, pointsWin: 3, pointsDraw: 1, pointsLoss: 0, tieBreakers: ["Pontos", "Saldo de gols", "Gols pró"], startDate: "", endDate: "" }
-    ];
-    setChampionships(brazil);
-    localStorage.setItem("sports-brazil-regulations-v1", "1");
-  }, []);
-
-  useEffect(() => {
-    if (clubs.length > 0) return;
-    const seriesA = championships.find((item) => item.country === "Brasil" && item.division === "Série A");
-    const seriesB = championships.find((item) => item.country === "Brasil" && item.division === "Série B");
-    const seriesC = championships.find((item) => item.country === "Brasil" && item.division === "Série C");
-    if (!seriesA || !seriesB || !seriesC) return;
-
-    const teamsByDivision = [
-      { championshipId: seriesA.id, names: ["Athletico Paranaense","Atlético Mineiro","Bahia","Botafogo","Chapecoense","Corinthians","Coritiba","Cruzeiro","Flamengo","Fluminense","Grêmio","Internacional","Mirassol","Palmeiras","Red Bull Bragantino","Remo","Santos","São Paulo","Vasco da Gama","Vitória"] },
-      { championshipId: seriesB.id, names: ["América Mineiro","Athletic","Atlético Goianiense","Avaí","Botafogo - SP","Ceará","CRB","Criciúma","Cuiabá","Fortaleza","Goiás","Juventude","Londrina","Náutico","Novorizontino","Operário - PR","Ponte Preta","São Bernardo","Sport","Vila Nova"] },
-      { championshipId: seriesC.id, names: ["Amazonas","Anápolis","Barra - SC","Botafogo - PB","Brusque","Caxias","Confiança","Ferroviária","Figueirense","Floresta","Guarani","Inter de Limeira","Itabaiana","Ituano","Maranhão","Maringá","Paysandu","Santa Cruz","Volta Redonda","Ypiranga de Erechim"] }
+  const seed = () => {
+    let cid = 1;
+    let clubId = 1;
+    const cs: Championship[] = [
+      makeChampionship(1,"Série A","2026","Campeonato Brasileiro Série A","Pontos corridos",
+        "20 clubes; dois turnos; todos contra todos; 38 rodadas; campeão pela maior pontuação.",
+        "Nenhum acesso: divisão máxima.","Os quatro últimos são rebaixados para a Série B.",20,38,2),
+      makeChampionship(2,"Série B","2026","Campeonato Brasileiro Série B","Pontos corridos + playoff",
+        "20 clubes; 38 rodadas em ida e volta. 1º e 2º sobem diretamente. 3º x 6º e 4º x 5º fazem playoffs de ida e volta pelas duas vagas restantes.",
+        "1º e 2º sobem diretamente; vencedores dos playoffs entre 3º-6º e 4º-5º também sobem.",
+        "Os quatro últimos são rebaixados para a Série C.",20,38,2),
+      makeChampionship(3,"Série C","2026","Campeonato Brasileiro Série C","Pontos corridos + grupos + final",
+        "20 clubes em turno único; os 8 melhores avançam. Segunda fase em dois grupos de 4, com turno e returno. Os dois melhores de cada grupo sobem; líderes fazem a final.",
+        "Os dois primeiros de cada grupo da segunda fase sobem para a Série B.",
+        "Os quatro últimos da primeira fase são rebaixados para a Série D.",20,19,1),
+      makeChampionship(4,"Série D","2026","Campeonato Brasileiro Série D","Grupos + mata-mata",
+        "96 equipes; 16 grupos de 6; distribuição geográfica livre; ida e volta; 10 rodadas. Os 4 melhores de cada grupo avançam ao mata-mata. Todas as fases eliminatórias são em ida e volta.",
+        "Os quatro semifinalistas, ou seja, os quatro vencedores das quartas de final, garantem acesso à Série C.",
+        "Regra de rebaixamento não informada no regulamento enviado.",96,10,2),
     ];
 
-    let id = 1;
-    const initialClubs: Club[] = teamsByDivision.flatMap((group) =>
-      group.names.map((name) => ({ id: id++, name, championshipId: group.championshipId }))
-    );
-    setClubs(initialClubs);
-  }, [championships, clubs.length]);
+    const allClubs: Club[] = [];
+    const lists: [Division,string[]][] = [
+      ["Série A",A_CLUBS],["Série B",B_CLUBS],["Série C",C_CLUBS],["Série D",D_CLUBS],
+    ];
+    for (const [division,names] of lists) {
+      const champ = cs.find((x) => x.division === division)!;
+      for (const name of names) allClubs.push({ id: clubId++, name, championshipId: champ.id });
+    }
 
+    const ms: Match[] = [];
+    for (const champ of cs.slice(0,3)) {
+      const teamIds = allClubs.filter((c) => c.championshipId === champ.id).map((c) => c.id);
+      const generated = roundRobin(teamIds, champ.id, cid, champ.legs);
+      ms.push(...generated);
+      cid = nextId(ms);
+    }
+    const d = cs[3];
+    const dClubs = allClubs.filter((c) => c.championshipId === d.id);
+    ms.push(...buildDMatches(d.id, dClubs, nextId(ms)));
 
-  useEffect(() => {
-    const seriesA = championships.find((item) => item.country === "Brasil" && item.division === "Série A");
-    const seriesB = championships.find((item) => item.country === "Brasil" && item.division === "Série B");
-    const seriesC = championships.find((item) => item.country === "Brasil" && item.division === "Série C");
-    const seriesD = championships.find((item) => item.country === "Brasil" && item.division === "Série D");
-    const baseReady = seriesA && seriesB && seriesC &&
-      clubs.filter((club) => club.championshipId === seriesA.id).length === 20 &&
-      clubs.filter((club) => club.championshipId === seriesB.id).length === 20 &&
-      clubs.filter((club) => club.championshipId === seriesC.id).length === 20;
-    if (!baseReady || seriesD || localStorage.getItem("sports-serie-d-rebuild-v2") !== "1") return;
-    const base = Math.max(0, ...championships.map((item) => item.id));
-    const d: Championship = {
-      id: base + 1, name: "Campeonato Brasileiro Série D", country: "Brasil", season: "2026",
-      sport: "Futebol", category: "Profissional", division: "Série D", format: "Grupos + mata-mata",
-      regulation: "96 equipes divididas em 16 grupos de 6 clubes. Primeira fase em turno e returno, totalizando 10 rodadas. Os quatro primeiros de cada grupo avançam. Da segunda fase em diante, todas as fases são disputadas em mata-mata de ida e volta. Os quatro semifinalistas garantem acesso à Série C.",
-      promotion: "Os quatro semifinalistas garantem acesso à Série C.",
-      relegation: "Regra de rebaixamento não informada no regulamento enviado.",
-      teamCount: 96, legs: 2, rounds: 10, pointsWin: 3, pointsDraw: 1, pointsLoss: 0,
-      tieBreakers: ["Pontos", "Vitórias", "Saldo de gols", "Gols pró"], startDate: "", endDate: ""
-    };
-    let clubId = nextId(clubs);
-    const dClubs: Club[] = Object.values(SERIE_D_GROUPS).flatMap((names) =>
-      names.map((name) => ({ id: clubId++, name, championshipId: d.id }))
-    );
-    setChampionships([...championships, d]);
-    setClubs([...clubs, ...dClubs]);
-  }, [championships, clubs]);
+    localStorage.setItem(LS.version, DATA_VERSION);
+    localStorage.setItem(LS.championships, JSON.stringify(cs));
+    localStorage.setItem(LS.clubs, JSON.stringify(allClubs));
+    localStorage.setItem(LS.matches, JSON.stringify(ms));
+    setChampionships(cs); setClubs(allClubs); setMatches(ms);
+    setSelectedId(1); setSection("Visão geral"); setSelectedClub(null);
+  };
 
   useEffect(() => {
-    const completed = championships.filter((champ) => {
-      const teamCount = clubs.filter((club) => club.championshipId === champ.id).length;
-      return teamCount >= champ.teamCount && champ.teamCount >= 2 && champ.rounds > 0 && champ.legs >= 1 &&
-        (champ.format === "Pontos corridos" || champ.format === "Pontos corridos + playoff" || champ.format === "Pontos corridos + grupos + final");
-    });
-
-    if (!completed.length) return;
-
-    let changed = false;
-    let nextMatches = [...matches];
-
-    completed.forEach((champ) => {
-      const teamIds = clubs.filter((club) => club.championshipId === champ.id).map((club) => club.id);
-      const existing = nextMatches.filter((match) => match.championshipId === champ.id);
-      if (existing.length > 0 || teamIds.length !== champ.teamCount) return;
-
-      const generated = generateRoundRobin(teamIds, champ.legs, champ.id, nextId(nextMatches));
-      if (generated.length > 0) {
-        nextMatches = [...nextMatches, ...generated];
-        changed = true;
-      }
-    });
-
-    if (changed) setMatches(nextMatches);
-  }, [clubs, championships]);
-
-
-  useEffect(() => {
-    const serieDChampionships = championships.filter(
-      (champ) => champ.country === "Brasil" && champ.division === "Série D"
-    );
-    if (!serieDChampionships.length) return;
-
-    let nextMatches = [...matches];
-    let changed = false;
-
-    serieDChampionships.forEach((seriesD) => {
-      if (nextMatches.some((match) => match.championshipId === seriesD.id)) return;
-
-      const dClubs = clubs
-        .filter((club) => club.championshipId === seriesD.id)
-        .map((club) => club.name);
-
-      if (dClubs.length !== 96 || new Set(dClubs).size !== 96) return;
-
-      const created: Match[] = [];
-      let id = nextId(nextMatches);
-      const groups = getSerieDGroups(seriesD.season, dClubs);
-
-      Object.entries(groups).forEach(([group, names]) => {
-        const ids = names
-          .map((name) => clubs.find((club) => club.championshipId === seriesD.id && club.name === name)?.id)
-          .filter((value): value is number => value !== undefined);
-
-        if (ids.length !== 6) return;
-
-        const generated = generateRoundRobin(ids, 2, seriesD.id, id);
-        generated.forEach((match) => created.push({ ...match, group }));
-        id = nextId([...nextMatches, ...created]);
-      });
-
-      if (created.length === 480) {
-        nextMatches = [...nextMatches, ...created];
-        changed = true;
-      }
-    });
-
-    if (changed) setMatches(nextMatches);
-  }, [clubs, championships, matches]);
-
-  useEffect(() => {
-    const seriesA = championships.find((champ) =>
-      champ.country === "Brasil" && champ.division === "Série A" && champ.season === "2026"
-    );
-    if (!seriesA || localStorage.getItem("sports-serie-a-calendar-v1") === "1") return;
-
-    const teamIds = clubs
-      .filter((club) => club.championshipId === seriesA.id)
-      .map((club) => club.id);
-
-    if (teamIds.length !== seriesA.teamCount) return;
-
-    const current = matches.filter((match) => match.championshipId === seriesA.id);
-    const expected = (teamIds.length / 2) * seriesA.rounds;
-    const seen = new Set<string>();
-    const hasDuplicate = current.some((match) => {
-      const key = [match.home, match.away].sort((a, b) => a - b).join("-");
-      if (seen.has(key)) return true;
-      seen.add(key);
-      return false;
-    });
-
-    if (current.length === expected && !hasDuplicate) {
-      localStorage.setItem("sports-serie-a-calendar-v1", "1");
+    const version = localStorage.getItem(LS.version);
+    if (version !== DATA_VERSION) {
+      seed();
       return;
     }
+    try {
+      const cs = JSON.parse(localStorage.getItem(LS.championships) || "[]") as Championship[];
+      const cl = JSON.parse(localStorage.getItem(LS.clubs) || "[]") as Club[];
+      const ms = JSON.parse(localStorage.getItem(LS.matches) || "[]") as Match[];
+      if (!cs.length || !cl.length) { seed(); return; }
+      setChampionships(cs); setClubs(cl); setMatches(ms); setSelectedId(cs[0].id);
+    } catch { seed(); }
+  }, []);
 
-    const generated = generateRoundRobin(teamIds, seriesA.legs, seriesA.id, nextId(matches));
-    const oldResults = new Map<string, Match[]>();
-
-    current.filter((match) => match.played && match.round > 6).forEach((match) => {
-      const key = [match.home, match.away].sort((a, b) => a - b).join("-");
-      const list = oldResults.get(key) ?? [];
-      list.push(match);
-      oldResults.set(key, list);
-    });
-
-    const repaired = generated.map((match) => {
-      const key = [match.home, match.away].sort((a, b) => a - b).join("-");
-      const list = oldResults.get(key);
-      const previous = list?.shift();
-      return previous
-        ? { ...match, homeScore: previous.homeScore, awayScore: previous.awayScore, played: true }
-        : match;
-    });
-
-    setMatches([...matches.filter((match) => match.championshipId !== seriesA.id), ...repaired]);
-    localStorage.setItem("sports-serie-a-calendar-v1", "1");
-  }, [clubs, championships, matches]);
-
-  useEffect(() => save("sports-championships", championships), [championships]);
-  useEffect(() => save("sports-clubs", clubs), [clubs]);
-  useEffect(() => save("sports-matches", matches), [matches]);
-
-  const championship = championships.find((item) => item.id === selectedId) ?? championships[0];
-  const myClubs = clubs.filter((club) => club.championshipId === championship?.id);
-  const myMatches = matches.filter((match) => match.championshipId === championship?.id);
-  const rounds = [...new Set(myMatches.map((match) => match.round))].sort((a, b) => a - b);
-  // Avanço automático do mata-mata da Série D.
-  // Usa sempre a menor fase ainda pendente, evitando saltos de etapa.
   useEffect(() => {
-    if (championship?.division !== "Série D") return;
+    if (championships.length) localStorage.setItem(LS.championships, JSON.stringify(championships));
+  }, [championships]);
+  useEffect(() => {
+    if (clubs.length) localStorage.setItem(LS.clubs, JSON.stringify(clubs));
+  }, [clubs]);
+  useEffect(() => {
+    if (matches.length) localStorage.setItem(LS.matches, JSON.stringify(matches));
+  }, [matches]);
 
-    const knockout = myMatches.filter((match) => match.stage === "knockout");
-    if (!knockout.length) return;
+  const championship = championships.find((c) => c.id === selectedId) ?? null;
+  const myClubs = championship ? clubs.filter((c) => c.championshipId === championship.id) : [];
+  const myMatches = championship ? matches.filter((m) => m.championshipId === championship.id) : [];
 
-    const pendingPhases = [...new Set(
-      knockout
-        .filter((match) => !match.played)
-        .map((match) => match.knockoutRound ?? 0)
-        .filter((phase) => phase > 0)
-    )];
+  const currentTable = useMemo(() => {
+    if (!championship) return [];
+    return tableFor(championship, myClubs.map((c) => c.id), myMatches);
+  }, [championship, myClubs, myMatches]);
 
-    if (pendingPhases.length) {
-      const pending = Math.min(...pendingPhases);
-      if (section.startsWith("Série D · ")) {
-        const shown = Number(section.replace("Série D · ", ""));
-        if (shown !== pending) setSection(`Série D · ${pending}`);
-      }
-      return;
-    }
+  const clubName = (id: number) => clubs.find((c) => c.id === id)?.name ?? "Clube";
+  const clubByName = (name: string) => clubs.find((c) => c.name === name);
 
-    const currentStage = Math.max(...knockout.map((match) => match.knockoutRound ?? 0));
-    if (currentStage <= 2) return;
+  const regularComplete = (champ: Championship) => {
+    const games = matches.filter((m) => m.championshipId === champ.id && m.stage === "regular");
+    return games.length > 0 && games.every((m) => m.played);
+  };
 
-    const currentMatches = knockout.filter((match) => match.knockoutRound === currentStage);
-    if (currentMatches.length !== currentStage || !currentMatches.every((match) => match.played)) return;
-
-    const nextStage = currentStage / 2;
-    if (knockout.some((match) => match.knockoutRound === nextStage)) return;
-
-    const winners = getKnockoutWinners(myMatches, currentStage);
-    if (winners.length !== nextStage) return;
-
-    const roundStart: Record<number, number> = { 32: 13, 16: 15, 8: 17, 4: 19, 2: 21 };
-    let id = nextId(matches);
-    const created: Match[] = [];
-
-    for (let i = 0; i < winners.length; i += 2) {
-      const home = winners[i];
-      const away = winners[i + 1];
-      created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage], home, away, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
-      created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage] + 1, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
-    }
-
-    setMatches((current) => current.some((match) => match.championshipId === championship.id && match.stage === "knockout" && match.knockoutRound === nextStage)
-      ? current
-      : [...current, ...created]
-    );
-    setRound(roundStart[nextStage]);
-    setSection(`Série D · ${nextStage}`);
-  }, [championship?.id, championship?.division, myMatches, matches, section]);
-
-
-  const standings = useMemo(() => {
-    return myClubs.map((club) => {
-      let played = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
-      myMatches.filter((match) => match.played && (match.stage ?? "regular") === "regular" && (match.home === club.id || match.away === club.id)).forEach((match) => {
-        const home = match.home === club.id;
-        const scored = home ? match.homeScore! : match.awayScore!;
-        const conceded = home ? match.awayScore! : match.homeScore!;
-        played++; gf += scored; ga += conceded;
-        if (scored > conceded) wins++;
-        else if (scored === conceded) draws++;
-        else losses++;
-      });
-      return { club, played, wins, draws, losses, gf, ga, gd: gf - ga, points: wins * (championship?.pointsWin ?? 3) + draws * (championship?.pointsDraw ?? 1) };
-    }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
-  }, [myClubs, myMatches, championship]);
-
-  const clubName = (id: number) => clubs.find((club) => club.id === id)?.name ?? "Clube";
-
-  function openClubHistory(name: string) {
-    setSelectedClubName(name);
-    setSection("Clube");
-  }
-
-  function nextId<T extends { id: number }>(items: T[]) {
-    return items.length ? Math.max(...items.map((item) => item.id)) + 1 : 1;
-  }
-
-  function addChampionship(data: Omit<Championship, "id">) {
-    if (!data.name.trim()) return;
-    const item: Championship = { ...data, id: nextId(championships), name: data.name.trim(), country: selectedCountry };
-    setChampionships([...championships, item]);
-    setSelectedId(item.id);
-    setRound(1);
-    setSection("Visão geral");
-    setModal(null);
-  }
-
-  function addClub(name: string) {
-    if (!name.trim() || !championship) return;
-    const alreadyExists = clubs.some((club) => club.championshipId === championship.id && club.name.trim().toLowerCase() === name.trim().toLowerCase());
-    if (alreadyExists) return;
-    setClubs([...clubs, { id: nextId(clubs), name: name.trim(), championshipId: championship.id }]);
-    setModal(null);
-  }
-
-  function deleteChampionship(id: number) {
-    const target = championships.find((item) => item.id === id);
-    if (!target) return;
-    const confirmed = window.confirm(`Excluir o campeonato "${target.name}"? Isso também removerá todos os clubes, partidas e resultados vinculados a ele.`);
-    if (!confirmed) return;
-    setChampionships(championships.filter((item) => item.id !== id));
-    setClubs(clubs.filter((club) => club.championshipId !== id));
-    setMatches(matches.filter((match) => match.championshipId !== id));
-    setSelectedId(0);
-    setSection("Visão geral");
-  }
-
-  function addRound() {
-    if (!championship || myClubs.length < 2) return;
-    const nextRound = Math.max(0, ...myMatches.map((match) => match.round)) + 1;
-    if (nextRound > championship.rounds) return;
-    const created: Match[] = [];
-    for (let i = 0; i + 1 < myClubs.length; i += 2) {
-      const home = myClubs[i].id;
-      const away = myClubs[i + 1].id;
-      const duplicate = myMatches.some((match) =>
-        (match.home === home && match.away === away) || (match.home === away && match.away === home)
-      );
-      if (!duplicate) {
-        created.push({ id: nextId([...matches, ...created]), championshipId: championship.id, round: nextRound, home, away, homeScore: null, awayScore: null, played: false });
-      }
-    }
-    if (!created.length) return;
-    setMatches([...matches, ...created]);
-    setRound(nextRound);
-    setSection("Partidas");
-  }
-
-  function generateNextStage() {
+  const prepareNextPhase = () => {
     if (!championship) return;
+    let next = [...matches];
+    let id = nextId(next);
 
-    if (championship.division === "Série B") {
-      const regular = myMatches.filter((match) => (match.stage ?? "regular") === "regular");
-      const playoff = myMatches.filter((match) => match.stage === "playoff");
-      if (playoff.length > 0) {
-        window.alert("Os play-offs da Série B já foram gerados.");
-        return;
-      }
-      if (regular.length === 0 || regular.some((match) => !match.played)) {
-        window.alert("Finalize os 38 jogos da fase regular da Série B antes de gerar os play-offs.");
-        return;
-      }
-
-      const regularTable = standings;
-      if (regularTable.length < 6) return;
-      // Ida: 6º x 3º e 5º x 4º. Volta com mando invertido.
-      const pairs = [
-        [regularTable[5].club.id, regularTable[2].club.id],
-        [regularTable[4].club.id, regularTable[3].club.id],
-      ];
-      const start = nextId(matches);
-      const created: Match[] = [];
-      let id = start;
-      pairs.forEach(([home, away]) => {
-        created.push({ id: id++, championshipId: championship.id, round: 39, home, away, homeScore: null, awayScore: null, played: false, stage: "playoff" });
-        created.push({ id: id++, championshipId: championship.id, round: 40, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "playoff" });
+    if (championship.division === "Série B" && regularComplete(championship) &&
+        !next.some((m) => m.championshipId === championship.id && m.stage === "playoff")) {
+      const table = tableFor(championship, myClubs.map((c) => c.id), next);
+      const pairs = [[table[5].clubId,table[2].clubId],[table[4].clubId,table[3].clubId]];
+      pairs.forEach(([home,away]) => {
+        next.push({id:id++,championshipId:championship.id,round:39,home,away,homeScore:null,awayScore:null,played:false,stage:"playoff"});
+        next.push({id:id++,championshipId:championship.id,round:40,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"playoff"});
       });
-      setMatches([...matches, ...created]);
-      setRound(39);
-      setSection("Partidas");
+      setMatches(next);
+      alert("Play-offs da Série B criados: 6º x 3º e 5º x 4º.");
       return;
     }
 
+    if (championship.division === "Série C" && regularComplete(championship) &&
+        !next.some((m) => m.championshipId === championship.id && m.stage === "secondPhase")) {
+      const table = tableFor(championship, myClubs.map((c) => c.id), next);
+      const a = [table[0],table[2],table[4],table[6]].map((r) => r.clubId);
+      const b = [table[1],table[3],table[5],table[7]].map((r) => r.clubId);
+      const groups = [["A",a],["B",b]] as [string,number[]][];
+      for (const [group,ids] of groups) {
+        const generated = roundRobin(ids,championship.id,id,2,0,group);
+        generated.forEach((m) => next.push({...m,stage:"secondPhase",group}));
+        id = nextId(next);
+      }
+      setMatches(next);
+      alert("Segunda fase da Série C criada automaticamente.");
+      return;
+    }
+
+    if (championship.division === "Série D" && regularComplete(championship) &&
+        !next.some((m) => m.championshipId === championship.id && m.stage === "knockout")) {
+      const qualified: Record<string,number[]> = {};
+      for (const group of D_GROUPS) {
+        const ids = myClubs.filter((c) => myMatches.some((m) => m.group === group && (m.home === c.id || m.away === c.id))).map((c) => c.id);
+        qualified[group] = tableFor(championship,ids,myMatches,"regular",group).slice(0,4).map((r) => r.clubId);
+      }
+      const created: Match[] = [];
+      const pairs = [["A","B"],["C","D"],["E","F"],["G","H"],["I","J"],["K","L"],["M","N"],["O","P"]];
+      for (const [ga,gb] of pairs) {
+        const a=qualified[ga], b=qualified[gb];
+        if (!a || !b || a.length!==4 || b.length!==4) continue;
+        const pairings=[[a[0],b[3]],[b[0],a[3]],[a[1],b[2]],[b[1],a[2]]];
+        for (const [home,away] of pairings) {
+          created.push({id:id++,championshipId:championship.id,round:11,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:64});
+          created.push({id:id++,championshipId:championship.id,round:12,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:64});
+        }
+      }
+      if (created.length===64) {
+        setMatches([...next,...created]);
+        alert("1ª fase do mata-mata da Série D criada: 64 clubes.");
+      }
+      return;
+    }
 
     if (championship.division === "Série D") {
-      const regular = myMatches.filter((match) => (match.stage ?? "regular") === "regular");
-      const knockout = myMatches.filter((match) => match.stage === "knockout");
-
-      const groupTable = (group: string) => {
-        const ids = [...new Set(regular.filter((match) => match.group === group).flatMap((match) => [match.home, match.away]))];
-        return ids.map((clubId) => {
-          let points = 0, wins = 0, gd = 0, gf = 0;
-          regular.filter((match) => match.group === group && match.played && (match.home === clubId || match.away === clubId)).forEach((match) => {
-            const home = match.home === clubId;
-            const scored = home ? (match.homeScore ?? 0) : (match.awayScore ?? 0);
-            const conceded = home ? (match.awayScore ?? 0) : (match.homeScore ?? 0);
-            gf += scored;
-            gd += scored - conceded;
-            if (scored > conceded) { wins++; points += championship.pointsWin; }
-            else if (scored === conceded) points += championship.pointsDraw;
-          });
-          return { clubId, points, wins, gd, gf };
-        }).sort((a, b) => b.points - a.points || b.wins - a.wins || b.gd - a.gd || b.gf - a.gf);
-      };
-
-      if (knockout.length === 0) {
-        if (regular.length !== 480 || regular.some((match) => !match.played)) {
-          window.alert("Finalize as 480 partidas da primeira fase da Série D antes de gerar o mata-mata.");
-          return;
+      const phases=[64,32,16,8,4,2];
+      const existing=phases.filter((p)=>next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===p));
+      const current=Math.min(...existing.filter((p)=>next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===p&&!m.played)));
+      if (!Number.isFinite(current)) {
+        const completed=Math.max(...existing);
+        if (completed<=2) return;
+        const winners=knockoutWinner(next,completed);
+        const nextPhase=completed/2;
+        if (winners.length!==nextPhase) { alert("Não foi possível identificar todos os vencedores da fase."); return; }
+        const roundStart:Record<number,number>={32:13,16:15,8:17,4:19,2:21};
+        const created:Match[]=[];
+        for(let i=0;i<winners.length;i+=2){
+          const h=winners[i],a=winners[i+1];
+          created.push({id:id++,championshipId:championship.id,round:roundStart[nextPhase],home:h,away:a,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:nextPhase});
+          created.push({id:id++,championshipId:championship.id,round:roundStart[nextPhase]+1,home:a,away:h,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:nextPhase});
         }
-
-        const groups = getSerieDGroups(championship.season);
-        const letters = Object.keys(groups);
-        const pairings: Array<[number, number]> = [];
-
-        for (let i = 0; i < letters.length; i += 2) {
-          const a = groupTable(letters[i]);
-          const b = groupTable(letters[i + 1]);
-          if (a.length !== 6 || b.length !== 6) {
-            window.alert(`O grupo ${letters[i]} ou ${letters[i + 1]} não possui 6 clubes.`);
-            return;
-          }
-
-          pairings.push(
-            [a[0].clubId, b[3].clubId],
-            [b[0].clubId, a[3].clubId],
-            [a[1].clubId, b[2].clubId],
-            [b[1].clubId, a[2].clubId]
-          );
-        }
-
-        let id = nextId(matches);
-        const created: Match[] = [];
-        pairings.forEach(([home, away]) => {
-          created.push({ id: id++, championshipId: championship.id, round: 11, home, away, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: 64 });
-          created.push({ id: id++, championshipId: championship.id, round: 12, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: 64 });
-        });
-
-        setMatches([...matches, ...created]);
-        setRound(11);
-        setSection("Série D · 64");
+        setMatches([...next,...created]);
         return;
-      }
-
-      // No mata-mata, a fase em uso na tela é a fonte da verdade.
-      const sectionPhase = section.startsWith("Série D · ") ? Number(section.replace("Série D · ", "")) : NaN;
-      const openPhases = knockout.filter((match) => !match.played).map((match) => match.knockoutRound ?? 0);
-      const currentStage = Number.isFinite(sectionPhase) && sectionPhase > 0
-        ? sectionPhase
-        : (openPhases.length ? Math.min(...openPhases) : Math.max(...knockout.map((match) => match.knockoutRound ?? 0)));
-
-      const currentMatches = knockout.filter((match) => match.knockoutRound === currentStage);
-      if (!currentStage || currentStage <= 2) {
-        setSection("Série D · 2");
-        return;
-      }
-
-      if (currentMatches.length !== currentStage || currentMatches.some((match) => !match.played)) {
-        window.alert(`Finalize os ${currentStage} jogos da fase atual antes de avançar.`);
-        return;
-      }
-
-      const nextStage = currentStage / 2;
-      if (![32, 16, 8, 4, 2].includes(nextStage)) {
-        window.alert("Não foi possível identificar a próxima fase do mata-mata.");
-        return;
-      }
-
-      if (knockout.some((match) => match.knockoutRound === nextStage)) {
-        setSection(`Série D · ${nextStage}`);
-        return;
-      }
-
-      const winners = getKnockoutWinners(myMatches, currentStage);
-      if (winners.length !== nextStage) {
-        window.alert(`A fase foi concluída, mas não foi possível identificar os ${nextStage} classificados.`);
-        return;
-      }
-
-      const roundStart: Record<number, number> = { 32: 13, 16: 15, 8: 17, 4: 19, 2: 21 };
-      let id = nextId(matches);
-      const created: Match[] = [];
-
-      for (let i = 0; i < winners.length; i += 2) {
-        const home = winners[i];
-        const away = winners[i + 1];
-
-        created.push({
-          id: id++,
-          championshipId: championship.id,
-          round: roundStart[nextStage],
-          home,
-          away,
-          homeScore: null,
-          awayScore: null,
-          played: false,
-          stage: "knockout",
-          knockoutRound: nextStage
-        });
-
-        created.push({
-          id: id++,
-          championshipId: championship.id,
-          round: roundStart[nextStage] + 1,
-          home: away,
-          away: home,
-          homeScore: null,
-          awayScore: null,
-          played: false,
-          stage: "knockout",
-          knockoutRound: nextStage
-        });
-      }
-
-      if (created.length !== nextStage) {
-        window.alert("A próxima fase não pôde ser montada corretamente.");
-        return;
-      }
-
-      setMatches([...matches, ...created]);
-      setRound(roundStart[nextStage]);
-      setSection(`Série D · ${nextStage}`);
-      return;
-    }
-    if (championship.division === "Série C") {
-      const regular = myMatches.filter((match) => (match.stage ?? "regular") === "regular");
-      const secondPhase = myMatches.filter((match) => match.stage === "secondPhase");
-      const final = myMatches.filter((match) => match.stage === "final");
-
-      if (regular.length > 0 && regular.every((match) => match.played) && secondPhase.length === 0) {
-        const table = standings;
-        if (table.length < 8) return;
-
-        const groups = [
-          { name: "A" as const, ids: [table[0].club.id, table[2].club.id, table[4].club.id, table[6].club.id] },
-          { name: "B" as const, ids: [table[1].club.id, table[3].club.id, table[5].club.id, table[7].club.id] },
-        ];
-
-        let id = nextId(matches);
-        const created: Match[] = [];
-        groups.forEach((group) => {
-          const generated = generateRoundRobin(group.ids, 2, championship.id, id);
-          generated.forEach((match) => created.push({ ...match, round: match.round, stage: "secondPhase", group: group.name }));
-          id = nextId([...matches, ...created]);
-        });
-
-        setMatches([...matches, ...created]);
-        setRound(1);
-        setSection("Partidas");
-        return;
-      }
-
-      if (secondPhase.length > 0 && secondPhase.every((match) => match.played) && final.length === 0) {
-        const groupTable = (group: "A" | "B") => {
-          const ids = [...new Set(secondPhase.filter((match) => match.group === group).flatMap((match) => [match.home, match.away]))];
-          return ids.map((clubId) => {
-            let points = 0, gd = 0, gf = 0;
-            secondPhase.filter((match) => match.group === group && match.played && (match.home === clubId || match.away === clubId)).forEach((match) => {
-              const home = match.home === clubId;
-              const scored = home ? match.homeScore! : match.awayScore!;
-              const conceded = home ? match.awayScore! : match.homeScore!;
-              gf += scored; gd += scored - conceded;
-              points += scored > conceded ? championship.pointsWin : scored === conceded ? championship.pointsDraw : championship.pointsLoss;
-            });
-            return { clubId, points, gd, gf };
-          }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
-        };
-
-        const winnerA = groupTable("A")[0];
-        const winnerB = groupTable("B")[0];
-        if (!winnerA || !winnerB) return;
-
-        const id = nextId(matches);
-        const created: Match[] = [
-          { id, championshipId: championship.id, round: 1, home: winnerA.clubId, away: winnerB.clubId, homeScore: null, awayScore: null, played: false, stage: "final" },
-          { id: id + 1, championshipId: championship.id, round: 2, home: winnerB.clubId, away: winnerA.clubId, homeScore: null, awayScore: null, played: false, stage: "final" },
-        ];
-        setMatches([...matches, ...created]);
-        setRound(1);
-        setSection("Partidas");
-        return;
-      }
-
-      window.alert("Não há uma próxima fase disponível agora. Finalize a fase atual primeiro.");
-      return;
-    }
-
-    window.alert("A geração automática de fases está disponível para as Séries B e C do Brasil.");
-  }
-
-  function saveScore(id: number, home: string, away: string) {
-    if (home === "" || away === "") return;
-    const h = Number(home), a = Number(away);
-    if (!Number.isInteger(h) || !Number.isInteger(a) || h < 0 || a < 0) return;
-
-    const target = matches.find((match) => match.id === id);
-    if (!target) return;
-
-    const updated = matches.map((match) =>
-      match.id === id
-        ? { ...match, homeScore: h, awayScore: a, played: true, penaltyWinner: undefined }
-        : match
-    );
-
-    if (target.stage === "final") {
-      const finalMatches = updated.filter((match) => match.stage === "final");
-      if (finalMatches.length === 2 && finalMatches.every((match) => match.played)) {
-        const teams = [...new Set(finalMatches.flatMap((match) => [match.home, match.away]))];
-        const totals = teams.map((clubId) => ({
-          clubId,
-          goals: finalMatches.reduce((sum, match) =>
-            sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
-        }));
-        if (totals.length === 2 && totals[0].goals === totals[1].goals) {
-          const secondLeg = finalMatches.find((match) => match.round === 2) ?? finalMatches[1];
-          const winner = Math.random() < 0.5 ? secondLeg.home : secondLeg.away;
-          setMatches(updated.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner: winner } : match));
-          return;
-        }
       }
     }
+    alert("Não há uma nova fase pronta para ser criada.");
+  };
 
-
-    if (target.stage === "knockout") {
-      const confrontation = updated.filter((match) =>
-        match.stage === "knockout" &&
-        match.knockoutRound === target.knockoutRound &&
-        [match.home, match.away].sort((x, y) => x - y).join("-") === [target.home, target.away].sort((x, y) => x - y).join("-")
-      );
-      if (confrontation.length === 2 && confrontation.every((match) => match.played)) {
-        const teams = [...new Set(confrontation.flatMap((match) => [match.home, match.away]))];
-        const totals = teams.map((clubId) => ({
-          clubId,
-          goals: confrontation.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
-        }));
-        if (totals.length === 2 && totals[0].goals === totals[1].goals) {
-          const secondLeg = confrontation.sort((a, b) => b.round - a.round)[0];
-          const winner = Math.random() < 0.5 ? secondLeg.home : secondLeg.away;
-          setMatches(updated.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner: winner } : match));
-          return;
-        }
-      }
-    }
-
-    if (target.stage === "playoff") {
-      const confrontation = updated.filter((match) =>
-        match.stage === "playoff" &&
-        [match.home, match.away].sort((x, y) => x - y).join("-") === [target.home, target.away].sort((x, y) => x - y).join("-")
-      );
-      if (confrontation.length === 2 && confrontation.every((match) => match.played)) {
-        const totalHome = confrontation.reduce((sum, match) => sum + (match.home === target.home ? (match.homeScore ?? 0) : (match.awayScore ?? 0)), 0);
-        const totalAway = confrontation.reduce((sum, match) => sum + (match.away === target.home ? (match.awayScore ?? 0) : (match.homeScore ?? 0)), 0);
-        if (totalHome === totalAway) {
-          const secondLeg = confrontation.find((match) => match.round === 40) ?? confrontation[1];
-          const winnerName = clubName(secondLeg.home) + " ou " + clubName(secondLeg.away);
-          const winnerInput = window.prompt(
-            "Empate no agregado após o jogo de volta. A decisão será por pênaltis.\n\nDigite exatamente o nome do clube vencedor nos pênaltis:\n" + winnerName
-          );
-          if (winnerInput) {
-            const winner = [secondLeg.home, secondLeg.away].find((clubId) => clubName(clubId).toLowerCase() === winnerInput.trim().toLowerCase());
-            if (winner) {
-              const next = updated.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner: winner } : match);
-              setMatches(next);
-              return;
-            }
-          }
-        }
-      }
-    }
-
-    setMatches(updated);
-  }
-
-  function generateScore() {
-    const roll = Math.random();
-    if (roll < 0.58) return Math.floor(Math.random() * 4);
-    if (roll < 0.90) return Math.floor(Math.random() * 3);
-    return Math.floor(Math.random() * 6);
-  }
-
-  function generateResults(scope: "round" | "remaining" | "playoff" | "secondPhase" | "final" | "knockout", knockoutPhase?: number) {
+  const generateResults = (scope: "round"|"remaining"|"phase") => {
     if (!championship) return;
-
-    const targets = myMatches.filter((match) => {
-      if (match.played) return false;
-      if (scope === "round") return (match.stage ?? "regular") === "regular" && match.round === round;
-      if (scope === "playoff") return match.stage === "playoff";
-      if (scope === "secondPhase") return match.stage === "secondPhase";
-      if (scope === "final") return match.stage === "final";
-      if (scope === "knockout") {
-        const current = knockoutPhase ?? Math.max(
-          0,
-          ...myMatches
-            .filter((m) => m.stage === "knockout" && !m.played)
-            .map((m) => m.knockoutRound ?? 0)
-        );
-        return match.stage === "knockout" && match.knockoutRound === current;
+    let target = myMatches.filter((m) => !m.played);
+    if (scope==="round") target = target.filter((m)=>m.round===Math.min(...target.map((x)=>x.round)));
+    if (scope==="phase" && championship.division==="Série D") {
+      const pending=target.filter((m)=>m.stage==="knockout");
+      if (pending.length) {
+        const phase=Math.min(...pending.map((m)=>m.knockoutRound ?? 0));
+        target=pending.filter((m)=>m.knockoutRound===phase);
       }
-      return true;
-    });
+    }
+    if (!target.length) { alert("Não há jogos sem resultado para gerar."); return; }
+    setMatches((all)=>all.map((m)=>{
+      if(!target.some((x)=>x.id===m.id)) return m;
+      const hs=score(),as=score();
+      return {...m,homeScore:hs,awayScore:as,played:true};
+    }));
+  };
 
-    if (!targets.length) {
-      const messages = {
-        round: "Não há jogos sem resultado nesta rodada.",
-        remaining: "Não há jogos sem resultado neste campeonato.",
-        playoff: "Não há jogos sem resultado nos play-offs.",
-        secondPhase: "Não há jogos sem resultado na segunda fase.",
-        final: "Não há jogos sem resultado na final.",
-        knockout: "Não há jogos sem resultado no mata-mata da Série D.",
-      };
-      window.alert(messages[scope]);
-      return;
+  const saveScore = (id:number) => {
+    const values=newResult[id];
+    if(!values) return;
+    const hs=Number(values[0]),as=Number(values[1]);
+    if(!Number.isInteger(hs)||!Number.isInteger(as)||hs<0||as<0) { alert("Informe placares válidos."); return; }
+    setMatches((all)=>all.map((m)=>m.id===id?{...m,homeScore:hs,awayScore:as,played:true}:m));
+    setNewResult((x)=>{const copy={...x};delete copy[id];return copy;});
+  };
+
+  const createNextSeason = () => {
+    const seasons=championships.filter((c)=>c.country==="Brasil"&&["Série A","Série B","Série C","Série D"].includes(c.division)).map((c)=>Number(c.season));
+    const currentSeason=Math.max(...seasons);
+    const nextSeason=currentSeason+1;
+    const get=(d:Division)=>championships.find((c)=>c.division===d&&Number(c.season)===currentSeason);
+    const A=get("Série A"),B=get("Série B"),C=get("Série C"),D=get("Série D");
+    if(!A||!B||!C||!D){alert("As Séries A, B, C e D precisam existir.");return;}
+    if(championships.some((c)=>Number(c.season)===nextSeason&&c.division==="Série A")){alert("A temporada seguinte já existe.");return;}
+
+    if(!regularComplete(A)||!regularComplete(B)||!regularComplete(C)){
+      alert("Finalize as fases regulares das Séries A, B e C."); return;
     }
 
-    const labels = {
-      round: `a rodada ${round}`,
-      remaining: "todas as rodadas restantes",
-      playoff: "os 4 jogos dos play-offs",
-      secondPhase: "todos os jogos da segunda fase",
-      final: "os 2 jogos da final",
-      knockout: "a fase eliminatória da Série D",
-    };
-    const confirmed = window.confirm(
-      `Gerar resultados aleatórios para ${labels[scope]}?\\n\\nOs jogos que já possuem resultado não serão alterados.`
+    const bPlayoffs=matches.filter((m)=>m.championshipId===B.id&&m.stage==="playoff");
+    if(bPlayoffs.length!==4||!bPlayoffs.every((m)=>m.played)){alert("Finalize os 4 jogos dos play-offs da Série B.");return;}
+    const bTable=tableFor(B,clubs.filter((c)=>c.championshipId===B.id).map((c)=>c.id),matches);
+    const aTable=tableFor(A,clubs.filter((c)=>c.championshipId===A.id).map((c)=>c.id),matches);
+    const cTable=tableFor(C,clubs.filter((c)=>c.championshipId===C.id).map((c)=>c.id),matches);
+
+    const bGroups=new Map<string,Match[]>();
+    bPlayoffs.forEach((m)=>{const k=[m.home,m.away].sort((x,y)=>x-y).join("-");const l=bGroups.get(k)||[];l.push(m);bGroups.set(k,l);});
+    const bWinners:number[]=[];
+    for(const legs of bGroups.values()){
+      const teams=[...new Set(legs.flatMap((m)=>[m.home,m.away]))];
+      const goals=teams.map((t)=>({t,g:legs.reduce((s,m)=>s+(m.home===t?(m.homeScore??0):(m.away===t?(m.awayScore??0):0)),0)})).sort((x,y)=>y.g-x.g);
+      bWinners.push(goals[0].g===goals[1].g?(legs.find((m)=>m.penaltyWinner)?.penaltyWinner??goals[0].t):goals[0].t);
+    }
+
+    const cSecond=matches.filter((m)=>m.championshipId===C.id&&m.stage==="secondPhase");
+    if(cSecond.length!==24||!cSecond.every((m)=>m.played)){alert("Finalize os 24 jogos da segunda fase da Série C.");return;}
+    const cA=tableFor(C,cSecond.filter((m)=>m.group==="A").flatMap((m)=>[m.home,m.away]).filter((x,i,a)=>a.indexOf(x)===i),matches,"secondPhase","A");
+    const cB=tableFor(C,cSecond.filter((m)=>m.group==="B").flatMap((m)=>[m.home,m.away]).filter((x,i,a)=>a.indexOf(x)===i),matches,"secondPhase","B");
+    const promotedC=[cA[0].clubId,cA[1].clubId,cB[0].clubId,cB[1].clubId];
+
+    // CRITICAL RULE: the 4 Série D semifinalists are the 4 winners of the QUARTER-FINALS (phase 16).
+    const dQuarter=matches.filter((m)=>m.championshipId===D.id&&m.stage==="knockout"&&m.knockoutRound===16);
+    if(dQuarter.length!==8||!dQuarter.every((m)=>m.played)){alert("Finalize as 8 jogos das quartas de final da Série D. Os 4 vencedores são os semifinalistas e garantem acesso à Série C.");return;}
+    const promotedD=knockoutWinner(matches,16);
+    if(promotedD.length!==4){alert("Não foi possível identificar os 4 semifinalistas da Série D.");return;}
+
+    const aRelegated=aTable.slice(-4).map((r)=>r.clubId);
+    const bRelegated=bTable.slice(-4).map((r)=>r.clubId);
+    const cRelegated=cTable.slice(-4).map((r)=>r.clubId);
+    const aPromoted=[bTable[0].clubId,bTable[1].clubId,...bWinners];
+
+    const currentIds=(d:Division)=>clubs.filter((c)=>c.championshipId===get(d)!.id).map((c)=>c.id);
+    const aid=currentIds("Série A"),bid=currentIds("Série B"),cid=currentIds("Série C"),did=currentIds("Série D");
+    const nextA=aid.filter((x)=>!aRelegated.includes(x)).concat(aPromoted);
+    const nextB=bid.filter((x)=>!bRelegated.includes(x)&&!aPromoted.includes(x)).concat(aRelegated,promotedC);
+    const nextC=cid.filter((x)=>!promotedC.includes(x)&&!cRelegated.includes(x)).concat(bRelegated,promotedD);
+    const nextD=did.filter((x)=>!promotedD.includes(x)).concat(cRelegated);
+
+    if(nextA.length!==20||nextB.length!==20||nextC.length!==20||nextD.length!==96){
+      alert("A movimentação não fechou: A="+nextA.length+" B="+nextB.length+" C="+nextC.length+" D="+nextD.length);return;
+    }
+
+    const base=nextId(championships);
+    const newA={...A,id:base,season:String(nextSeason)};
+    const newB={...B,id:base+1,season:String(nextSeason)};
+    const newC={...C,id:base+2,season:String(nextSeason)};
+    const newD={...D,id:base+3,season:String(nextSeason)};
+    const newCs=[newA,newB,newC,newD];
+    let clubNext=nextId(clubs);
+    const newClubRows:Club[]=[];
+    const addClubs=(ids:number[],champId:number)=>ids.map((old)=>{const source=clubs.find((c)=>c.id===old)!;return{id:clubNext++,name:source.name,championshipId:champId};});
+    newClubRows.push(...addClubs(nextA,newA.id),...addClubs(nextB,newB.id),...addClubs(nextC,newC.id),...addClubs(nextD,newD.id));
+
+    let matchNext=nextId(matches);
+    const newMatches:Match[]=[];
+    for(const [champ,ids,legs] of [[newA,nextA,2],[newB,nextB,2],[newC,nextC,1]] as [Championship,number[],number][]) {
+      const generated=roundRobin(ids,champ.id,matchNext,legs);
+      newMatches.push(...generated); matchNext=nextId(newMatches);
+    }
+    const dNewClubs=newClubRows.filter((c)=>c.championshipId===newD.id);
+    newMatches.push(...buildDMatches(newD.id,dNewClubs,matchNext));
+
+    setChampionships([...championships,...newCs]);
+    setClubs([...clubs,...newClubRows]);
+    setMatches([...matches,...newMatches]);
+    setSelectedId(newA.id);setSection("Visão geral");
+    alert(
+      "Temporada "+nextSeason+" criada automaticamente.\n\n"+
+      "A → B: "+aRelegated.length+" rebaixados / "+aPromoted.length+" promovidos\n"+
+      "B → C: "+bRelegated.length+" rebaixados / "+promotedC.length+" promovidos\n"+
+      "C → D: "+cRelegated.length+" rebaixados\n"+
+      "D → C: "+promotedD.length+" promovidos"
     );
-    if (!confirmed) return;
+  };
 
-    const generated = new Map<number, { homeScore: number; awayScore: number }>();
-    targets.forEach((match) => {
-      let homeScore = generateScore();
-      let awayScore = generateScore();
-      if (homeScore === awayScore && Math.random() < 0.18) {
-        homeScore = Math.min(6, homeScore + (Math.random() < 0.5 ? 1 : 0));
-      }
-      generated.set(match.id, { homeScore, awayScore });
-    });
+  const reset = () => {
+    if(confirm("Isso apagará os dados atuais e reconstruirá A, B, C e D de 2026. Continuar?")) seed();
+  };
 
-    let nextMatches = matches.map((match) => {
-      const result = generated.get(match.id);
-      return result ? { ...match, ...result, played: true, penaltyWinner: undefined } : match;
-    });
+  if (!championship) return <div style={{padding:40,fontFamily:"Arial"}}>Carregando...</div>;
 
+  const displayedMatches = section.startsWith("Série D ·")
+    ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===Number(section.replace("Série D · ","")))
+    : section==="Segunda fase" ? myMatches.filter((m)=>m.stage==="secondPhase")
+    : section==="Play-offs" ? myMatches.filter((m)=>m.stage==="playoff")
+    : myMatches.filter((m)=>m.stage==="regular"&&m.round===Math.min(...myMatches.filter((m)=>m.stage==="regular"&&!m.played).map((m)=>m.round).concat([1])));
 
-    if (scope === "knockout") {
-      const knockoutMatches = nextMatches.filter((match) => match.stage === "knockout" && match.played);
-      const confrontations = new Map<string, Match[]>();
-      knockoutMatches.forEach((match) => {
-        const key = [match.home, match.away].sort((x, y) => x - y).join("-");
-        const list = confrontations.get(key) ?? [];
-        list.push(match);
-        confrontations.set(key, list);
-      });
-      confrontations.forEach((legs) => {
-        if (legs.length !== 2) return;
-        const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
-        const totals = teams.map((clubId) => ({
-          clubId,
-          goals: legs.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
-        }));
-        if (teams.length === 2 && totals[0].goals === totals[1].goals) {
-          const secondLeg = legs.sort((a, b) => b.round - a.round)[0];
-          const penaltyWinner = teams[Math.floor(Math.random() * teams.length)];
-          nextMatches = nextMatches.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner } : match);
-        }
-      });
-    }
+  const currentDPhase=section.startsWith("Série D ·")?Number(section.replace("Série D · ","")):null;
+  const phaseLabel=currentDPhase?({64:"1ª fase do mata-mata",32:"2ª fase do mata-mata",16:"Quartas de final",8:"Semifinais",4:"??",2:"Final"} as Record<number,string>)[currentDPhase]:"";
 
-    if (scope === "playoff") {
-      const playoffMatches = nextMatches.filter((match) => match.stage === "playoff" && match.played);
-      const confrontations = new Map<string, Match[]>();
-      playoffMatches.forEach((match) => {
-        const key = [match.home, match.away].sort((x, y) => x - y).join("-");
-        const list = confrontations.get(key) ?? [];
-        list.push(match);
-        confrontations.set(key, list);
-      });
-
-      confrontations.forEach((legs) => {
-        if (legs.length !== 2) return;
-        const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
-        const totals = teams.map((clubId) => ({
-          clubId,
-          goals: legs.reduce((sum, match) =>
-            sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
-        }));
-        if (totals.length === 2 && totals[0].goals === totals[1].goals) {
-          const secondLeg = legs.find((match) => match.round === 40) ?? legs[1];
-          const penaltyWinner = teams[Math.floor(Math.random() * teams.length)];
-          nextMatches = nextMatches.map((match) =>
-            match.id === secondLeg.id ? { ...match, penaltyWinner } : match
-          );
-        }
-      });
-    }
-
-    if (scope === "final") {
-      const finalMatches = nextMatches.filter((match) => match.stage === "final" && match.played);
-      if (finalMatches.length === 2) {
-        const teams = [...new Set(finalMatches.flatMap((match) => [match.home, match.away]))];
-        const totals = teams.map((clubId) => ({
-          clubId,
-          goals: finalMatches.reduce((sum, match) =>
-            sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
-        }));
-        if (totals.length === 2 && totals[0].goals === totals[1].goals) {
-          const secondLeg = finalMatches.find((match) => match.round === 2) ?? finalMatches[1];
-          const penaltyWinner = teams[Math.floor(Math.random() * teams.length)];
-          nextMatches = nextMatches.map((match) =>
-            match.id === secondLeg.id ? { ...match, penaltyWinner } : match
-          );
-    function createNextBrazilSeason() {
-    const brazilSeasons = championships
-      .filter((item) => item.country === "Brasil" && ["Série A", "Série B", "Série C", "Série D"].includes(item.division))
-      .map((item) => Number(item.season))
-      .filter((season) => Number.isFinite(season));
-    const currentSeason = Math.max(...brazilSeasons);
-    const nextSeason = currentSeason + 1;
-
-    const currentA = championships.find((item) => item.country === "Brasil" && item.division === "Série A" && Number(item.season) === currentSeason);
-    const currentB = championships.find((item) => item.country === "Brasil" && item.division === "Série B" && Number(item.season) === currentSeason);
-    const currentC = championships.find((item) => item.country === "Brasil" && item.division === "Série C" && Number(item.season) === currentSeason);
-    const currentD = championships.find((item) => item.country === "Brasil" && item.division === "Série D" && Number(item.season) === currentSeason);
-
-    if (!currentA || !currentB || !currentC || !currentD) {
-      window.alert("As Séries A, B, C e D da temporada mais recente precisam existir para gerar a próxima temporada.");
-      return;
-    }
-
-    if (championships.some((item) =>
-      item.country === "Brasil" &&
-      Number(item.season) === nextSeason &&
-      ["Série A", "Série B", "Série C", "Série D"].includes(item.division)
-    )) {
-      window.alert("A próxima temporada já foi criada.");
-      return;
-    }
-
-    const tableFor = (champ: Championship) => {
-      const teamIds = clubs.filter((club) => club.championshipId === champ.id).map((club) => club.id);
-      return teamIds.map((clubId) => {
-        let points = 0, gd = 0, gf = 0, played = 0;
-        matches
-          .filter((match) =>
-            match.championshipId === champ.id &&
-            match.played &&
-            (match.stage ?? "regular") === "regular" &&
-            (match.home === clubId || match.away === clubId)
-          )
-          .forEach((match) => {
-            const home = match.home === clubId;
-            const scored = home ? match.homeScore! : match.awayScore!;
-            const conceded = home ? match.awayScore! : match.homeScore!;
-            played++;
-            gf += scored;
-            gd += scored - conceded;
-            if (scored > conceded) points += champ.pointsWin;
-            else if (scored === conceded) points += champ.pointsDraw;
-            else points += champ.pointsLoss;
-          });
-        return { clubId, played, points, gd, gf };
-      }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
-    };
-
-    const aTable = tableFor(currentA);
-    const bTable = tableFor(currentB);
-    const cTable = tableFor(currentC);
-
-    if (aTable.length < 20 || bTable.length < 20 || cTable.length < 20) {
-      window.alert("As Séries A, B e C precisam ter os 20 clubes cadastrados antes de gerar a próxima temporada.");
-      return;
-    }
-
-    const regularComplete = (champ: Championship) => {
-      const regular = matches.filter((match) =>
-        match.championshipId === champ.id &&
-        (match.stage ?? "regular") === "regular"
-      );
-      return regular.length > 0 && regular.every((match) => match.played);
-    };
-
-    if (!regularComplete(currentA) || !regularComplete(currentB) || !regularComplete(currentC)) {
-      window.alert("Finalize todas as partidas da fase regular das Séries A, B e C antes de gerar a próxima temporada.");
-      return;
-    }
-
-    // Série A: os 4 últimos são rebaixados para a Série B.
-    const relegatedFromA = aTable.slice(-4).map((row) => row.clubId);
-
-    // Série B: 1º e 2º sobem diretamente; os vencedores dos playoffs completam as 4 vagas.
-    const directToA = bTable.slice(0, 2).map((row) => row.clubId);
-    const playoffMatches = matches.filter((match) => match.championshipId === currentB.id && match.stage === "playoff");
-    const confrontations = new Map<string, Match[]>();
-    playoffMatches.forEach((match) => {
-      const key = [match.home, match.away].sort((x, y) => x - y).join("-");
-      const list = confrontations.get(key) ?? [];
-      list.push(match);
-      confrontations.set(key, list);
-    });
-
-    if (
-      confrontations.size !== 2 ||
-      [...confrontations.values()].some((legs) => legs.length !== 2 || !legs.every((match) => match.played))
-    ) {
-      window.alert("Finalize os 4 jogos dos play-offs da Série B antes de gerar a próxima temporada.");
-      return;
-    }
-
-    const playoffWinners: number[] = [];
-    for (const legs of confrontations.values()) {
-      const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
-      const totals = teams.map((clubId) => ({
-        clubId,
-        goals: legs.reduce((sum, match) =>
-          sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
-      }));
-      const penaltyWinner = legs.map((match) => match.penaltyWinner).find((id): id is number => id !== undefined);
-      if (teams.length !== 2) {
-        window.alert("Não foi possível identificar um dos confrontos dos play-offs da Série B.");
-        return;
-      }
-      if (totals[0].goals === totals[1].goals && !penaltyWinner) {
-        window.alert("Um dos play-offs da Série B terminou empatado no agregado e ainda não possui vencedor nos pênaltis.");
-        return;
-      }
-      playoffWinners.push(
-        penaltyWinner ??
-        (totals[0].goals > totals[1].goals ? totals[0].clubId : totals[1].clubId)
-      );
-    }
-
-    // Série C: 4 primeiros da segunda fase (2 de cada grupo) sobem para a Série B.
-    const secondPhase = matches.filter((match) =>
-      match.championshipId === currentC.id && match.stage === "secondPhase"
-    );
-    if (secondPhase.length === 0 || !secondPhase.every((match) => match.played)) {
-      window.alert("Finalize todos os jogos da segunda fase da Série C antes de gerar a próxima temporada.");
-      return;
-    }
-
-    const groupTable = (group: "A" | "B") => {
-      const ids = [...new Set(
-        secondPhase
-          .filter((match) => match.group === group)
-          .flatMap((match) => [match.home, match.away])
-      )];
-
-      return ids.map((clubId) => {
-        let points = 0, gd = 0, gf = 0;
-        secondPhase
-          .filter((match) => match.group === group && (match.home === clubId || match.away === clubId))
-          .forEach((match) => {
-            const home = match.home === clubId;
-            const scored = home ? match.homeScore! : match.awayScore!;
-            const conceded = home ? match.awayScore! : match.homeScore!;
-            gf += scored;
-            gd += scored - conceded;
-            if (scored > conceded) points += currentC.pointsWin;
-            else if (scored === conceded) points += currentC.pointsDraw;
-            else points += currentC.pointsLoss;
-          });
-        return { clubId, points, gd, gf };
-      }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
-    };
-
-    const cGroupA = groupTable("A");
-    const cGroupB = groupTable("B");
-    if (cGroupA.length !== 4 || cGroupB.length !== 4) {
-      window.alert("A segunda fase da Série C precisa ter 2 grupos completos de 4 clubes.");
-      return;
-    }
-
-    const promotedToB = [
-      cGroupA[0].clubId,
-      cGroupA[1].clubId,
-      cGroupB[0].clubId,
-      cGroupB[1].clubId
-    ];
-
-    // Série C: 17º–20º são rebaixados para a Série D.
-    const relegatedFromC = cTable.slice(-4).map((row) => row.clubId);
-
-    // Série D: os quatro vencedores da fase de 8 clubes são os semifinalistas e garantem acesso à Série C.
-    // Não é necessário disputar as semifinais/final para definir o acesso.
-    const dClubIds = clubs.filter((club) => club.championshipId === currentD.id).map((club) => club.id);
-    if (dClubIds.length !== 96) {
-      window.alert("A Série D precisa ter exatamente 96 clubes para gerar a próxima temporada.");
-      return;
-    }
-
-    const dPromotionMatches = matches.filter((match) =>
-      match.championshipId === currentD.id &&
-      match.stage === "knockout" &&
-      match.knockoutRound === 8
-    );
-
-    if (
-      dPromotionMatches.length !== 8 ||
-      !dPromotionMatches.every((match) => match.played)
-    ) {
-      window.alert("Finalize os 8 jogos das quartas de final da Série D antes de gerar a próxima temporada. Os 4 vencedores serão os semifinalistas que garantem acesso à Série C.");
-      return;
-    }
-
-    const dAccessToC = getKnockoutWinners(matches, 8);
-    if (dAccessToC.length !== 4 || new Set(dAccessToC).size !== 4) {
-      window.alert("Não foi possível identificar os 4 semifinalistas da Série D que garantem acesso à Série C.");
-      return;
-    }
-
-    const bRelegated = bTable.slice(-4).map((row) => row.clubId);
-    const promotedToA = [...directToA, ...playoffWinners];
-
-    const nextBase = Math.max(0, ...championships.map((item) => item.id));
-    const nextChampionships: Championship[] = [
-      { ...currentA, id: nextBase + 1, season: String(nextSeason) },
-      { ...currentB, id: nextBase + 2, season: String(nextSeason) },
-      { ...currentC, id: nextBase + 3, season: String(nextSeason) },
-      { ...currentD, id: nextBase + 4, season: String(nextSeason) }
-    ];
-
-    const nextAId = nextBase + 1;
-    const nextBId = nextBase + 2;
-    const nextCId = nextBase + 3;
-    const nextDId = nextBase + 4;
-
-    const idsFor = (champ: Championship) =>
-      clubs.filter((club) => club.championshipId === champ.id).map((club) => club.id);
-
-    const currentAClubIds = idsFor(currentA);
-    const currentBClubIds = idsFor(currentB);
-    const currentCClubIds = idsFor(currentC);
-    const currentDClubIds = idsFor(currentD);
-
-    const promotedBToA = new Set(promotedToA);
-    const relegatedAToB = new Set(relegatedFromA);
-    const relegatedBToC = new Set(bRelegated);
-    const promotedCToB = new Set(promotedToB);
-    const relegatedCToD = new Set(relegatedFromC);
-    const promotedDToC = new Set(dAccessToC);
-
-    const nextAClubIds = currentAClubIds
-      .filter((id) => !relegatedAToB.has(id))
-      .concat([...promotedBToA]);
-
-    const nextBClubIds = currentBClubIds
-      .filter((id) => !relegatedBToC.has(id) && !promotedBToA.has(id))
-      .concat([...relegatedAToB])
-      .concat([...promotedCToB]);
-
-    const nextCClubIds = currentCClubIds
-      .filter((id) => !promotedCToB.has(id) && !relegatedCToD.has(id))
-      .concat([...relegatedBToC])
-      .concat([...promotedDToC]);
-
-    const nextDClubIds = currentDClubIds
-      .filter((id) => !promotedDToC.has(id))
-      .concat([...relegatedCToD]);
-
-    if (
-      nextAClubIds.length !== 20 ||
-      nextBClubIds.length !== 20 ||
-      nextCClubIds.length !== 20 ||
-      nextDClubIds.length !== 96
-    ) {
-      window.alert("A movimentação entre A, B, C e D não fechou os números esperados. A próxima temporada não foi criada.");
-      return;
-    }
-
-    let nextClubId = nextId(clubs);
-    const createClubs = (clubIds: number[], championshipId: number): Club[] =>
-      clubIds.map((oldId) => {
-        const source = clubs.find((club) => club.id === oldId)!;
-        return { id: nextClubId++, name: source.name, championshipId };
-      });
-
-    const newClubs = [
-      ...createClubs(nextAClubIds, nextAId),
-      ...createClubs(nextBClubIds, nextBId),
-      ...createClubs(nextCClubIds, nextCId),
-      ...createClubs(nextDClubIds, nextDId)
-    ];
-
-    setChampionships([...championships, ...nextChampionships]);
-    setClubs([...clubs, ...newClubs]);
-    setSelectedCountry("Brasil");
-    setSelectedId(nextAId);
-    setSection("Visão geral");
-    setRound(1);
-
-    window.alert(
-      "Temporada " + nextSeason + " criada automaticamente com base nos resultados de " + currentSeason + ".\n\n" +
-      "A → B: " + relegatedFromA.length + " rebaixados / " + promotedToA.length + " promovidos\n" +
-      "B → C: " + bRelegated.length + " rebaixados / " + promotedToB.length + " promovidos\n" +
-      "C → B: " + promotedToB.length + " promovidos\n" +
-      "C → D: " + relegatedFromC.length + " rebaixados\n" +
-      "D → C: " + promotedDToC.length + " promovidos"
-    );
-  }
-  if (!championship) {
-    return (
-      <div className="app">
-        <aside className="side">
-          <div className="brand"><div className="mark">◈</div><div className="brandInfo"><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div><button className="resetTestBtn" onClick={resetSimulation} title="Zerar simulações de teste" aria-label="Zerar simulações de teste">↺</button></div>
-          <div className="label lower">PAÍSES</div>
-          <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSelectedId(0); setSection("País"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
-          <div className="countrySubsection">
-            <div className="countrySubhead">{COUNTRIES.find((country) => country.name === selectedCountry)?.flag} {selectedCountry}</div>
-            <div className="emptySide">Nenhum campeonato cadastrado.</div>
-          </div>
-        </aside>
-        <main className="main emptyState">
-          <header><div><div className="crumb">PAÍSES / <strong>{selectedCountry.toUpperCase()}</strong></div><h1>{selectedCountry}</h1></div><button className="primary" onClick={() => setModal("championship")}>＋ Novo campeonato</button></header>
-          <section className="emptyPanel">
-            <span className="eyebrow">PAÍS</span>
-            <h2>Nenhum campeonato cadastrado</h2>
-            <p>Crie o primeiro campeonato de {selectedCountry}. Ele ficará vinculado a este país.</p>
-            <button className="primary" onClick={() => setModal("championship")}>＋ Criar campeonato</button>
-          </section>
-          {modal && <Modal type={modal} country={selectedCountry} onClose={() => setModal(null)} addChampionship={addChampionship} addClub={addClub} />}
-        </main>
-      </div>
-    );
-  }
+  const panel = (title:string,children:React.ReactNode)=><section style={{background:"#fff",border:"1px solid #e6e6e6",borderRadius:18,padding:24,marginBottom:18}}><h2 style={{marginTop:0}}>{title}</h2>{children}</section>;
+  const button=(label:string,onClick:()=>void,primary=false)=><button onClick={onClick} style={{border:0,borderRadius:10,padding:"10px 14px",cursor:"pointer",fontWeight:700,background:primary?"#5b2a68":"#eee",color:primary?"#fff":"#222",marginRight:8,marginBottom:8}}>{label}</button>;
 
   return (
-    <div className="app">
-      <aside className="side">
-        <div className="brand"><div className="mark">◈</div><div className="brandInfo"><b>SPORTS TABLE</b><span>CHAMPIONSHIP MANAGER</span></div><button className="resetTestBtn" onClick={resetSimulation} title="Zerar simulações de teste" aria-label="Zerar simulações de teste">↺</button></div>
-        <div className="label lower">PAÍSES</div>
-        <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSelectedId(0); setSection("País"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
-        <div className="countrySubsection">
-          <div className="countrySubhead">{COUNTRIES.find((country) => country.name === selectedCountry)?.flag} {selectedCountry}</div>
-          {Array.from(new Map(championships.filter((item) => item.country === selectedCountry).map((item) => [item.name, item])).values()).map((item) => {
-            const seasons = championships.filter((candidate) => candidate.country === selectedCountry && candidate.name === item.name);
-            const latest = seasons.reduce((current, candidate) => Number(candidate.season) > Number(current.season) ? candidate : current, seasons[0]);
-            return <button key={item.name} className={seasons.some((candidate) => candidate.id === selectedId) ? "champMini active" : "champMini"} onClick={() => { setSelectedId(latest.id); setSection("Visão geral"); }}>{item.name}<small>{latest.season}</small></button>;
-          })}
-          {!championships.some((item) => item.country === selectedCountry) && <div className="emptySide">Nenhum campeonato cadastrado.</div>}
-        </div>
-</aside>
+    <div style={{minHeight:"100vh",background:"#f6f3f7",fontFamily:"Arial, sans-serif",color:"#252126"}}>
+      <header style={{background:"#211f23",color:"#fff",padding:"18px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><strong style={{fontSize:22}}>Sports Manager</strong><div style={{opacity:.7,fontSize:12}}>Brasil · competições reais</div></div>
+        <div>{button("↻ Reconstruir 2026",reset)}</div>
+      </header>
+      <div style={{display:"grid",gridTemplateColumns:"250px 1fr",minHeight:"calc(100vh - 70px)"}}>
+        <aside style={{background:"#2b2730",color:"#fff",padding:18}}>
+          <div style={{fontSize:12,opacity:.6,marginBottom:12}}>PAÍSES</div>
+          <button onClick={()=>setSelectedId(championships.find((c)=>c.division==="Série A"&&c.season===String(Math.max(...championships.map((x)=>Number(x.season)))))?.id??1)} style={{width:"100%",textAlign:"left",background:"transparent",border:0,color:"#fff",padding:"10px",cursor:"pointer"}}>🇧🇷 Brasil</button>
+          <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>CAMPEONATOS</div>
+          {(["Série A","Série B","Série C","Série D"] as Division[]).map((d)=>(
+            <div key={d} style={{marginBottom:8}}>
+              <div style={{fontWeight:800,padding:"7px 10px"}}>{d}</div>
+              {championships.filter((c)=>c.division===d).sort((a,b)=>Number(b.season)-Number(a.season)).map((c)=>(
+                <button key={c.id} onClick={()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}} style={{display:"block",width:"100%",textAlign:"left",border:0,borderRadius:8,padding:"7px 14px",background:selectedId===c.id?"#5b2a68":"transparent",color:"#fff",cursor:"pointer"}}>{c.season}</button>
+              ))}
+            </div>
+          ))}
+        </aside>
 
-      <main className="main">
-        <header>
-          <div><div className="crumb">{section === "País" ? "PAÍSES / " + selectedCountry.toUpperCase() : "CAMPEONATOS / " + (championship?.name?.toUpperCase() ?? "")}</div><h1>{section === "País" ? selectedCountry : section}</h1></div>
-          {section === "País" ? <button className="primary" onClick={() => setModal("championship")}>＋ Novo campeonato</button> : <button className="ghost" onClick={() => setSection("País")}>← Voltar para {selectedCountry}</button>}
-        </header>
-
-        {section !== "País" && <div className="champBar">
-          <div><span className="liveDot" /><b>{championship?.name}</b><em>{championship?.country} · {championship?.season}</em></div>
-          <select value={selectedId} onChange={(event) => { setSelectedId(Number(event.target.value)); setRound(1); }}>
-            {championships.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.season}</option>)}
-          </select>
-        </div>}
-
-        {section === "País" && <CountryPage country={selectedCountry} flag={COUNTRIES.find((item) => item.name === selectedCountry)?.flag ?? ""} championships={championships.filter((item) => item.country === selectedCountry)} clubs={clubs} matches={matches} onNew={() => setModal("championship")} onOpen={(id) => { setSelectedId(id); setSection("Visão geral"); }} onDelete={deleteChampionship} />}
-        {section === "Visão geral" && <Dashboard standings={standings} matches={myMatches} division={championship?.division ?? ""} clubName={clubName} onPartidas={() => setSection("Partidas")} onClub={() => setModal("club")} onChamp={() => setModal("championship")} onRound={addRound} onNextSeason={createNextBrazilSeason} onGenerateRound={() => generateResults("round")} onGenerateRemaining={() => generateResults("remaining")} onGenerateNextStage={generateNextStage} onHistory={() => setSection("Histórico")} onClubHistory={openClubHistory} />}
-        {section === "Histórico" && championship && <ChampionshipHistory championship={championship} championships={championships} clubs={clubs} matches={matches} />}
-        {section === "Clube" && selectedClubName && <ClubHistory clubName={selectedClubName} championships={championships} clubs={clubs} matches={matches} onBack={() => setSection("Visão geral")} />}
-        {section === "Campeonatos" && <Manager title="Meus campeonatos" button="Novo campeonato" onClick={() => setModal("championship")}><div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.country} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>Abrir →</button><button className="dangerText" onClick={() => deleteChampionship(item.id)}>Excluir</button></div></div>)}</div></Manager>}
-        {section === "Clubes" && <Manager title={"Clubes · " + championship?.name} button="Novo clube" onClick={() => setModal("club")}><div className="cards">{myClubs.map((club) => <button className="entityCard clubEntityCard" key={club.id} onClick={() => openClubHistory(club.name)}><span>CLUBE</span><h2>{club.name}</h2><p>{championship?.country} · {championship?.season}</p><small>Ver histórico →</small></button>)}</div></Manager>}
-        {championship?.division === "Série D" && section.startsWith("Série D · ") && (
-          <div className="phasePage">
-            {(() => {
-              const phase = Number(section.replace("Série D · ", ""));
-              const labels: Record<number,string> = {64:"1ª fase do mata-mata",32:"2ª fase do mata-mata",16:"3ª fase do mata-mata",8:"Quartas de final",4:"Semifinais · acesso à Série C",2:"Final · campeão"};
-              const phaseMatches = myMatches.filter((m) => m.stage === "knockout" && m.knockoutRound === phase).sort((a,b) => a.round-b.round || a.id-b.id);
-              const winners = getKnockoutWinners(myMatches, phase);
-              const complete = phaseMatches.length > 0 && phaseMatches.every((m) => m.played);
-              const access = getKnockoutWinners(myMatches, 4);
-              const champion = getKnockoutWinners(myMatches, 2);
-              return <>
-                <div className="phaseIntro">
-                  <div><span className="eyebrow">SÉRIE D · MATA-MATA</span><h2>{labels[phase] ?? "Mata-mata"}</h2><p>{phase === 4 ? "Os 4 semifinalistas conquistam automaticamente o acesso à Série C." : phase === 2 ? "Final em dois jogos. O vencedor do agregado é o campeão." : "Ida e volta. O vencedor do agregado avança automaticamente."}</p></div>
-                  <div className="phaseActions">
-                    <button className="ghost phaseGenerate" onClick={() => setSection("Partidas")}>← Voltar às fases</button>
-                    <button className="generateBtn phaseGenerate" onClick={() => generateResults("knockout", phase)}>⚡ Gerar resultados</button>
-                    {complete && phase > 2 && !myMatches.some((m) => m.stage === "knockout" && m.knockoutRound === phase / 2) && <button className="primary phaseGenerate" onClick={generateNextStage}>→ Avançar automaticamente</button>}
-                  </div>
-                </div>
-                {complete && winners.length > 0 && <div className="championCard"><span>✓ CLASSIFICADOS</span><strong>{winners.length} clubes avançaram</strong><div className="accessTeamList">{winners.map((id) => <button key={id} onClick={() => openClubHistory(clubName(id))}>{clubName(id)}</button>)}</div></div>}
-                {phase === 4 && access.length === 4 && <div className="championCard accessCard"><span>🎟️ ACESSO À SÉRIE C</span><strong>4 clubes conquistaram o acesso</strong><div className="accessTeamList">{access.map((id) => <button key={id} onClick={() => openClubHistory(clubName(id))}>{clubName(id)}</button>)}</div></div>}
-                {phase === 2 && champion.length === 1 && <div className="championCard"><span>🏆 CAMPEÃO DA SÉRIE D</span><strong>{clubName(champion[0])}</strong><small>Campeão definido automaticamente após a final.</small></div>}
-                <div className="playoffGrid">{phaseMatches.map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
-              </>;
-            })()}
+        <main style={{padding:28,maxWidth:1250,width:"100%",boxSizing:"border-box"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
+            <div><div style={{fontSize:13,color:"#777"}}>Brasil / {championship.division} / {championship.season}</div><h1 style={{margin:"6px 0"}}>{championship.name}</h1></div>
+            <div>
+              {button("Visão geral",()=>setSection("Visão geral"))}
+              {button("Classificação",()=>setSection("Classificação"))}
+              {button("Jogos",()=>setSection("Jogos"))}
+              {button("Clubes",()=>setSection("Clubes"))}
+              {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
+              {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
+              {championship.division==="Série D"&&[64,32,16,8,2].map((p)=>myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===p)&&button(String(p===2?"Final":p===64?"Série D · 64":"Série D · "+p),()=>setSection("Série D · "+p)))}
+            </div>
           </div>
-        )}
 
-        {section === "Partidas" && <Manager title={(championship?.name ?? "") + " · Partidas"} button="Ver rodadas" onClick={() => setSection("Partidas")}>
-          {championship?.division === "Série B" && myMatches.some((match) => match.stage === "playoff") ? (
-            <div className="phasePage">
-              <div className="phaseIntro">
-                <div><span className="eyebrow">PLAY-OFFS DE ACESSO</span><h2>4 jogos · 2 confrontos</h2><p>Ida: 6º x 3º e 5º x 4º. Volta: 3º x 6º e 4º x 5º. Os vencedores dos confrontos garantem o acesso à Série A.</p></div>
-                <button className="generateBtn phaseGenerate" onClick={() => generateResults("playoff")}>⚡ Gerar resultados dos play-offs</button>
-              </div>
-              <PlayoffAccessSummary matches={myMatches.filter((match) => match.stage === "playoff")} clubName={clubName} />
-              <div className="playoffGrid">{myMatches.filter((match) => match.stage === "playoff").sort((a, b) => a.round - b.round || a.id - b.id).map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
+          {section==="Visão geral" && panel("Regulamento",<>
+            <p>{championship.regulation}</p>
+            <p><strong>Acesso:</strong> {championship.promotion}</p>
+            <p><strong>Rebaixamento:</strong> {championship.relegation}</p>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              {button("⚡ Gerar próxima rodada",()=>generateResults("round"),true)}
+              {button("⚡ Gerar todos os jogos restantes",()=>generateResults("remaining"))}
+              {button("⚙ Preparar próxima fase",prepareNextPhase)}
+              {button("📅 Criar próxima temporada",createNextSeason)}
             </div>
-          ) : championship?.division === "Série C" && myMatches.some((match) => match.stage === "final") ? (
-            <div className="phasePage">
-              <div className="phaseIntro">
-                <div><span className="eyebrow">FINAL DA SÉRIE C</span><h2>2 jogos · campeão</h2><p>Os dois primeiros dos grupos já garantiram o acesso. Os líderes disputam a final em ida e volta.</p></div>
-                <button className="generateBtn phaseGenerate" onClick={() => generateResults("final")}>⚡ Gerar resultados da final</button>
-              </div>
-              <FinalChampionSummary matches={myMatches.filter((match) => match.stage === "final")} clubName={clubName} />
-              <div className="playoffGrid">{myMatches.filter((match) => match.stage === "final").sort((a, b) => a.round - b.round).map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
-            </div>
-          ) : championship?.division === "Série C" && myMatches.some((match) => match.stage === "secondPhase") ? (
-            <div className="phasePage">
-              <div className="phaseIntro">
-                <div><span className="eyebrow">SEGUNDA FASE</span><h2>Grupo A · Grupo B</h2><p>Os dois primeiros de cada grupo garantem o acesso à Série B. Os líderes disputam a final em 2 jogos.</p></div>
-                <div className="phaseActions">
-                  <button className="generateBtn phaseGenerate" onClick={() => generateResults("secondPhase")}>⚡ Gerar resultados da segunda fase</button>
-                  {myMatches.some((match) => match.stage === "secondPhase") && myMatches.filter((match) => match.stage === "secondPhase").every((match) => match.played) && <button className="primary phaseGenerate" onClick={generateNextStage}>→ Ir para a final</button>}
-                </div>
-              </div>
-              <div className="groupBoards">
-                {(["A", "B"] as const).map((group) => {
-                  const groupMatches = myMatches.filter((match) => match.stage === "secondPhase" && match.group === group);
-                  const ids = [...new Set(groupMatches.flatMap((match) => [match.home, match.away]))];
-                  const groupRows = ids.map((clubId) => {
-                    let points = 0, played = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
-                    groupMatches.filter((match) => match.played && (match.home === clubId || match.away === clubId)).forEach((match) => {
-                      const home = match.home === clubId;
-                      const scored = home ? match.homeScore! : match.awayScore!;
-                      const conceded = home ? match.awayScore! : match.homeScore!;
-                      played++; gf += scored; ga += conceded;
-                      if (scored > conceded) { wins++; points += championship?.pointsWin ?? 3; }
-                      else if (scored === conceded) { draws++; points += championship?.pointsDraw ?? 1; }
-                      else losses++;
-                    });
-                    return { clubId, played, wins, draws, losses, gf, ga, gd: gf - ga, points };
-                  }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
-                  return <section className="groupBoard" key={group}><div className="groupBoardHead"><b>GRUPO {group}</b><span>2 primeiros = acesso</span></div><table className="standingsTable"><thead><tr><th>#</th><th>CLUBE</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th><th>PTS</th></tr></thead><tbody>{groupRows.map((row, index) => <tr key={row.clubId} className={index < 2 ? "zone-direct" : "zone-neutral"}><td>{index + 1}</td><td><b>{clubName(row.clubId)}</b></td><td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.gd > 0 ? "+" : ""}{row.gd}</td><td><strong>{row.points}</strong></td></tr>)}</tbody></table></section>;
-                })}
-              </div>
-              <div className="phaseMatches"><h3>Jogos da segunda fase</h3><div className="playoffGrid">{myMatches.filter((match) => match.stage === "secondPhase").map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div></div>
-            </div>
-          ) : championship?.division === "Série D" ? (
-            <div className="phasePage">
-              {myMatches.some((m) => m.stage === "knockout") ? (
-                <>
-                  <div className="phaseIntro"><div><span className="eyebrow">SÉRIE D · MATA-MATA</span><h2>Fases do mata-mata</h2><p>Cada fase possui sua própria página. A classificação e os confrontos são gerados automaticamente.</p></div><button className="generateBtn phaseGenerate" onClick={() => { const openPhases = myMatches.filter((m) => m.stage === "knockout" && !m.played).map((m) => m.knockoutRound ?? 0); const currentPhase = openPhases.length ? Math.min(...openPhases) : Math.max(...myMatches.filter((m) => m.stage === "knockout").map((m) => m.knockoutRound ?? 0)); setSection(`Série D · ${currentPhase}`); }}>→ Abrir fase atual</button></div>
-                  <div className="knockoutPhaseMenu">{[64,32,16,8,4,2].map((phase) => {
-                    const phaseMatches = myMatches.filter((m) => m.stage === "knockout" && m.knockoutRound === phase);
-                    if (!phaseMatches.length) return null;
-                    const complete = phaseMatches.every((m) => m.played);
-                    const winners = getKnockoutWinners(myMatches, phase);
-                    return <button className="knockoutPhaseCard" key={phase} onClick={() => setSection(`Série D · ${phase}`)}><span>{phase === 64 ? "1ª fase" : phase === 32 ? "2ª fase" : phase === 16 ? "3ª fase" : phase === 8 ? "Quartas de final" : phase === 4 ? "Semifinais · acesso" : "Final · campeão"}</span><strong>{phase} clubes</strong><small>{complete ? winners.length + " classificados" : "Em andamento"}</small></button>;
-                  })}</div>
-                </>
-              ) : (
-                <>
-                  <div className="phaseIntro"><div><span className="eyebrow">PRIMEIRA FASE DA SÉRIE D</span><h2>16 grupos · 480 jogos</h2><p>Os 4 primeiros de cada grupo avançam automaticamente para o mata-mata.</p></div><div className="phaseActions"><button className="generateBtn phaseGenerate" onClick={() => generateResults("remaining")}>⚡ Gerar restantes</button><button className="primary phaseGenerate" onClick={generateNextStage}>→ Gerar mata-mata</button></div></div>
-                  <div className="roundBar"><label>RODADA<select value={round} onChange={(event) => setRound(Number(event.target.value))}>{rounds.filter((item) => item <= 10).map((item) => <option key={item} value={item}>Rodada {item}</option>)}</select></label></div>
-                  <div className="resultList">{myMatches.filter((match) => match.stage === "regular" && match.group && match.round === round).map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
-                </>
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="roundBar"><label>RODADA<select value={round} onChange={(event) => setRound(Number(event.target.value))}>{rounds.map((item) => <option key={item} value={item}>Rodada {item}</option>)}</select></label></div>
-              <div className="resultList">{myMatches.filter((match) => match.round === round).map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
-            </>
-          )}
-        </Manager>}
-      </main>
+          </>)}
 
-      {modal && <Modal type={modal} country={selectedCountry} onClose={() => setModal(null)} addChampionship={addChampionship} addClub={addClub} />}
+          {section==="Classificação" && panel("Classificação",<>
+            <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #eee"}}>{x}</th>)}</tr></thead><tbody>
+              {currentTable.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+            </tbody></table></div>
+          </>)}
+
+          {section==="Clubes" && panel("Clubes",<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>{myClubs.map(c=><button key={c.id} onClick={()=>setSelectedClub(c.name)} style={{padding:14,border:"1px solid #ddd",borderRadius:12,background:"#fafafa",textAlign:"left",cursor:"pointer",fontWeight:700}}>{c.name}</button>)}</div>)}
+
+          {section==="Jogos" && panel("Jogos",<>
+            <div style={{marginBottom:14}}>{button("⚡ Gerar rodada",()=>generateResults("round"),true)} {button("⚡ Gerar restantes",()=>generateResults("remaining"))} {button("⚙ Preparar fase",prepareNextPhase)}</div>
+            <div style={{display:"grid",gap:8}}>{displayedMatches.slice(0,100).map(m=><div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 70px 1fr 110px",alignItems:"center",gap:10,padding:12,border:"1px solid #eee",borderRadius:10,background:"#fff"}}><span style={{textAlign:"right"}}>{clubName(m.home)}</span><input value={newResult[m.id]?.[0]??(m.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[e.target.value,x[m.id]?.[1]??(m.awayScore??"").toString()]}))} style={{width:50}}/><span>{clubName(m.away)}</span><div><input value={newResult[m.id]?.[1]??(m.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[x[m.id]?.[0]??(m.homeScore??"").toString(),e.target.value]}))} style={{width:50}}/> {button(m.played?"Salvar":"Salvar",()=>saveScore(m.id))}</div></div>)}</div>
+          </>)}
+
+          {(section==="Play-offs"||section==="Segunda fase"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
+            <div style={{marginBottom:14}}>{button("⚡ Gerar resultados desta fase",()=>generateResults("phase"),true)} {button("→ Avançar automaticamente",prepareNextPhase)}</div>
+            <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=><div key={m.id} style={{padding:12,border:"1px solid #eee",borderRadius:10,background:"#fff",display:"flex",justifyContent:"space-between",gap:10}}><span>{clubName(m.home)}</span><strong>{m.played?m.homeScore+" × "+m.awayScore:"— × —"}</strong><span>{clubName(m.away)}</span></div>)}</div>
+          </>)}
+
+          {selectedClub && panel("Histórico do clube",<>
+            <button onClick={()=>setSelectedClub(null)} style={{float:"right"}}>Fechar</button>
+            <h3>{selectedClub}</h3>
+            <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th style={{textAlign:"left"}}>Temporada</th><th>Divisão</th><th>J</th><th>Pts</th><th>SG</th></tr></thead><tbody>
+              {championships.filter((c)=>clubs.some((x)=>x.championshipId===c.id&&x.name===selectedClub)).sort((a,b)=>Number(b.season)-Number(a.season)).map(c=>{
+                const cl=clubs.find(x=>x.championshipId===c.id&&x.name===selectedClub)!;
+                const row=tableFor(c,[cl.id],matches)[0];
+                return <tr key={c.id}><td>{c.season}</td><td>{c.division}</td><td>{row?.played??0}</td><td>{row?.points??0}</td><td>{row?.gd??0}</td></tr>;
+              })}
+            </tbody></table>
+          </>)}
+        </main>
+      </div>
     </div>
   );
 }
 
-function CountryPage({ country, flag, championships, clubs, matches, onNew, onOpen, onDelete }: { country: string; flag: string; championships: Championship[]; clubs: Club[]; matches: Match[]; onNew: () => void; onOpen: (id: number) => void; onDelete: (id: number) => void }) {
-  return <section className="manager countryPage"><div className="managerHead"><div><span className="eyebrow">{flag} {country.toUpperCase()}</span><h2>Campeonatos de {country}</h2></div><button className="primary" onClick={onNew}>＋ Novo campeonato</button></div>{championships.length === 0 ? <div className="countryEmpty"><h3>Nenhum campeonato cadastrado</h3><p>Use o botão acima para criar uma competição dentro de {country}.</p></div> : <div className="cards">{championships.map((item) => <div className="entityCard" key={item.id}><span>{item.division} · {item.season}</span><h2>{item.name}</h2><p>{clubs.filter((club) => club.championshipId === item.id).length} clubes · {matches.filter((match) => match.championshipId === item.id).length} partidas</p><div className="cardActions"><button onClick={() => onOpen(item.id)}>Abrir →</button><button className="dangerText" onClick={() => onDelete(item.id)}>Excluir</button></div></div>)}</div>}</section>;
-}
-
-function ClubHistory({ clubName, championships, clubs, matches, onBack }: { clubName: string; championships: Championship[]; clubs: Club[]; matches: Match[]; onBack: () => void }) {
-  const seasons = clubs
-    .filter((club) => club.name === clubName)
-    .map((club) => {
-      const championship = championships.find((item) => item.id === club.championshipId);
-      if (!championship) return null;
-
-      const allRegular = matches.filter((match) => match.championshipId === championship.id && (match.stage ?? "regular") === "regular");
-      const clubMatches = allRegular.filter((match) => match.home === club.id || match.away === club.id);
-      const playedMatches = clubMatches.filter((match) => match.played);
-
-      let points = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
-      playedMatches.forEach((match) => {
-        const home = match.home === club.id;
-        const scored = home ? (match.homeScore ?? 0) : (match.awayScore ?? 0);
-        const conceded = home ? (match.awayScore ?? 0) : (match.homeScore ?? 0);
-        gf += scored;
-        ga += conceded;
-        if (scored > conceded) { wins++; points += championship.pointsWin; }
-        else if (scored === conceded) { draws++; points += championship.pointsDraw; }
-        else { losses++; points += championship.pointsLoss; }
-      });
-
-      const table = clubs.filter((item) => item.championshipId === championship.id).map((item) => {
-        const itemMatches = allRegular.filter((match) => match.played && (match.home === item.id || match.away === item.id));
-        let itemPoints = 0, itemGf = 0, itemGa = 0;
-        itemMatches.forEach((match) => {
-          const home = match.home === item.id;
-          const scored = home ? (match.homeScore ?? 0) : (match.awayScore ?? 0);
-          const conceded = home ? (match.awayScore ?? 0) : (match.homeScore ?? 0);
-          itemGf += scored;
-          itemGa += conceded;
-          itemPoints += scored > conceded ? championship.pointsWin : scored === conceded ? championship.pointsDraw : championship.pointsLoss;
-        });
-        return { id: item.id, points: itemPoints, gd: itemGf - itemGa, gf: itemGf };
-      }).sort((x, y) => y.points - x.points || y.gd - x.gd || y.gf - x.gf);
-
-      const position = table.findIndex((row) => row.id === club.id) + 1;
-      const complete = allRegular.length > 0 && allRegular.every((match) => match.played);
-
-      let champion = complete && position === 1;
-      if (complete && (championship.division === "Série C" || championship.division === "Série D")) {
-        const final = matches.filter((match) => match.championshipId === championship.id && (championship.division === "Série D" ? match.stage === "knockout" && match.knockoutRound === 2 : match.stage === "final")).sort((x, y) => x.round - y.round);
-        if (final.length === 2 && final.every((match) => match.played)) {
-          const teams = [...new Set(final.flatMap((match) => [match.home, match.away]))];
-          const totals = teams.map((id) => ({
-            id,
-            goals: final.reduce((sum, match) => sum + (match.home === id ? (match.homeScore ?? 0) : match.away === id ? (match.awayScore ?? 0) : 0), 0),
-          })).sort((x, y) => y.goals - x.goals);
-          const penaltyWinner = final.find((match) => match.penaltyWinner)?.penaltyWinner;
-          champion = penaltyWinner === club.id || (!penaltyWinner && totals[0]?.id === club.id && totals[0]?.goals !== totals[1]?.goals);
-        } else {
-          champion = false;
-        }
-      }
-
-      return {
-        id: club.id,
-        championship,
-        position,
-        played: playedMatches.length,
-        wins,
-        draws,
-        losses,
-        gf,
-        ga,
-        gd: gf - ga,
-        points,
-        champion,
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => Boolean(item))
-    .sort((a, b) => Number(b.championship.season) - Number(a.championship.season) || a.championship.name.localeCompare(b.championship.name));
-
-  const titles = seasons.filter((item) => item.champion);
-
-  return <div className="clubHistoryPage">
-    <div className="clubHistoryHero">
-      <button className="ghost" onClick={onBack}>← Voltar</button>
-      <span className="eyebrow">HISTÓRICO DO CLUBE</span>
-      <h2>{clubName}</h2>
-      <p>{seasons.length} temporadas registradas · {titles.length} {titles.length === 1 ? "título" : "títulos"}</p>
-    </div>
-
-    <section className="historyPanel">
-      <div className="panelHead"><div><span className="eyebrow">TEMPORADA POR TEMPORADA</span><h2>Histórico do clube</h2></div></div>
-      {seasons.length > 0 ? <div className="clubSeasonList">
-        {seasons.map((item) => <div className="clubSeasonRow" key={item.id}>
-          <div className="clubSeasonMain">
-            <strong>{item.championship.season}</strong>
-            <div><b>{item.championship.name}</b><small>{item.championship.division}{item.position > 0 ? " · " + item.position + "º lugar" : ""}</small></div>
-            {item.champion && <em>🏆 CAMPEÃO</em>}
-          </div>
-          <div className="clubSeasonStats">
-            <span><b>{item.played}</b> J</span>
-            <span><b>{item.wins}</b> V</span>
-            <span><b>{item.draws}</b> E</span>
-            <span><b>{item.losses}</b> D</span>
-            <span><b>{item.gf}</b> GP</span>
-            <span><b>{item.ga}</b> GC</span>
-            <span><b>{item.gd > 0 ? "+" : ""}{item.gd}</b> SG</span>
-            <span><b>{item.points}</b> PTS</span>
-          </div>
-        </div>)}
-      </div> : <div className="emptySide">Nenhum registro encontrado para este clube.</div>}
-    </section>
-  </div>;
-}
-
-function ChampionshipHistory({ championship, championships, clubs, matches }: { championship: Championship; championships: Championship[]; clubs: Club[]; matches: Match[] }) {
-  const seasons = championships
-    .filter((item) => item.country === championship.country && item.name === championship.name)
-    .sort((a, b) => Number(b.season) - Number(a.season));
-
-  const getClubName = (id: number) => clubs.find((club) => club.id === id)?.name ?? "Clube";
-
-  const seasonData = seasons.map((season) => {
-    const seasonMatches = matches.filter((match) => match.championshipId === season.id);
-    const regular = seasonMatches.filter((match) => (match.stage ?? "regular") === "regular");
-    if (!regular.length || !regular.every((match) => match.played)) return null;
-
-    const rows = clubs.filter((club) => club.championshipId === season.id).map((club) => {
-      let points = 0, gd = 0, gf = 0, games = 0;
-      regular.filter((match) => match.home === club.id || match.away === club.id).forEach((match) => {
-        const home = match.home === club.id;
-        const scored = home ? (match.homeScore ?? 0) : (match.awayScore ?? 0);
-        const conceded = home ? (match.awayScore ?? 0) : (match.homeScore ?? 0);
-        games++; gf += scored; gd += scored - conceded;
-        points += scored > conceded ? season.pointsWin : scored === conceded ? season.pointsDraw : season.pointsLoss;
-      });
-      return { clubId: club.id, name: club.name, games, points, gd, gf };
-    }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
-
-    let championId = rows[0]?.clubId;
-    let championPoints = rows[0]?.points ?? 0;
-    let championGd = rows[0]?.gd ?? 0;
-    if (season.division === "Série C" || season.division === "Série D") {
-      const final = seasonMatches.filter((match) => season.division === "Série D" ? match.stage === "knockout" && match.knockoutRound === 2 : match.stage === "final").sort((a, b) => a.round - b.round);
-      if (final.length !== 2 || !final.every((match) => match.played)) return null;
-      const teams = [...new Set(final.flatMap((match) => [match.home, match.away]))];
-      const totals = teams.map((clubId) => ({
-        clubId,
-        goals: final.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0)
-      })).sort((a, b) => b.goals - a.goals);
-      const penaltyWinner = final.find((match) => match.penaltyWinner)?.penaltyWinner;
-      if (totals.length !== 2 || (totals[0].goals === totals[1].goals && !penaltyWinner)) return null;
-      championId = penaltyWinner ?? totals[0].clubId;
-      championPoints = rows.find((r) => r.clubId === championId)?.points ?? 0;
-      championGd = rows.find((r) => r.clubId === championId)?.gd ?? 0;
-    }
-
-    return { season, rows, championId: championId!, championPoints, championGd };
-  }).filter((item): item is NonNullable<typeof item> => Boolean(item?.championId));
-
-  const titleCounts = new Map<string, { count: number; seasons: string[] }>();
-  seasonData.forEach((item) => {
-    const name = getClubName(item.championId);
-    const current = titleCounts.get(name) ?? { count: 0, seasons: [] };
-    current.count++; current.seasons.push(item.season.season);
-    titleCounts.set(name, current);
-  });
-  const ranking = [...titleCounts.entries()].sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
-
-  const longestStreak = (() => {
-    let best = { name: "", count: 0, seasons: [] as string[] };
-    const byClub = new Map<string, string[]>();
-    seasonData.sort((a, b) => Number(a.season.season) - Number(b.season.season)).forEach((item) => {
-      const name = getClubName(item.championId);
-      const list = byClub.get(name) ?? [];
-      list.push(item.season.season); byClub.set(name, list);
-    });
-    byClub.forEach((years, name) => {
-      let run: string[] = [];
-      let previous = -Infinity;
-      years.forEach((year) => {
-        if (Number(year) === previous + 1) run.push(year);
-        else run = [year];
-        previous = Number(year);
-        if (run.length > best.count) best = { name, count: run.length, seasons: [...run] };
-      });
-    });
-    return best;
-  })();
-
-  const latestChampion = seasonData.sort((a, b) => Number(b.season.season) - Number(a.season.season))[0];
-  const championPointsRecord = [...seasonData].sort((a, b) => b.championPoints - a.championPoints)[0];
-  const championGdRecord = [...seasonData].sort((a, b) => b.championGd - a.championGd)[0];
-
-  const movements = seasonData.slice().sort((a, b) => Number(a.season.season) - Number(b.season.season)).flatMap((current, index, all) => {
-    const next = all[index + 1];
-    if (!next) return [];
-
-    const currentNames = new Set(current.rows.map((r) => r.name));
-    const nextNames = new Set(next.rows.map((r) => r.name));
-    const entered = [...nextNames].filter((name) => !currentNames.has(name));
-    const left = [...currentNames].filter((name) => !nextNames.has(name));
-
-    const findDivision = (season: string, name: string) => {
-      const championshipIds = championships
-        .filter((item) => item.country === championship.country && item.season === season)
-        .filter((item) => clubs.some((club) => club.championshipId === item.id && club.name === name))
-        .map((item) => item.division);
-      return championshipIds[0] ?? "outra divisão";
-    };
-
-    const divisionLevel = (division: string) => {
-      if (division === "Série A") return 1;
-      if (division === "Série B") return 2;
-      if (division === "Série C") return 3;
-      const number = Number(division.match(/\d+/)?.[0]);
-      return Number.isFinite(number) ? number : 999;
-    };
-
-    const currentLevel = divisionLevel(current.season.division);
-    const incomingFromLower = entered.filter((name) => divisionLevel(findDivision(current.season.season, name)) > currentLevel);
-    const incomingFromHigher = entered.filter((name) => divisionLevel(findDivision(current.season.season, name)) < currentLevel);
-    const outgoingToHigher = left.filter((name) => divisionLevel(findDivision(next.season.season, name)) < currentLevel);
-    const outgoingToLower = left.filter((name) => divisionLevel(findDivision(next.season.season, name)) > currentLevel);
-
-    return [{
-      from: current.season.season,
-      to: next.season.season,
-      incomingFromLower,
-      incomingFromHigher,
-      outgoingToHigher,
-      outgoingToLower,
-    }];
-  });
-
-  return <div className="historyPage">
-    <div className="historyHero"><div><span className="eyebrow">HISTÓRICO</span><h2>{championship.name}</h2><p>{seasons.length} temporadas cadastradas · {seasonData.length} com campeão definido</p></div></div>
-
-    {ranking.length > 0 && <section className="historyPanel">
-      <div className="panelHead"><div><span className="eyebrow">PALMARÉS</span><h2>Maiores campeões</h2></div></div>
-      <div className="historyCards">{ranking.map(([name, data], index) => <div className="historyCard" key={name}><span>#{index + 1}</span><div><strong>{name}</strong><small>{data.count} {data.count === 1 ? "título" : "títulos"}</small></div><em>{data.seasons.join(" · ")}</em></div>)}</div>
-    </section>}
-
-    <section className="historyPanel">
-      <div className="panelHead"><div><span className="eyebrow">RECORDES</span><h2>Marcas históricas</h2></div></div>
-      <div className="recordGrid">
-        <div className="recordCard"><span>🏆 MAIOR CAMPEÃO</span><strong>{ranking[0]?.[0] ?? "—"}</strong><small>{ranking[0] ? ranking[0][1].count + " títulos" : "—"}</small></div>
-        <div className="recordCard"><span>🔥 MAIOR SEQUÊNCIA</span><strong>{longestStreak.name || "—"}</strong><small>{longestStreak.count ? longestStreak.count + " consecutivos · " + longestStreak.seasons.join(", ") : "—"}</small></div>
-        <div className="recordCard"><span>📅 CAMPEÃO MAIS RECENTE</span><strong>{latestChampion ? getClubName(latestChampion.championId) : "—"}</strong><small>{latestChampion?.season.season ?? "—"}</small></div>
-        <div className="recordCard"><span>📊 MAIOR PONTUAÇÃO DO CAMPEÃO</span><strong>{championPointsRecord ? getClubName(championPointsRecord.championId) : "—"}</strong><small>{championPointsRecord ? championPointsRecord.championPoints + " pontos · " + championPointsRecord.season.season : "—"}</small></div>
-        <div className="recordCard"><span>⚽ MAIOR SALDO DO CAMPEÃO</span><strong>{championGdRecord ? getClubName(championGdRecord.championId) : "—"}</strong><small>{championGdRecord ? (championGdRecord.championGd > 0 ? "+" : "") + championGdRecord.championGd + " · " + championGdRecord.season.season : "—"}</small></div>
-        <div className="recordCard"><span>👑 CAMPEÕES DIFERENTES</span><strong>{ranking.length}</strong><small>clubes já campeões</small></div>
-      </div>
-    </section>
-
-    <section className="historyPanel">
-      <div className="panelHead"><div><span className="eyebrow">LINHA DO TEMPO</span><h2>Campeões por ano</h2></div></div>
-      {seasonData.length > 0 ? <div className="seasonHistory">{seasonData.map((item) => <div className="seasonHistoryRow" key={item.season.id}><span>{item.season.season}</span><strong>🏆 {getClubName(item.championId)}</strong></div>)}</div> : <div className="emptySide">Nenhum campeão registrado ainda.</div>}
-    </section>
-
-
-  </div>;
-}
-
-
-function Dashboard({ standings, matches, division, clubName, onPartidas, onClub, onChamp, onRound, onNextSeason, onGenerateRound, onGenerateRemaining, onGenerateNextStage, onHistory, onClubHistory }: { standings: any[]; matches: Match[]; division: string; clubName: (id: number) => string; onPartidas: () => void; onClub: () => void; onChamp: () => void; onRound: () => void; onNextSeason: () => void; onGenerateRound: () => void; onGenerateRemaining: () => void; onGenerateNextStage: () => void; onHistory: () => void; onClubHistory: (name: string) => void }) {
-
-  if (division === "Série D") {
-    const groups = Object.keys(SERIE_D_GROUPS);
-    const groupRows = (group: string) => {
-      const groupMatches = matches.filter((match) => match.group === group && (match.stage ?? "regular") === "regular");
-      const ids = [...new Set(groupMatches.flatMap((match) => [match.home, match.away]))];
-      return ids.map((clubId) => {
-        let played = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
-        groupMatches.filter((match) => match.played && (match.home === clubId || match.away === clubId)).forEach((match) => {
-          const home = match.home === clubId;
-          const scored = home ? match.homeScore! : match.awayScore!;
-          const conceded = home ? match.awayScore! : match.homeScore!;
-          played++; gf += scored; ga += conceded;
-          if (scored > conceded) wins++; else if (scored === conceded) draws++; else losses++;
-        });
-        return { clubId, played, wins, draws, losses, gf, ga, gd: gf - ga, points: wins * 3 + draws };
-      }).sort((a, b) => b.points - a.points || b.wins - a.wins || b.gd - a.gd || b.gf - a.gf);
-    };
-
-    return <>
-      <section className="stats">
-        <div className="stat"><span>CLUBES</span><strong>96</strong><small>16 grupos de 6</small></div>
-        <div className="stat"><span>PARTIDAS</span><strong>{matches.length}</strong><small>{matches.filter((m) => m.played).length} com resultado</small></div>
-        <div className="stat"><span>FASE</span><strong>{matches.some((m) => m.stage === "knockout") ? "MATA-MATA" : "GRUPOS"}</strong><small>ida e volta</small></div>
-      </section>
-      <section className="panel wide">
-        <div className="panelHead"><div><span className="eyebrow">SÉRIE D</span><h2>16 grupos · 6 clubes</h2><p>Os 4 primeiros de cada grupo avançam para o mata-mata.</p></div><div className="quick"><button onClick={onPartidas}>Ver partidas</button><button className="generateBtn" onClick={onGenerateNextStage}>⇢ Gerar próxima fase</button><button className="generateBtn" onClick={onGenerateRemaining}>⚡ Gerar restantes</button></div></div>
-        <div className="groupBoards">{groups.map((group) => {
-          const rows = groupRows(group);
-          return <section className="groupBoard" key={group}><div className="groupBoardHead"><b>GRUPO {group}</b><span>4 primeiros = classificados</span></div><table className="standingsTable"><thead><tr><th>#</th><th>CLUBE</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th><th>PTS</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.clubId} className={index < 4 ? "zone-direct" : "zone-neutral"}><td>{index + 1}</td><td><button className="clubLink" onClick={() => onClubHistory(clubName(row.clubId))}>{clubName(row.clubId)}</button></td><td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.gd > 0 ? "+" : ""}{row.gd}</td><td><strong>{row.points}</strong></td></tr>)}</tbody></table></section>;
-        })}</div>
-      </section>
-    </>;
-  }
-
-  return <><section className="stats"><div className="stat"><span>CLUBES</span><strong>{standings.length}</strong><small>neste campeonato</small></div><div className="stat"><span>PARTIDAS</span><strong>{matches.length}</strong><small>{matches.filter((m) => m.played).length} com resultado</small></div><div className="stat"><span>RODADAS</span><strong>{new Set(matches.map((m) => m.round)).size}</strong><small>cadastradas</small></div></section>
-    <div className="grid"><section className="panel wide"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Classificação</h2></div><button className="textBtn" onClick={onPartidas}>Abrir partidas →</button></div><div className="tableLegend"><span className="legendItem direct"><i /> Acesso direto</span><span className="legendItem playoff"><i /> Play-offs de acesso</span><span className="legendItem secondPhase"><i /> Segunda fase</span><span className="legendItem relegation"><i /> Rebaixamento</span></div><table className="standingsTable"><thead><tr><th>#</th><th>CLUBE</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{standings.map((row, index) => { const position = index + 1; const rowClass = division === "Série A" ? (position >= 17 ? "zone-relegation" : "zone-neutral") : division === "Série B" ? (position <= 2 ? "zone-direct" : position <= 6 ? "zone-playoff" : position >= 17 ? "zone-relegation" : "zone-neutral") : division === "Série C" ? (position <= 8 ? "zone-second-phase" : position >= 17 ? "zone-relegation" : "zone-neutral") : "zone-neutral"; return <tr key={row.club.id} className={rowClass}><td>{position}</td><td><button className="clubLink" onClick={() => onClubHistory(row.club.name)}>{row.club.name}</button></td><td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.gf}</td><td>{row.ga}</td><td>{row.gd > 0 ? "+" : ""}{row.gd}</td><td><strong>{row.points}</strong></td></tr>; })}</tbody></table></section>
-    <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Próximos jogos</h2></div></div>{matches.filter((m) => !m.played).slice(0, 5).map((m) => <div className="match" key={m.id}><div className="date">RODADA {m.round}</div><div className="teams"><span>{clubName(m.home)}</span><b>×</b><span>{clubName(m.away)}</span></div></div>)}</section>
-    <section className="panel"><div className="panelHead"><div><span className="eyebrow">GESTÃO</span><h2>Ações rápidas</h2></div></div><div className="quick"><button onClick={onClub}>＋ Cadastrar clube</button><button onClick={onChamp}>＋ Novo campeonato</button><button onClick={onPartidas}>◷ Ver rodadas</button><button onClick={onPartidas}>◷ Lançar resultados</button><button onClick={onHistory}>🏆 Histórico</button><button className="generateBtn" onClick={onGenerateRound}>⚡ Gerar rodada</button><button className="generateBtn" onClick={onGenerateRemaining}>⚡ Gerar restantes</button>{(division === "Série B" || division === "Série C") && <button className="generateBtn" onClick={onGenerateNextStage}>⇢ Gerar próxima fase</button>}<button onClick={onNextSeason}>⇄ Gerar próxima temporada</button></div></section></div></>;
-}
-
-function Manager({ title, button, onClick, children }: { title: string; button: string; onClick: () => void; children: React.ReactNode }) {
-  return <section className="manager"><div className="managerHead"><div><span className="eyebrow">CADASTRO E GESTÃO</span><h2>{title}</h2></div><button className="primary" onClick={onClick}>＋ {button}</button></div>{children}</section>;
-}
-
-function FinalChampionSummary({ matches, clubName }: { matches: Match[]; clubName: (id: number) => string }) {
-  const complete = matches.length === 2 && matches.every((match) => match.played);
-  if (!complete) {
-    return <div className="championPending">🏆 Campeão: aguardando os 2 jogos da final</div>;
-  }
-
-  const teams = [...new Set(matches.flatMap((match) => [match.home, match.away]))];
-  const totals = teams.map((clubId) => ({
-    clubId,
-    goals: matches.reduce((sum, match) => {
-      if (match.home === clubId) return sum + (match.homeScore ?? 0);
-      if (match.away === clubId) return sum + (match.awayScore ?? 0);
-      return sum;
-    }, 0),
-  })).sort((a, b) => b.goals - a.goals);
-
-  const tied = totals.length === 2 && totals[0].goals === totals[1].goals;
-  const penaltyWinner = matches.find((match) => match.penaltyWinner)?.penaltyWinner;
-  if (tied && !penaltyWinner) {
-    return <div className="championPending">🏆 Final empatada no agregado — decisão por pênaltis.</div>;
-  }
-
-  const champion = penaltyWinner ? { clubId: penaltyWinner, goals: totals.find((item) => item.clubId === penaltyWinner)?.goals ?? 0 } : totals[0];
-  return <div className="championCard">
-    <span>🏆 CAMPEÃO DA SÉRIE C</span>
-    <strong>{clubName(champion.clubId)}</strong>
-    <small>Placar agregado: {champion.goals} × {totals[1].goals}</small>
-  </div>;
-}
-
-function PlayoffAccessSummary({ matches, clubName }: { matches: Match[]; clubName: (id: number) => string }) {
-  const confrontations = new Map<string, Match[]>();
-  matches.forEach((match) => {
-    const key = [match.home, match.away].sort((a, b) => a - b).join("-");
-    const list = confrontations.get(key) ?? [];
-    list.push(match);
-    confrontations.set(key, list);
-  });
-
-  return <div className="accessSummary">
-    {[...confrontations.values()].map((legs, index) => {
-      const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
-      const complete = legs.length === 2 && legs.every((match) => match.played);
-      const totals = teams.map((clubId) => ({
-        clubId,
-        goals: legs.reduce((sum, match) => {
-          if (!match.played) return sum;
-          return sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0);
-        }, 0),
-      })).sort((a, b) => b.goals - a.goals);
-
-      const secondLeg = legs.find((match) => match.round === 40) ?? legs[1];
-      const penaltyWinner = secondLeg?.penaltyWinner;
-      const winner = complete
-        ? penaltyWinner ?? (totals.length === 2 && totals[0].goals !== totals[1].goals ? totals[0].clubId : null)
-        : null;
-      const tied = complete && totals.length === 2 && totals[0].goals === totals[1].goals && !penaltyWinner;
-
-      return <div className="accessCard" key={index}>
-        <div className="accessCardHead"><b>CONFRONTO {index + 1}</b><span>{complete ? (tied ? "Pênaltis necessários" : "Classificado") : "Aguardando os 2 jogos"}</span></div>
-        <div className="accessTeams">
-          {teams.map((clubId) => <div key={clubId} className={winner === clubId ? "accessTeam qualified" : "accessTeam"}>
-            <b>{clubName(clubId)}</b>
-            {complete && <strong>{totals.find((item) => item.clubId === clubId)?.goals ?? 0}</strong>}
-            {winner === clubId && <em>{penaltyWinner === clubId ? "ACESSO · PÊNALTIS" : "ACESSO"}</em>}
-          </div>)}
-        </div>
-      </div>;
-    })}
-  </div>;
-}
-
-function ResultRow({ match, home, away, onSave }: { match: Match; home: string; away: string; onSave: (id: number, home: string, away: string) => void }) {
-  const [homeScore, setHomeScore] = useState(match.homeScore == null ? "" : String(match.homeScore));
-  const [awayScore, setAwayScore] = useState(match.awayScore == null ? "" : String(match.awayScore));
-  return <div className="resultRow"><div><span className="eyebrow">RODADA {match.round}</span><b>{home}</b><small>vs</small><b>{away}</b></div><div className="scoreEdit"><input value={homeScore} onChange={(e) => setHomeScore(e.target.value)} inputMode="numeric" /><strong>×</strong><input value={awayScore} onChange={(e) => setAwayScore(e.target.value)} inputMode="numeric" /><button onClick={() => onSave(match.id, homeScore, awayScore)}>{match.played ? "Atualizar" : "Salvar resultado"}</button></div></div>;
-}
-
-function Modal({ type, country, onClose, addChampionship, addClub }: {
-  type: "club" | "championship";
-  country: string;
-  onClose: () => void;
-  addChampionship: (data: Omit<Championship, "id">) => void;
-  addClub: (name: string) => void;
-}) {
-  const [name, setName] = useState("");
-  const fixedCountry = country;
-  const [season, setSeason] = useState("2026");
-  const [sport, setSport] = useState("Futebol");
-  const [category, setCategory] = useState("Profissional");
-  const [division, setDivision] = useState("Divisão não definida");
-  const [format, setFormat] = useState("Pontos corridos");
-  const [teamCount, setTeamCount] = useState("20");
-  const [legs, setLegs] = useState("2");
-  const [rounds, setRounds] = useState("38");
-  const [pointsWin, setPointsWin] = useState("3");
-  const [pointsDraw, setPointsDraw] = useState("1");
-  const [pointsLoss, setPointsLoss] = useState("0");
-  const [tieBreakers, setTieBreakers] = useState<string[]>(["Pontos", "Saldo de gols", "Gols pró"]);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-
-  const toggleTieBreaker = (value: string) => {
-    setTieBreakers((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
-  };
-
-  const saveChampionship = () => {
-    if (!name.trim()) return;
-    addChampionship({
-      name, country: fixedCountry, season, sport, category, division, format,
-      regulation: "Regulamento cadastrado manualmente.",
-      promotion: "",
-      relegation: "",
-      teamCount: Math.max(0, Number(teamCount) || 0),
-      legs: Math.max(1, Number(legs) || 1),
-      rounds: Math.max(0, Number(rounds) || 0),
-      pointsWin: Math.max(0, Number(pointsWin) || 0),
-      pointsDraw: Math.max(0, Number(pointsDraw) || 0),
-      pointsLoss: Math.max(0, Number(pointsLoss) || 0),
-      tieBreakers, startDate, endDate
-    });
-  };
-
-  if (type === "club") {
-    return <div className="overlay"><div className="modal modalSmall"><button className="close" onClick={onClose}>×</button><span className="eyebrow">NOVO REGISTRO</span><h2>Novo clube</h2><input autoFocus placeholder="Nome do clube" value={name} onChange={(e) => setName(e.target.value)} /><button className="primary full" onClick={() => addClub(name)}>Salvar clube</button></div></div>;
-  }
-
-  return <div className="overlay"><div className="modal modalLarge">
-    <button className="close" onClick={onClose}>×</button>
-    <span className="eyebrow">CONFIGURAÇÃO DA COMPETIÇÃO</span>
-    <h2>Novo campeonato</h2>
-    <p className="modalIntro">Cadastre as regras da competição. Elas ficam salvas junto ao campeonato.</p>
-
-    <div className="formSection"><h3>1 · Identificação</h3><div className="formGrid">
-      <label className="field wideField">Nome da competição<input autoFocus placeholder="Ex.: Campeonato Brasileiro Série A" value={name} onChange={(e) => setName(e.target.value)} /></label>
-      <label className="field">País<input value={fixedCountry} readOnly /></label>
-      <label className="field">Temporada<input placeholder="2026" value={season} onChange={(e) => setSeason(e.target.value)} /></label>
-      <label className="field">Esporte<select value={sport} onChange={(e) => setSport(e.target.value)}><option>Futebol</option><option>Futsal</option><option>Basquete</option><option>Vôlei</option><option>Handebol</option><option>Outro</option></select></label>
-      <label className="field">Divisão<input placeholder="Ex.: Série A" value={division} onChange={(e) => setDivision(e.target.value)} /></label>
-      <label className="field">Categoria<select value={category} onChange={(e) => setCategory(e.target.value)}><option>Profissional</option><option>Feminino</option><option>Masculino</option><option>Base / Juvenil</option><option>Sub-20</option><option>Sub-17</option><option>Amador</option><option>Outro</option></select></label>
-    </div></div>
-
-    <div className="formSection"><h3>2 · Formato</h3><div className="formGrid">
-      <label className="field wideField">Modelo da competição<select value={format} onChange={(e) => setFormat(e.target.value)}><option>Pontos corridos</option><option>Grupos</option><option>Mata-mata</option><option>Grupos + mata-mata</option><option>Outro</option></select></label>
-      <label className="field">Número de equipes<input type="number" min="0" value={teamCount} onChange={(e) => setTeamCount(e.target.value)} /></label>
-      <label className="field">Turnos<input type="number" min="1" value={legs} onChange={(e) => setLegs(e.target.value)} /></label>
-      <label className="field">Número de rodadas<input type="number" min="0" value={rounds} onChange={(e) => setRounds(e.target.value)} /></label>
-    </div></div>
-
-    <div className="formSection"><h3>3 · Pontuação</h3><div className="formGrid pointsGrid">
-      <label className="field">Vitória<input type="number" min="0" value={pointsWin} onChange={(e) => setPointsWin(e.target.value)} /></label>
-      <label className="field">Empate<input type="number" min="0" value={pointsDraw} onChange={(e) => setPointsDraw(e.target.value)} /></label>
-      <label className="field">Derrota<input type="number" min="0" value={pointsLoss} onChange={(e) => setPointsLoss(e.target.value)} /></label>
-    </div></div>
-
-    <div className="formSection"><h3>4 · Desempates</h3><div className="checks">
-      {["Pontos", "Saldo de gols", "Gols pró", "Confronto direto", "Vitórias", "Fair play"].map((item) => <label className="check" key={item}><input type="checkbox" checked={tieBreakers.includes(item)} onChange={() => toggleTieBreaker(item)} />{item}</label>)}
-    </div></div>
-
-    <div className="formSection"><h3>5 · Calendário</h3><div className="formGrid">
-      <label className="field">Início<input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
-      <label className="field">Fim<input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label>
-    </div></div>
-
-    <div className="modalActions"><button className="ghost" onClick={onClose}>Cancelar</button><button className="primary" onClick={saveChampionship}>Criar campeonato</button></div>
-  </div></div>;
-}
-}
+export default App;
