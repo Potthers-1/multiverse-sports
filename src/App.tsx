@@ -43,18 +43,7 @@ const seedClubs: Club[] = [];
 const seedMatches: Match[] = [];
 
 const COUNTRIES = [
-  { name: "Espanha", flag: "🇪🇸" },
-  { name: "França", flag: "🇫🇷" },
-  { name: "Argentina", flag: "🇦🇷" },
   { name: "Brasil", flag: "🇧🇷" },
-  { name: "Japão", flag: "🇯🇵" },
-  { name: "Irã", flag: "🇮🇷" },
-  { name: "Marrocos", flag: "🇲🇦" },
-  { name: "Senegal", flag: "🇸🇳" },
-  { name: "México", flag: "🇲🇽" },
-  { name: "EUA", flag: "🇺🇸" },
-  { name: "Nova Zelândia", flag: "🇳🇿" },
-  { name: "Ilhas Salomão", flag: "🇸🇧" },
 ];
 
 const DATA_VERSION = "6";
