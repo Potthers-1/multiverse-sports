@@ -768,7 +768,8 @@ export default function App() {
                 <div><span className="eyebrow">FINAL DA SÉRIE C</span><h2>2 jogos · campeão</h2><p>Os dois primeiros dos grupos já garantiram o acesso. Os líderes disputam a final em ida e volta.</p></div>
                 <button className="generateBtn phaseGenerate" onClick={() => generateResults("final")}>⚡ Gerar resultados da final</button>
               </div>
-              <div className="playoffGrid">{myMatches.filter((match) => match.stage === "final").map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
+              <FinalChampionSummary matches={myMatches.filter((match) => match.stage === "final")} clubName={clubName} />
+              <div className="playoffGrid">{myMatches.filter((match) => match.stage === "final").sort((a, b) => a.round - b.round).map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
             </div>
           ) : championship?.division === "Série C" && myMatches.some((match) => match.stage === "secondPhase") ? (
             <div className="phasePage">
@@ -828,6 +829,35 @@ function Dashboard({ standings, matches, division, clubName, onPartidas, onClub,
 
 function Manager({ title, button, onClick, children }: { title: string; button: string; onClick: () => void; children: React.ReactNode }) {
   return <section className="manager"><div className="managerHead"><div><span className="eyebrow">CADASTRO E GESTÃO</span><h2>{title}</h2></div><button className="primary" onClick={onClick}>＋ {button}</button></div>{children}</section>;
+}
+
+function FinalChampionSummary({ matches, clubName }: { matches: Match[]; clubName: (id: number) => string }) {
+  const complete = matches.length === 2 && matches.every((match) => match.played);
+  if (!complete) {
+    return <div className="championPending">🏆 Campeão: aguardando os 2 jogos da final</div>;
+  }
+
+  const teams = [...new Set(matches.flatMap((match) => [match.home, match.away]))];
+  const totals = teams.map((clubId) => ({
+    clubId,
+    goals: matches.reduce((sum, match) => {
+      if (match.home === clubId) return sum + (match.homeScore ?? 0);
+      if (match.away === clubId) return sum + (match.awayScore ?? 0);
+      return sum;
+    }, 0),
+  })).sort((a, b) => b.goals - a.goals);
+
+  const tied = totals.length === 2 && totals[0].goals === totals[1].goals;
+  if (tied) {
+    return <div className="championPending">🏆 Final empatada no agregado — aguardando critério de desempate.</div>;
+  }
+
+  const champion = totals[0];
+  return <div className="championCard">
+    <span>🏆 CAMPEÃO DA SÉRIE C</span>
+    <strong>{clubName(champion.clubId)}</strong>
+    <small>Placar agregado: {champion.goals} × {totals[1].goals}</small>
+  </div>;
 }
 
 function PlayoffAccessSummary({ matches, clubName }: { matches: Match[]; clubName: (id: number) => string }) {
