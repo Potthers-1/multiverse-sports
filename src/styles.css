@@ -202,3 +202,23 @@ td:nth-child(2) { color: #d8e0e9; }
 .accessTeam.qualified b, .accessTeam.qualified strong { color:#35c76f; }
 .accessTeam em { position:absolute; right:8px; bottom:3px; font-style:normal; font-size:7px; font-weight:800; color:#35c76f; letter-spacing:.08em; }
 @media (max-width: 800px) { .accessSummary { grid-template-columns:1fr; } }
+
+.brandInfo { min-width:0; flex:1; }
+.resetTestBtn {
+  width:24px;
+  height:24px;
+  flex:0 0 24px;
+  padding:0;
+  border:1px solid #243446;
+  border-radius:5px;
+  background:#0b131f;
+  color:#718196;
+  font-size:14px;
+  line-height:22px;
+  cursor:pointer;
+}
+.resetTestBtn:hover {
+  border-color:#31516a;
+  color:#b8c7d8;
+  background:#101c29;
+}
