@@ -1041,7 +1041,14 @@ function ChampionshipHistory({ championship, championships, clubs, matches }: { 
     const nextNames = new Set(next.rows.map((r) => r.name));
     const promoted = [...nextNames].filter((name) => !currentNames.has(name));
     const relegated = [...currentNames].filter((name) => !nextNames.has(name));
-    return [{ from: current.season.season, to: next.season.season, promoted, relegated }];
+    return [{
+      from: current.season.season,
+      to: next.season.season,
+      promoted,
+      relegated,
+      promotedCount: promoted.length,
+      relegatedCount: relegated.length,
+    }];
   });
 
   return <div className="historyPage">
@@ -1069,9 +1076,37 @@ function ChampionshipHistory({ championship, championships, clubs, matches }: { 
       {seasonData.length > 0 ? <div className="seasonHistory">{seasonData.map((item) => <div className="seasonHistoryRow" key={item.season.id}><span>{item.season.season}</span><strong>🏆 {getClubName(item.championId)}</strong></div>)}</div> : <div className="emptySide">Nenhum campeão registrado ainda.</div>}
     </section>
 
-    <section className="historyPanel">
-      <div className="panelHead"><div><span className="eyebrow">MOVIMENTAÇÕES</span><h2>Acessos e rebaixamentos</h2></div></div>
-      {movements.length > 0 ? <div className="movementList">{movements.slice().reverse().map((move) => <div className="movementRow" key={move.from + "-" + move.to}><div className="movementSeason">{move.from} → {move.to}</div><div className="movementColumns"><div><span className="movementUp">⬆ ACESSOS</span>{move.promoted.length ? move.promoted.map((name) => <strong key={name}>{name}</strong>) : <small>Nenhum</small>}</div><div><span className="movementDown">⬇ REBAIXADOS</span>{move.relegated.length ? move.relegated.map((name) => <strong key={name}>{name}</strong>) : <small>Nenhum</small>}</div></div></div>)}</div> : <div className="emptySide">Ainda não há movimentações entre temporadas.</div>}
+    <section className="historyPanel movementHistoryPanel">
+      <div className="panelHead">
+        <div>
+          <span className="eyebrow">MOVIMENTAÇÕES</span>
+          <h2>Acessos e rebaixamentos · ano após ano</h2>
+        </div>
+      </div>
+      {movements.length > 0 ? <div className="movementList">
+        {movements.slice().reverse().map((move) => <div className="movementYear" key={move.from + "-" + move.to}>
+          <div className="movementYearHead">
+            <div>
+              <span className="eyebrow">TEMPORADA</span>
+              <strong>{move.from} → {move.to}</strong>
+            </div>
+            <div className="movementTotals">
+              <span>{move.promotedCount} acessos</span>
+              <span>{move.relegatedCount} rebaixamentos</span>
+            </div>
+          </div>
+          <div className="movementColumns">
+            <div className="movementBlock movementBlockUp">
+              <div className="movementBlockTitle"><span>⬆</span><strong>QUEM SUBIU PARA ESTA DIVISÃO</strong></div>
+              {move.promoted.length ? <div className="movementTeams">{move.promoted.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>ACESSO</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
+            </div>
+            <div className="movementBlock movementBlockDown">
+              <div className="movementBlockTitle"><span>⬇</span><strong>QUEM SAIU DESTA DIVISÃO</strong></div>
+              {move.relegated.length ? <div className="movementTeams">{move.relegated.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>REBAIXADO</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
+            </div>
+          </div>
+        </div>)}
+      </div> : <div className="emptySide">Ainda não há movimentações entre temporadas.</div>}
     </section>
   </div>;
 }
