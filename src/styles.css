@@ -322,3 +322,6 @@ td:nth-child(2) { color: #d8e0e9; }
   .movementTotals { justify-content:flex-start; }
   .movementColumns { grid-template-columns:1fr; }
 }
+
+.movementFourGrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:10px; }
+@media (max-width: 800px) { .movementFourGrid { grid-template-columns:1fr; } }
