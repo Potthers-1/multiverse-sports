@@ -2024,3 +2024,4 @@ function Modal({ type, country, onClose, addChampionship, addClub }: {
     <div className="modalActions"><button className="ghost" onClick={onClose}>Cancelar</button><button className="primary" onClick={saveChampionship}>Criar campeonato</button></div>
   </div></div>;
 }
+}
