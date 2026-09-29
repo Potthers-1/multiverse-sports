@@ -1371,11 +1371,7 @@ export default function App() {
       "C → D: " + relegatedFromC.length + " rebaixados\n" +
       "D → C: " + promotedDToC.length + " promovidos"
     );
-  } automaticamente com base nos resultados de " + currentSeason + ".\n\n" +
-      "A → B: " + relegatedFromA.length + " rebaixados / " + promotedToA.length + " promovidos\n" +
-      "B → C: " + bRelegated.length + " rebaixados / " + promotedToB.length + " promovidos\n" +
-      "C → B: " + promotedToB.length + " promovidos"
-    );
+  }
   }
   if (!championship) {
     return (
