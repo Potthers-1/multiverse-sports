@@ -226,3 +226,28 @@ td:nth-child(2) { color: #d8e0e9; }
 .phaseActions { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
 .phaseActions .phaseGenerate { margin:0; }
 @media (max-width: 800px) { .phaseActions { width:100%; justify-content:flex-start; } }
+
+.championCard {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  padding:18px 14px;
+  border:1px solid #35c76f;
+  border-radius:8px;
+  background:rgba(53,199,111,.10);
+  box-shadow:inset 0 0 0 1px rgba(53,199,111,.08);
+  text-align:center;
+}
+.championCard span { font-size:9px; font-weight:800; letter-spacing:.1em; color:#35c76f; }
+.championCard strong { font-size:20px; color:#e8f7ed; }
+.championCard small { color:#8fa19a; font-size:9px; }
+.championPending {
+  padding:12px 14px;
+  border:1px solid #27384a;
+  border-radius:8px;
+  background:#0b131f;
+  color:#9eacbf;
+  font-size:10px;
+}
