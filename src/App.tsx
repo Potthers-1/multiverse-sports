@@ -968,63 +968,75 @@ function ClubHistory({ clubName, championships, clubs, matches, onBack }: { club
     .map((club) => {
       const championship = championships.find((item) => item.id === club.championshipId);
       if (!championship) return null;
-      const seasonMatches = matches.filter((match) => match.championshipId === championship.id && (match.home === club.id || match.away === club.id));
-      const regular = seasonMatches.filter((match) => (match.stage ?? "regular") === "regular");
-      let played = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
-      regular.filter((match) => match.played).forEach((match) => {
+
+      const allRegular = matches.filter((match) => match.championshipId === championship.id && (match.stage ?? "regular") === "regular");
+      const clubMatches = allRegular.filter((match) => match.home === club.id || match.away === club.id);
+      const playedMatches = clubMatches.filter((match) => match.played);
+
+      let points = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
+      playedMatches.forEach((match) => {
         const home = match.home === club.id;
         const scored = home ? (match.homeScore ?? 0) : (match.awayScore ?? 0);
         const conceded = home ? (match.awayScore ?? 0) : (match.homeScore ?? 0);
-        played++; gf += scored; ga += conceded;
-        if (scored > conceded) wins++;
-        else if (scored === conceded) draws++;
-        else losses++;
+        gf += scored;
+        ga += conceded;
+        if (scored > conceded) { wins++; points += championship.pointsWin; }
+        else if (scored === conceded) { draws++; points += championship.pointsDraw; }
+        else { losses++; points += championship.pointsLoss; }
       });
-      const points = wins * championship.pointsWin + draws * championship.pointsDraw + losses * championship.pointsLoss;
-      const completed = regular.length > 0 && regular.every((match) => match.played);
-      let champion = false;
-      if (completed) {
-        if (championship.division === "Série C") {
-          const final = matches.filter((match) => match.championshipId === championship.id && match.stage === "final").sort((a, b) => a.round - b.round);
-          if (final.length === 2 && final.every((match) => match.played)) {
-            const teams = [...new Set(final.flatMap((match) => [match.home, match.away]))];
-            const totals = teams.map((id) => ({
-              id,
-              goals: final.reduce((sum, match) => sum + (match.home === id ? (match.homeScore ?? 0) : match.away === id ? (match.awayScore ?? 0) : 0), 0),
-            })).sort((a, b) => b.goals - a.goals);
-            const penaltyWinner = final.find((match) => match.penaltyWinner)?.penaltyWinner;
-            champion = penaltyWinner === club.id || (!penaltyWinner && totals[0]?.id === club.id && totals[0]?.goals !== totals[1]?.goals);
-          }
+
+      const table = clubs.filter((item) => item.championshipId === championship.id).map((item) => {
+        const itemMatches = allRegular.filter((match) => match.played && (match.home === item.id || match.away === item.id));
+        let itemPoints = 0, itemGf = 0, itemGa = 0;
+        itemMatches.forEach((match) => {
+          const home = match.home === item.id;
+          const scored = home ? (match.homeScore ?? 0) : (match.awayScore ?? 0);
+          const conceded = home ? (match.awayScore ?? 0) : (match.homeScore ?? 0);
+          itemGf += scored;
+          itemGa += conceded;
+          itemPoints += scored > conceded ? championship.pointsWin : scored === conceded ? championship.pointsDraw : championship.pointsLoss;
+        });
+        return { id: item.id, points: itemPoints, gd: itemGf - itemGa, gf: itemGf };
+      }).sort((x, y) => y.points - x.points || y.gd - x.gd || y.gf - x.gf);
+
+      const position = table.findIndex((row) => row.id === club.id) + 1;
+      const complete = allRegular.length > 0 && allRegular.every((match) => match.played);
+
+      let champion = complete && position === 1;
+      if (complete && championship.division === "Série C") {
+        const final = matches.filter((match) => match.championshipId === championship.id && match.stage === "final").sort((x, y) => x.round - y.round);
+        if (final.length === 2 && final.every((match) => match.played)) {
+          const teams = [...new Set(final.flatMap((match) => [match.home, match.away]))];
+          const totals = teams.map((id) => ({
+            id,
+            goals: final.reduce((sum, match) => sum + (match.home === id ? (match.homeScore ?? 0) : match.away === id ? (match.awayScore ?? 0) : 0), 0),
+          })).sort((x, y) => y.goals - x.goals);
+          const penaltyWinner = final.find((match) => match.penaltyWinner)?.penaltyWinner;
+          champion = penaltyWinner === club.id || (!penaltyWinner && totals[0]?.id === club.id && totals[0]?.goals !== totals[1]?.goals);
         } else {
-          const rows = clubs.filter((item) => item.championshipId === championship.id).map((item) => {
-            let p = 0, g = 0, c = 0;
-            regular.filter((match) => match.home === item.id || match.away === item.id).forEach((match) => {
-              const home = match.home === item.id;
-              const scored = home ? (match.homeScore ?? 0) : (match.awayScore ?? 0);
-              const conceded = home ? (match.awayScore ?? 0) : (match.homeScore ?? 0);
-              g += scored; c += conceded;
-              p += scored > conceded ? championship.pointsWin : scored === conceded ? championship.pointsDraw : championship.pointsLoss;
-            });
-            return { id: item.id, points: p, gd: g - c, gf: g };
-          }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
-          champion = rows[0]?.id === club.id;
+          champion = false;
         }
       }
-      return { championship, club, played, wins, draws, losses, gf, ga, gd: gf - ga, points, completed, champion };
+
+      return {
+        id: club.id,
+        championship,
+        position,
+        played: playedMatches.length,
+        wins,
+        draws,
+        losses,
+        gf,
+        ga,
+        gd: gf - ga,
+        points,
+        champion,
+      };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
     .sort((a, b) => Number(b.championship.season) - Number(a.championship.season) || a.championship.name.localeCompare(b.championship.name));
 
   const titles = seasons.filter((item) => item.champion);
-  const totals = seasons.reduce((acc, item) => ({
-    played: acc.played + item.played,
-    wins: acc.wins + item.wins,
-    draws: acc.draws + item.draws,
-    losses: acc.losses + item.losses,
-    gf: acc.gf + item.gf,
-    ga: acc.ga + item.ga,
-    points: acc.points + item.points,
-  }), { played: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, points: 0 });
 
   return <div className="clubHistoryPage">
     <div className="clubHistoryHero">
@@ -1033,20 +1045,28 @@ function ClubHistory({ clubName, championships, clubs, matches, onBack }: { club
       <h2>{clubName}</h2>
       <p>{seasons.length} temporadas registradas · {titles.length} {titles.length === 1 ? "título" : "títulos"}</p>
     </div>
+
     <section className="historyPanel">
-      <div className="panelHead"><div><span className="eyebrow">RESUMO</span><h2>Carreira do clube</h2></div></div>
-      <div className="recordGrid">
-        <div className="recordCard"><span>🏆 TÍTULOS</span><strong>{titles.length}</strong><small>{titles.map((item) => item.championship.season).join(" · ") || "Nenhum"}</small></div>
-        <div className="recordCard"><span>⚽ JOGOS</span><strong>{totals.played}</strong><small>{totals.wins}V · {totals.draws}E · {totals.losses}D</small></div>
-        <div className="recordCard"><span>📊 GOLS</span><strong>{totals.gf} × {totals.ga}</strong><small>saldo {totals.gf - totals.ga >= 0 ? "+" : ""}{totals.gf - totals.ga}</small></div>
-      </div>
-    </section>
-    <section className="historyPanel">
-      <div className="panelHead"><div><span className="eyebrow">TEMPORADA POR TEMPORADA</span><h2>Histórico completo</h2></div></div>
-      {seasons.length ? <div className="clubSeasonList">{seasons.map((item) => <div className="clubSeasonRow" key={item.club.id}>
-        <div className="clubSeasonMain"><strong>{item.championship.season}</strong><div><b>{item.championship.name}</b><small>{item.championship.division}</small></div>{item.champion && <em>🏆 CAMPEÃO</em>}</div>
-        <div className="clubSeasonStats"><span><b>{item.played}</b> J</span><span><b>{item.wins}</b> V</span><span><b>{item.draws}</b> E</span><span><b>{item.losses}</b> D</span><span><b>{item.gf}</b> GP</span><span><b>{item.ga}</b> GC</span><span><b>{item.gd > 0 ? "+" : ""}{item.gd}</b> SG</span><span><b>{item.points}</b> PTS</span></div>
-      </div>)}</div> : <div className="emptySide">Nenhum registro encontrado para este clube.</div>}
+      <div className="panelHead"><div><span className="eyebrow">TEMPORADA POR TEMPORADA</span><h2>Histórico do clube</h2></div></div>
+      {seasons.length > 0 ? <div className="clubSeasonList">
+        {seasons.map((item) => <div className="clubSeasonRow" key={item.id}>
+          <div className="clubSeasonMain">
+            <strong>{item.championship.season}</strong>
+            <div><b>{item.championship.name}</b><small>{item.championship.division}{item.position > 0 ? " · " + item.position + "º lugar" : ""}</small></div>
+            {item.champion && <em>🏆 CAMPEÃO</em>}
+          </div>
+          <div className="clubSeasonStats">
+            <span><b>{item.played}</b> J</span>
+            <span><b>{item.wins}</b> V</span>
+            <span><b>{item.draws}</b> E</span>
+            <span><b>{item.losses}</b> D</span>
+            <span><b>{item.gf}</b> GP</span>
+            <span><b>{item.ga}</b> GC</span>
+            <span><b>{item.gd > 0 ? "+" : ""}{item.gd}</b> SG</span>
+            <span><b>{item.points}</b> PTS</span>
+          </div>
+        </div>)}
+      </div> : <div className="emptySide">Nenhum registro encontrado para este clube.</div>}
     </section>
   </div>;
 }
