@@ -578,10 +578,15 @@ function App() {
     setMatches([...matches,...newMatches]);
     setSelectedId(newA.id);setSection("Visão geral");
     alert(
-      "Temporada "+nextSeason+" criada automaticamente.\n\n"+
-      "A → B: "+aRelegated.length+" rebaixados / "+aPromoted.length+" promovidos\n"+
-      "B → C: "+bRelegated.length+" rebaixados / "+promotedC.length+" promovidos\n"+
-      "C → D: "+cRelegated.length+" rebaixados\n"+
+      "Temporada "+nextSeason+" criada automaticamente.
+
+"+
+      "A → B: "+aRelegated.length+" rebaixados / "+aPromoted.length+" promovidos
+"+
+      "B → C: "+bRelegated.length+" rebaixados / "+promotedC.length+" promovidos
+"+
+      "C → D: "+cRelegated.length+" rebaixados
+"+
       "D → C: "+promotedD.length+" promovidos"
     );
   };
@@ -604,7 +609,16 @@ function App() {
   const panel = (title:string,children:React.ReactNode)=><section style={{background:"#0c121c",border:"1px solid #1e2b3b",borderRadius:18,padding:24,marginBottom:18}}><h2 style={{marginTop:0}}>{title}</h2>{children}</section>;
   const button=(label:string,onClick:()=>void,primary=false)=><button onClick={onClick} style={{border:0,borderRadius:10,padding:"10px 14px",cursor:"pointer",fontWeight:700,background:primary?"#26d9ff":"#0d1622",color:primary?"#031018":"#aebbc9",marginRight:8,marginBottom:8}}>{label}</button>;
 
-  return (\n    <style>{"\n      input, select { background:#070b12; color:#dfe7ef; border:1px solid #304155; border-radius:6px; padding:8px 10px; }\n      input::placeholder { color:#65758a; }\n      table th { color:#65758a; }\n      table td { border-top:1px solid #172331; color:#8291a5; }\n      table td:nth-child(2) { color:#d8e0e9; }\n    "}</style>\n    <div style={{minHeight:"100vh",background:"#070b12",fontFamily:"Arial, sans-serif",color:"#e8eef7"}}>
+  return (
+    <>
+      <style>{"
+      input, select { background:#070b12; color:#dfe7ef; border:1px solid #304155; border-radius:6px; padding:8px 10px; }
+      input::placeholder { color:#65758a; }
+      table th { color:#65758a; }
+      table td { border-top:1px solid #172331; color:#8291a5; }
+      table td:nth-child(2) { color:#d8e0e9; }
+    "}</style>
+      <div style={{minHeight:"100vh",background:"#070b12",fontFamily:"Arial, sans-serif",color:"#e8eef7"}}>
       <header style={{background:"#0a1019",color:"#fff",padding:"18px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div><strong style={{fontSize:22}}>Sports Manager</strong><div style={{opacity:.7,fontSize:12}}>Brasil · competições reais</div></div>
         <div>{button("↻ Reconstruir 2026",reset)}</div>
@@ -682,6 +696,7 @@ function App() {
         </main>
       </div>
     </div>
+    </>
   );
 }
 
