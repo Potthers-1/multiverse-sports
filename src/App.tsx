@@ -854,7 +854,11 @@ export default function App() {
         <div className="countryList">{COUNTRIES.map((country) => <button key={country.name} className={selectedCountry === country.name ? "countryItem active" : "countryItem"} onClick={() => { setSelectedCountry(country.name); setSelectedId(0); setSection("País"); }}><span>{country.flag}</span>{country.name}</button>)}</div>
         <div className="countrySubsection">
           <div className="countrySubhead">{COUNTRIES.find((country) => country.name === selectedCountry)?.flag} {selectedCountry}</div>
-          {championships.filter((item) => item.country === selectedCountry).map((item) => <button key={item.id} className={selectedId === item.id ? "champMini active" : "champMini"} onClick={() => { setSelectedId(item.id); setSection("Visão geral"); }}>{item.name}<small>{item.season}</small></button>)}
+          {Array.from(new Map(championships.filter((item) => item.country === selectedCountry).map((item) => [item.name, item])).values()).map((item) => {
+            const seasons = championships.filter((candidate) => candidate.country === selectedCountry && candidate.name === item.name);
+            const latest = seasons.reduce((current, candidate) => Number(candidate.season) > Number(current.season) ? candidate : current, seasons[0]);
+            return <button key={item.name} className={seasons.some((candidate) => candidate.id === selectedId) ? "champMini active" : "champMini"} onClick={() => { setSelectedId(latest.id); setSection("Visão geral"); }}>{item.name}<small>{latest.season}</small></button>;
+          })}
           {!championships.some((item) => item.country === selectedCountry) && <div className="emptySide">Nenhum campeonato cadastrado.</div>}
         </div>
 </aside>
