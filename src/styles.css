@@ -227,6 +227,31 @@ td:nth-child(2) { color: #d8e0e9; }
 .phaseActions .phaseGenerate { margin:0; }
 @media (max-width: 800px) { .phaseActions { width:100%; justify-content:flex-start; } }
 
+.knockoutPhaseMenu {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+}
+.knockoutPhaseCard {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:5px;
+  padding:14px;
+  border:1px solid #27384a;
+  border-radius:8px;
+  background:#0f1926;
+  color:#e8f7ed;
+  text-align:left;
+  cursor:pointer;
+}
+.knockoutPhaseCard:hover { border-color:#4b7b9f; }
+.knockoutPhaseCard span { font-size:9px; font-weight:800; color:#8fa19a; letter-spacing:.08em; }
+.knockoutPhaseCard strong { font-size:15px; }
+.knockoutPhaseCard small { color:#9eacbf; font-size:9px; }
+@media (max-width: 800px) {
+  .knockoutPhaseMenu { grid-template-columns:1fr; }
+}
 .knockoutProgress {
   display:flex;
   flex-direction:column;
