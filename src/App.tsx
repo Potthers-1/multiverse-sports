@@ -1343,7 +1343,7 @@ export default function App() {
             <div className="phasePage">
               {myMatches.some((m) => m.stage === "knockout") ? (
                 <>
-                  <div className="phaseIntro"><div><span className="eyebrow">SÉRIE D · MATA-MATA</span><h2>Fases do mata-mata</h2><p>Cada fase possui sua própria página. A classificação e os confrontos são gerados automaticamente.</p></div><button className="generateBtn phaseGenerate" onClick={() => setSection(`Série D · ${Math.max(...myMatches.filter((m) => m.stage === "knockout").map((m) => m.knockoutRound ?? 0))}`)}>→ Abrir fase atual</button></div>
+                  <div className="phaseIntro"><div><span className="eyebrow">SÉRIE D · MATA-MATA</span><h2>Fases do mata-mata</h2><p>Cada fase possui sua própria página. A classificação e os confrontos são gerados automaticamente.</p></div><button className="generateBtn phaseGenerate" onClick={() => { const openPhases = myMatches.filter((m) => m.stage === "knockout" && !m.played).map((m) => m.knockoutRound ?? 0); const currentPhase = openPhases.length ? Math.min(...openPhases) : Math.max(...myMatches.filter((m) => m.stage === "knockout").map((m) => m.knockoutRound ?? 0)); setSection(`Série D · ${currentPhase}`); }}>→ Abrir fase atual</button></div>
                   <div className="knockoutPhaseMenu">{[64,32,16,8,4,2].map((phase) => {
                     const phaseMatches = myMatches.filter((m) => m.stage === "knockout" && m.knockoutRound === phase);
                     if (!phaseMatches.length) return null;
