@@ -607,13 +607,13 @@ D → C: ${promotedD.length} promovidos`
 
   return (
     <>
-      <style>{"
+      <style>{`
       input, select { background:#070b12; color:#dfe7ef; border:1px solid #304155; border-radius:6px; padding:8px 10px; }
       input::placeholder { color:#65758a; }
       table th { color:#65758a; }
       table td { border-top:1px solid #172331; color:#8291a5; }
       table td:nth-child(2) { color:#d8e0e9; }
-    "}</style>
+`}</style>
       <div style={{minHeight:"100vh",background:"#070b12",fontFamily:"Arial, sans-serif",color:"#e8eef7"}}>
       <header style={{background:"#0a1019",color:"#fff",padding:"18px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div><strong style={{fontSize:22}}>Sports Manager</strong><div style={{opacity:.7,fontSize:12}}>Brasil · competições reais</div></div>
