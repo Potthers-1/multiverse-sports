@@ -1372,7 +1372,6 @@ export default function App() {
       "D → C: " + promotedDToC.length + " promovidos"
     );
   }
-  }
   if (!championship) {
     return (
       <div className="app">
