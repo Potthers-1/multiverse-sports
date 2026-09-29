@@ -1100,42 +1100,7 @@ function ChampionshipHistory({ championship, championships, clubs, matches }: { 
       {seasonData.length > 0 ? <div className="seasonHistory">{seasonData.map((item) => <div className="seasonHistoryRow" key={item.season.id}><span>{item.season.season}</span><strong>🏆 {getClubName(item.championId)}</strong></div>)}</div> : <div className="emptySide">Nenhum campeão registrado ainda.</div>}
     </section>
 
-    <section className="historyPanel movementHistoryPanel">
-      <div className="panelHead">
-        <div>
-          <span className="eyebrow">MOVIMENTAÇÕES</span>
-          <h2>Acessos e rebaixamentos · ano após ano</h2>
-        </div>
-      </div>
-      {movements.length > 0 ? <div className="movementList">
-        {movements.slice().reverse().map((move) => <div className="movementYear" key={move.from + "-" + move.to}>
-          <div className="movementYearHead">
-            <div>
-              <span className="eyebrow">TEMPORADA</span>
-              <strong>{move.from} → {move.to}</strong>
-            </div>
-          </div>
-          <div className="movementFourGrid">
-            <div className="movementBlock movementBlockUp">
-              <div className="movementBlockTitle"><span>⬆</span><strong>ACESSOS PARA ESTA DIVISÃO</strong></div>
-              {move.incomingFromLower.length ? <div className="movementTeams">{move.incomingFromLower.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>SUBIU</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
-            </div>
-            <div className="movementBlock movementBlockDown">
-              <div className="movementBlockTitle"><span>⬇</span><strong>REBAIXADOS PARA ESTA DIVISÃO</strong></div>
-              {move.incomingFromHigher.length ? <div className="movementTeams">{move.incomingFromHigher.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>CAIU</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
-            </div>
-            <div className="movementBlock movementBlockUp">
-              <div className="movementBlockTitle"><span>⬆</span><strong>ACESSOS DESTA DIVISÃO</strong></div>
-              {move.outgoingToHigher.length ? <div className="movementTeams">{move.outgoingToHigher.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>SUBIU</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
-            </div>
-            <div className="movementBlock movementBlockDown">
-              <div className="movementBlockTitle"><span>⬇</span><strong>REBAIXADOS DESTA DIVISÃO</strong></div>
-              {move.outgoingToLower.length ? <div className="movementTeams">{move.outgoingToLower.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>CAIU</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
-            </div>
-          </div>
-        </div>)}
-      </div> : <div className="emptySide">Ainda não há movimentações entre temporadas.</div>}
-    </section>
+
   </div>;
 }
 
