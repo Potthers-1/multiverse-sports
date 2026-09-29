@@ -36,6 +36,7 @@ type Match = {
   stage?: "regular" | "playoff" | "secondPhase" | "final";
   group?: "A" | "B";
   penaltyWinner?: number;
+  knockoutRound?: number;
 };
 
 const seedChampionships: Championship[] = [];
@@ -45,6 +46,8 @@ const seedMatches: Match[] = [];
 const COUNTRIES = [
   { name: "Brasil", flag: "🇧🇷" },
 ];
+
+const SERIE_D_GROUPS: Record<string, string[]> = {"A":["Noroeste","RIo Branco - ES","Sergipe","São Luiz","Real Noroeste","Humaitá"],"B":["Luverdense","Sampaio Corrêa - RJ","São Joseense","Inhumas","ABC","Galvez"],"C":["Goiatuba","XV de Piracicaba","Trem","IAPE","Fluminense - PI","Ceilândia"],"D":["Brasiliense","Monte Roraima","Atlético Cearense","Águia de Marabá","FC Cascavel","Joinville"],"E":["Manaus","São José - RS","GAS","Marcílio Dias","Guaporé","Vitória - ES"],"F":["União Rondonópolis","Maracanã - CE","Lagarto","Mixto","Aparecidense","Sampaio Corrêa"],"G":["Tombense","Imperatriz","Nova Iguaçu","Azuriz","Ferroviário","São Raimundo - RR"],"H":["Serra Branca","Pouso Alegre","Tuna Luso","Gama","Blumenau","Laguna"],"I":["Brasil de Pelotas","América de Natal","Central","Maguary","Oratório","Decisão Goiana"],"J":["Tocantinópolis","Moto Club","Uberlândia","Operário - MS","Santa Catarina","Manauara"],"K":["Retrô","Independência","Água Santa","Ivinhema","Tirol","Parnahyba"],"L":["Porto - BA","Portuguesa","Guarany de Bagé","CRAC","Operário VG","Gazin Porto Velho"],"M":["Primavera - MT","Jacuipense","Velo Club","ASA","CSE","CSA"],"N":["America","Portuguesa - RJ","Maricá","Altos","Nacional - AM","ABECAT"],"O":["Araguaína","Betim Futebol","Sousa","Madureira","Iguatu","Juazeirense"],"P":["Capital - DF","Atlético de Alagoinhas","Cianorte","Piauí","Democrata GV","Treze"]};
 
 const DATA_VERSION = "6";
 
@@ -197,6 +200,35 @@ export default function App() {
     setClubs(initialClubs);
   }, [championships, clubs.length]);
 
+
+  useEffect(() => {
+    const seriesA = championships.find((item) => item.country === "Brasil" && item.division === "Série A");
+    const seriesB = championships.find((item) => item.country === "Brasil" && item.division === "Série B");
+    const seriesC = championships.find((item) => item.country === "Brasil" && item.division === "Série C");
+    const seriesD = championships.find((item) => item.country === "Brasil" && item.division === "Série D");
+    const baseReady = seriesA && seriesB && seriesC &&
+      clubs.filter((club) => club.championshipId === seriesA.id).length === 20 &&
+      clubs.filter((club) => club.championshipId === seriesB.id).length === 20 &&
+      clubs.filter((club) => club.championshipId === seriesC.id).length === 20;
+    if (!baseReady || seriesD) return;
+    const base = Math.max(0, ...championships.map((item) => item.id));
+    const d: Championship = {
+      id: base + 1, name: "Campeonato Brasileiro Série D", country: "Brasil", season: "2026",
+      sport: "Futebol", category: "Profissional", division: "Série D", format: "Grupos + mata-mata",
+      regulation: "96 equipes divididas em 16 grupos de 6 clubes. Primeira fase em turno e returno, totalizando 10 rodadas. Os quatro primeiros de cada grupo avançam. Da segunda fase em diante, todas as fases são disputadas em mata-mata de ida e volta. Os quatro semifinalistas garantem acesso à Série C.",
+      promotion: "Os quatro semifinalistas garantem acesso à Série C.",
+      relegation: "Regra de rebaixamento não informada no regulamento enviado.",
+      teamCount: 96, legs: 2, rounds: 10, pointsWin: 3, pointsDraw: 1, pointsLoss: 0,
+      tieBreakers: ["Pontos", "Vitórias", "Saldo de gols", "Gols pró"], startDate: "", endDate: ""
+    };
+    let clubId = nextId(clubs);
+    const dClubs: Club[] = Object.values(SERIE_D_GROUPS).flatMap((names) =>
+      names.map((name) => ({ id: clubId++, name, championshipId: d.id }))
+    );
+    setChampionships([...championships, d]);
+    setClubs([...clubs, ...dClubs]);
+  }, [championships, clubs]);
+
   useEffect(() => {
     const completed = championships.filter((champ) => {
       const teamCount = clubs.filter((club) => club.championshipId === champ.id).length;
@@ -223,6 +255,22 @@ export default function App() {
 
     if (changed) setMatches(nextMatches);
   }, [clubs, championships]);
+
+
+  useEffect(() => {
+    const seriesD = championships.find((champ) => champ.country === "Brasil" && champ.division === "Série D" && champ.season === "2026");
+    if (!seriesD || matches.some((match) => match.championshipId === seriesD.id)) return;
+    const created: Match[] = [];
+    let id = nextId(matches);
+    Object.entries(SERIE_D_GROUPS).forEach(([group, names]) => {
+      const ids = names.map((name) => clubs.find((club) => club.championshipId === seriesD.id && club.name === name)?.id).filter((value): value is number => value !== undefined);
+      if (ids.length !== 6) return;
+      const generated = generateRoundRobin(ids, 2, seriesD.id, id);
+      generated.forEach((match) => created.push({ ...match, group }));
+      id = nextId([...matches, ...created]);
+    });
+    if (created.length === 480) setMatches([...matches, ...created]);
+  }, [clubs, championships, matches]);
 
   useEffect(() => {
     const seriesA = championships.find((champ) =>
