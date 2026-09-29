@@ -517,7 +517,7 @@ export default function App() {
         created.push({ id: id++, championshipId: championship.id, round: 39, home, away, homeScore: null, awayScore: null, played: false, stage: "playoff" });
         created.push({ id: id++, championshipId: championship.id, round: 40, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "playoff" });
       });
-      setMatches([...workingMatches, ...created]);
+      setMatches([...matches, ...created]);
       setRound(39);
       setSection("Partidas");
       return;
@@ -557,7 +557,7 @@ export default function App() {
           if (a.length !== 6 || b.length !== 6) return;
           pairings.push([a[0].clubId, b[3].clubId], [b[0].clubId, a[3].clubId], [a[1].clubId, b[2].clubId], [b[1].clubId, a[2].clubId]);
         }
-        let id = nextId(workingMatches);
+        let id = nextId(matches);
         const created: Match[] = [];
         pairings.forEach(([home, away]) => {
           created.push({ id: id++, championshipId: championship.id, round: 11, home, away, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: 64 });
@@ -620,13 +620,13 @@ export default function App() {
 
       const nextStage = currentStage / 2;
       const roundStart: Record<number, number> = { 32: 13, 16: 15, 8: 17, 4: 19, 2: 21 };
-      let id = nextId(matches);
+      let id = nextId(workingMatches);
       const created: Match[] = [];
       for (let i = 0; i < winners.length; i += 2) {
         created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage], home: winners[i], away: winners[i + 1], homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
         created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage] + 1, home: winners[i + 1], away: winners[i], homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
       }
-      setMatches([...matches, ...created]);
+      setMatches([...workingMatches, ...created]);
       setRound(roundStart[nextStage]);
       setSection("Partidas");
       return;
