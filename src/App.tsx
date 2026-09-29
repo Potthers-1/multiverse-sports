@@ -563,10 +563,40 @@ export default function App() {
       generated.set(match.id, { homeScore, awayScore });
     });
 
-    setMatches(matches.map((match) => {
+    let nextMatches = matches.map((match) => {
       const result = generated.get(match.id);
-      return result ? { ...match, ...result, played: true } : match;
-    }));
+      return result ? { ...match, ...result, played: true, penaltyWinner: undefined } : match;
+    });
+
+    if (scope === "playoff") {
+      const playoffMatches = nextMatches.filter((match) => match.stage === "playoff" && match.played);
+      const confrontations = new Map<string, Match[]>();
+      playoffMatches.forEach((match) => {
+        const key = [match.home, match.away].sort((x, y) => x - y).join("-");
+        const list = confrontations.get(key) ?? [];
+        list.push(match);
+        confrontations.set(key, list);
+      });
+
+      confrontations.forEach((legs) => {
+        if (legs.length !== 2) return;
+        const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
+        const totals = teams.map((clubId) => ({
+          clubId,
+          goals: legs.reduce((sum, match) =>
+            sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
+        }));
+        if (totals.length === 2 && totals[0].goals === totals[1].goals) {
+          const secondLeg = legs.find((match) => match.round === 40) ?? legs[1];
+          const penaltyWinner = teams[Math.floor(Math.random() * teams.length)];
+          nextMatches = nextMatches.map((match) =>
+            match.id === secondLeg.id ? { ...match, penaltyWinner } : match
+          );
+        }
+      });
+    }
+
+    setMatches(nextMatches);
     setSection("Partidas");
   }
 
