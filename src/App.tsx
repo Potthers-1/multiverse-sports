@@ -420,6 +420,27 @@ function App() {
       return;
     }
 
+    if (championship.division === "Série C") {
+      const secondPhase = next.filter((m) => m.championshipId === championship.id && m.stage === "secondPhase");
+      const finalExists = next.some((m) => m.championshipId === championship.id && m.stage === "final");
+      if (secondPhase.length === 24 && secondPhase.every((m) => m.played) && !finalExists) {
+        const groupAIds = [...new Set(secondPhase.filter((m) => m.group === "A").flatMap((m) => [m.home, m.away]))];
+        const groupBIds = [...new Set(secondPhase.filter((m) => m.group === "B").flatMap((m) => [m.home, m.away]))];
+        const tableA = tableFor(championship, groupAIds, next, "secondPhase", "A");
+        const tableB = tableFor(championship, groupBIds, next, "secondPhase", "B");
+        if (tableA.length !== 4 || tableB.length !== 4) {
+          alert("Não foi possível identificar os líderes dos grupos da Série C.");
+          return;
+        }
+        const finalTeams = [tableA[0].clubId, tableB[0].clubId];
+        const finalMatches = roundRobin(finalTeams, championship.id, id, 2, 6)
+          .map((m) => ({...m, stage:"final" as Stage}));
+        setMatches([...next, ...finalMatches]);
+        alert("Final da Série C criada: os líderes dos grupos A e B disputarão o título em ida e volta.");
+        return;
+      }
+    }
+
     if (championship.division === "Série D" && regularComplete(championship) &&
         !next.some((m) => m.championshipId === championship.id && m.stage === "knockout")) {
       const qualified: Record<string,number[]> = {};
@@ -596,6 +617,7 @@ D → C: ${promotedD.length} promovidos`
   const displayedMatches = section.startsWith("Série D ·")
     ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===Number(section.replace("Série D · ","")))
     : section==="Segunda fase" ? myMatches.filter((m)=>m.stage==="secondPhase")
+    : section==="Final" ? myMatches.filter((m)=>m.stage==="final")
     : section==="Play-offs" ? myMatches.filter((m)=>m.stage==="playoff")
     : myMatches.filter((m)=>m.stage==="regular"&&m.round===Math.min(...myMatches.filter((m)=>m.stage==="regular"&&!m.played).map((m)=>m.round).concat([1])));
 
@@ -644,6 +666,7 @@ D → C: ${promotedD.length} promovidos`
               {button("Clubes",()=>setSection("Clubes"))}
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
+              {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
               {championship.division==="Série D"&&[64,32,16,8,4,2].map((p)=>myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===p)&&button(String(p===2?"Final":p===64?"Série D · 64":"Série D · "+p),()=>setSection("Série D · "+p)))}
             </div>
           </div>
@@ -661,9 +684,27 @@ D → C: ${promotedD.length} promovidos`
           </>)}
 
           {section==="Classificação" && panel("Classificação",<>
-            <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
-              {currentTable.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
-            </tbody></table></div>
+            <div style={{marginBottom:18}}>
+              <h3 style={{margin:"0 0 10px"}}>{championship.division==="Série C" ? "1ª fase" : "Classificação geral"}</h3>
+              <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
+                {currentTable.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+              </tbody></table></div>
+            </div>
+
+            {championship.division==="Série C" && myMatches.some((m)=>m.stage==="secondPhase") && (() => {
+              const second = myMatches.filter((m)=>m.stage==="secondPhase");
+              const idsA = [...new Set(second.filter((m)=>m.group==="A").flatMap((m)=>[m.home,m.away]))];
+              const idsB = [...new Set(second.filter((m)=>m.group==="B").flatMap((m)=>[m.home,m.away]))];
+              const groupA = tableFor(championship, idsA, myMatches, "secondPhase", "A");
+              const groupB = tableFor(championship, idsB, myMatches, "secondPhase", "B");
+              const groupTable = (title:string, rows:TableRow[]) => <div style={{marginTop:18}}>
+                <h3 style={{margin:"0 0 10px"}}>{title}</h3>
+                <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
+                  {rows.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                </tbody></table></div>
+              </div>;
+              return <div><h2 style={{marginTop:22}}>Segunda fase — grupos</h2>{groupTable("Grupo A",groupA)}{groupTable("Grupo B",groupB)}</div>;
+            })()}
           </>)}
 
           {section==="Clubes" && panel("Clubes",<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>{myClubs.map(c=><button key={c.id} onClick={()=>setSelectedClub(c.name)} style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f",textAlign:"left",cursor:"pointer",fontWeight:700}}>{c.name}</button>)}</div>)}
@@ -673,7 +714,7 @@ D → C: ${promotedD.length} promovidos`
             <div style={{display:"grid",gap:8}}>{displayedMatches.slice(0,100).map(m=><div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 70px 1fr 110px",alignItems:"center",gap:10,padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f"}}><span style={{textAlign:"right"}}>{clubName(m.home)}</span><input value={newResult[m.id]?.[0]??(m.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[e.target.value,x[m.id]?.[1]??(m.awayScore??"").toString()]}))} style={{width:50}}/><span>{clubName(m.away)}</span><div><input value={newResult[m.id]?.[1]??(m.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[x[m.id]?.[0]??(m.homeScore??"").toString(),e.target.value]}))} style={{width:50}}/> {button(m.played?"Salvar":"Salvar",()=>saveScore(m.id))}</div></div>)}</div>
           </>)}
 
-          {(section==="Play-offs"||section==="Segunda fase"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
+          {(section==="Play-offs"||section==="Segunda fase"||section==="Final"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
             <div style={{marginBottom:14}}>{button("⚡ Gerar resultados desta fase",()=>generateResults("phase"),true)} {button("→ Avançar automaticamente",prepareNextPhase)}</div>
             <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=><div key={m.id} style={{padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f",display:"flex",justifyContent:"space-between",gap:10}}><span>{clubName(m.home)}</span><strong>{m.played?m.homeScore+" × "+m.awayScore:"— × —"}</strong><span>{clubName(m.away)}</span></div>)}</div>
           </>)}
