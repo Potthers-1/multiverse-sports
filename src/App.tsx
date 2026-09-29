@@ -565,7 +565,7 @@ export default function App() {
         });
         setMatches([...matches, ...created]);
         setRound(11);
-        setSection("Partidas");
+        setSection("Série D · 64");
         return;
       }
 
@@ -603,17 +603,10 @@ export default function App() {
         }
         if (totals[0].goals === totals[1].goals && !penaltyWinner) {
           const secondLeg = [...legs].sort((a, b) => b.round - a.round)[0];
-          const winnerInput = window.prompt(
-            "Empate no agregado. A decisão será por pênaltis.\n\nDigite exatamente o nome do clube vencedor:\n" +
-            clubName(secondLeg.home) + " ou " + clubName(secondLeg.away)
+          penaltyWinner = Math.random() < 0.5 ? secondLeg.home : secondLeg.away;
+          workingMatches = workingMatches.map((match) =>
+            match.id === secondLeg.id ? { ...match, penaltyWinner } : match
           );
-          if (!winnerInput) return;
-          penaltyWinner = teams.find((clubId) => clubName(clubId).toLowerCase() === winnerInput.trim().toLowerCase());
-          if (!penaltyWinner) {
-            window.alert("Nome do clube inválido. Nenhum clube foi eliminado e você pode tentar novamente.");
-            return;
-          }
-          workingMatches = workingMatches.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner } : match);
         }
         winners.push(penaltyWinner ?? totals[0].clubId);
       }
@@ -628,7 +621,7 @@ export default function App() {
       }
       setMatches([...workingMatches, ...created]);
       setRound(roundStart[nextStage]);
-      setSection("Partidas");
+      setSection(`Série D · ${nextStage}`);
       return;
     }
 
