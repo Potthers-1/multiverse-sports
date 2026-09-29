@@ -420,6 +420,20 @@ function App() {
       return;
     }
 
+    if (championship.division === "Série C") {
+      const second = next.filter((m) => m.championshipId === championship.id && m.stage === "secondPhase");
+      if (second.length === 24 && second.every((m) => m.played) &&
+          !next.some((m) => m.championshipId === championship.id && m.stage === "final")) {
+        const a = tableFor(championship, [...new Set(second.filter(m => m.group === "A").flatMap(m => [m.home, m.away]))], next, "secondPhase", "A");
+        const b = tableFor(championship, [...new Set(second.filter(m => m.group === "B").flatMap(m => [m.home, m.away]))], next, "secondPhase", "B");
+        next.push({id:id++,championshipId:championship.id,round:25,home:a[0].clubId,away:b[0].clubId,homeScore:null,awayScore:null,played:false,stage:"final"});
+        next.push({id:id++,championshipId:championship.id,round:26,home:b[0].clubId,away:a[0].clubId,homeScore:null,awayScore:null,played:false,stage:"final"});
+        setMatches(next);
+        alert("Final da Série C criada: líderes dos grupos A e B.");
+        return;
+      }
+    }
+
     if (championship.division === "Série D" && regularComplete(championship) &&
         !next.some((m) => m.championshipId === championship.id && m.stage === "knockout")) {
       const qualified: Record<string,number[]> = {};
@@ -532,9 +546,9 @@ function App() {
     const promotedC=[cA[0].clubId,cA[1].clubId,cB[0].clubId,cB[1].clubId];
 
     // CRITICAL RULE: the 4 Série D semifinalists are the 4 winners of the QUARTER-FINALS (phase 16).
-    const dQuarter=matches.filter((m)=>m.championshipId===D.id&&m.stage==="knockout"&&m.knockoutRound===16);
-    if(dQuarter.length!==8||!dQuarter.every((m)=>m.played)){alert("Finalize as 8 jogos das quartas de final da Série D. Os 4 vencedores são os semifinalistas e garantem acesso à Série C.");return;}
-    const promotedD=knockoutWinner(matches,16);
+    const dSemi = matches.filter((m)=>m.championshipId===D.id&&m.stage==="knockout"&&m.knockoutRound===4);
+    if(dSemi.length!==4||!dSemi.every((m)=>m.played)){alert("Finalize os 4 jogos das semifinais da Série D. Os 4 semifinalistas garantem acesso à Série C.");return;}
+    const promotedD=knockoutWinner(matches,4);
     if(promotedD.length!==4){alert("Não foi possível identificar os 4 semifinalistas da Série D.");return;}
 
     const aRelegated=aTable.slice(-4).map((r)=>r.clubId);
@@ -595,11 +609,13 @@ function App() {
   const displayedMatches = section.startsWith("Série D ·")
     ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===Number(section.replace("Série D · ","")))
     : section==="Segunda fase" ? myMatches.filter((m)=>m.stage==="secondPhase")
+    : section==="Final" ? myMatches.filter((m)=>m.stage==="final")
     : section==="Play-offs" ? myMatches.filter((m)=>m.stage==="playoff")
     : myMatches.filter((m)=>m.stage==="regular"&&m.round===Math.min(...myMatches.filter((m)=>m.stage==="regular"&&!m.played).map((m)=>m.round).concat([1])));
 
   const currentDPhase=section.startsWith("Série D ·")?Number(section.replace("Série D · ","")):null;
-  const phaseLabel=currentDPhase?({64:"1ª fase do mata-mata",32:"2ª fase do mata-mata",16:"Quartas de final",8:"Semifinais",4:"??",2:"Final"} as Record<number,string>)[currentDPhase]:"";
+  const phaseLabelFor=(p:number)=>({64:"2ª fase — 64 clubes",32:"32 clubes",16:"Oitavas — 16 clubes",8:"Quartas — 8 clubes",4:"Semifinais — 4 clubes",2:"Final — 2 clubes"} as Record<number,string>)[p];
+  const phaseLabel=currentDPhase?phaseLabelFor(currentDPhase):"";
 
   const panel = (title:string,children:React.ReactNode)=><section style={{background:"#0c121c",border:"1px solid #1e2b3b",borderRadius:18,padding:24,marginBottom:18}}><h2 style={{marginTop:0}}>{title}</h2>{children}</section>;
   const button=(label:string,onClick:()=>void,primary=false)=><button onClick={onClick} style={{border:0,borderRadius:10,padding:"10px 14px",cursor:"pointer",fontWeight:700,background:primary?"#26d9ff":"#0d1622",color:primary?"#031018":"#aebbc9",marginRight:8,marginBottom:8}}>{label}</button>;
@@ -634,7 +650,8 @@ function App() {
               {button("Clubes",()=>setSection("Clubes"))}
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
-              {championship.division==="Série D"&&[64,32,16,8,2].map((p)=>myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===p)&&button(String(p===2?"Final":p===64?"Série D · 64":"Série D · "+p),()=>setSection("Série D · "+p)))}
+              {championship.division==="Série C"&&myMatches.some(m=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
+              {championship.division==="Série D"&&[64,32,16,8,4,2].map((p)=>myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===p)&&button(p===2?"Final":phaseLabelFor(p),()=>setSection("Série D · "+p)))}
             </div>
           </div>
 
@@ -650,10 +667,12 @@ function App() {
             </div>
           </>)}
 
-          {section==="Classificação" && panel("Classificação",<>
-            <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
+          {section==="Classificação" && panel(championship.division==="Série D" ? "Classificação por grupos" : "Classificação",<>
+            {championship.division==="Série D" ? <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:14}}>
+              {D_GROUPS.map(g=>{const ids=myClubs.filter(c=>myMatches.some(m=>m.stage==="regular"&&m.group===g&&(m.home===c.id||m.away===c.id))).map(c=>c.id); const rows=tableFor(championship,ids,myMatches,"regular",g); return <div key={g} style={{background:"#0b131f",border:"1px solid #1e2b3b",borderRadius:12,padding:12}}><h3 style={{marginTop:0}}>Grupo {g}</h3>{rows.map((r,i)=><div key={r.clubId} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderTop:i?"1px solid #172331":"none"}}><span>{i+1}. {clubName(r.clubId)}</span><strong>{r.points}</strong></div>)}</div>})}
+            </div> : <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
               {currentTable.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
-            </tbody></table></div>
+            </tbody></table></div>}
           </>)}
 
           {section==="Clubes" && panel("Clubes",<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>{myClubs.map(c=><button key={c.id} onClick={()=>setSelectedClub(c.name)} style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f",textAlign:"left",cursor:"pointer",fontWeight:700}}>{c.name}</button>)}</div>)}
@@ -663,7 +682,10 @@ function App() {
             <div style={{display:"grid",gap:8}}>{displayedMatches.slice(0,100).map(m=><div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 70px 1fr 110px",alignItems:"center",gap:10,padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f"}}><span style={{textAlign:"right"}}>{clubName(m.home)}</span><input value={newResult[m.id]?.[0]??(m.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[e.target.value,x[m.id]?.[1]??(m.awayScore??"").toString()]}))} style={{width:50}}/><span>{clubName(m.away)}</span><div><input value={newResult[m.id]?.[1]??(m.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[x[m.id]?.[0]??(m.homeScore??"").toString(),e.target.value]}))} style={{width:50}}/> {button(m.played?"Salvar":"Salvar",()=>saveScore(m.id))}</div></div>)}</div>
           </>)}
 
-          {(section==="Play-offs"||section==="Segunda fase"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
+          {(section==="Play-offs"||section==="Segunda fase"||section==="Final"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
+            {section==="Play-offs" && <div style={{padding:14,marginBottom:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>Acesso à Série A</strong><div style={{marginTop:8,display:"grid",gap:6}}>{(() => {const ps=myMatches.filter(m=>m.stage==="playoff"); const groups=new Map<string,Match[]>(); ps.forEach(m=>{const k=[m.home,m.away].sort((a,b)=>a-b).join("-"); const l=groups.get(k)||[]; l.push(m); groups.set(k,l);}); return [...groups.values()].map((legs,i)=>{const teams=[...new Set(legs.flatMap(m=>[m.home,m.away]))]; const goals=teams.map(t=>({t,g:legs.reduce((sum,m)=>sum+(m.home===t?(m.homeScore??0):(m.away===t?(m.awayScore??0):0)),0)})).sort((a,b)=>b.g-a.g); const winner=legs.every(m=>m.played)&&goals.length===2&&goals[0].g!==goals[1].g?goals[0].t:legs.find(m=>m.penaltyWinner)?.penaltyWinner; return <div key={i}>{legs.every(m=>m.played)&&winner ? "✓ "+clubName(winner)+" garantiu o acesso" : "Confronto "+(i+1)+" em andamento"}</div>})})()}</div></div>}
+            {section==="Segunda fase" && <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:14,marginBottom:14}}>{["A","B"].map(g=>{const rows=tableFor(championship,[...new Set(myMatches.filter(m=>m.stage==="secondPhase"&&m.group===g).flatMap(m=>[m.home,m.away]))],myMatches,"secondPhase",g); return <div style={{background:"#0b131f",border:"1px solid #1e2b3b",borderRadius:12,padding:14}}><h3>Grupo {g}</h3>{rows.map((r,i)=><div style={{display:"flex",justifyContent:"space-between",padding:7,borderTop:i?"1px solid #172331":"none"}}><span>{i+1}. {clubName(r.clubId)}</span><strong>{r.points}</strong></div>)}</div>})}</div>}
+            {section==="Final" && <div style={{padding:14,marginBottom:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>Final da Série C</strong><p>{displayedMatches.every(m=>m.played)&&displayedMatches.length===2 ? (() => {const w=knockoutWinner(displayedMatches,0); return ""})() : "Disputa entre os líderes dos grupos A e B em ida e volta."}</p></div>}
             <div style={{marginBottom:14}}>{button("⚡ Gerar resultados desta fase",()=>generateResults("phase"),true)} {button("→ Avançar automaticamente",prepareNextPhase)}</div>
             <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=><div key={m.id} style={{padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f",display:"flex",justifyContent:"space-between",gap:10}}><span>{clubName(m.home)}</span><strong>{m.played?m.homeScore+" × "+m.awayScore:"— × —"}</strong><span>{clubName(m.away)}</span></div>)}</div>
           </>)}
