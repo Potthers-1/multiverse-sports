@@ -444,6 +444,100 @@ export default function App() {
       return;
     }
 
+
+    if (championship.division === "Série D") {
+      const regular = myMatches.filter((match) => (match.stage ?? "regular") === "regular");
+      const knockout = myMatches.filter((match) => match.stage === "knockout");
+
+      const groupTable = (group: string) => {
+        const ids = [...new Set(regular.filter((match) => match.group === group).flatMap((match) => [match.home, match.away]))];
+        return ids.map((clubId) => {
+          let points = 0, wins = 0, gd = 0, gf = 0;
+          regular.filter((match) => match.group === group && match.played && (match.home === clubId || match.away === clubId)).forEach((match) => {
+            const home = match.home === clubId;
+            const scored = home ? match.homeScore! : match.awayScore!;
+            const conceded = home ? match.awayScore! : match.homeScore!;
+            gf += scored; gd += scored - conceded;
+            if (scored > conceded) { wins++; points += championship.pointsWin; }
+            else if (scored === conceded) points += championship.pointsDraw;
+          });
+          return { clubId, points, wins, gd, gf };
+        }).sort((a, b) => b.points - a.points || b.wins - a.wins || b.gd - a.gd || b.gf - a.gf);
+      };
+
+      if (knockout.length === 0) {
+        if (regular.length !== 480 || regular.some((match) => !match.played)) {
+          window.alert("Finalize as 480 partidas da primeira fase da Série D antes de gerar a segunda fase.");
+          return;
+        }
+        const pairings: Array<[number, number]> = [];
+        const letters = Object.keys(SERIE_D_GROUPS);
+        for (let i = 0; i < letters.length; i += 2) {
+          const a = groupTable(letters[i]);
+          const b = groupTable(letters[i + 1]);
+          if (a.length !== 6 || b.length !== 6) return;
+          pairings.push([a[0].clubId, b[3].clubId], [b[0].clubId, a[3].clubId], [a[1].clubId, b[2].clubId], [b[1].clubId, a[2].clubId]);
+        }
+        let id = nextId(matches);
+        const created: Match[] = [];
+        pairings.forEach(([home, away]) => {
+          created.push({ id: id++, championshipId: championship.id, round: 11, home, away, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: 64 });
+          created.push({ id: id++, championshipId: championship.id, round: 12, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: 64 });
+        });
+        setMatches([...matches, ...created]);
+        setRound(11);
+        setSection("Partidas");
+        return;
+      }
+
+      const currentStage = Math.max(...knockout.map((match) => match.knockoutRound ?? 0));
+      const currentMatches = knockout.filter((match) => match.knockoutRound === currentStage);
+      if (currentStage === 2) {
+        window.alert("A final da Série D já foi gerada. Finalize os dois jogos para definir o campeão.");
+        return;
+      }
+      if (!currentStage || currentMatches.length !== currentStage || currentMatches.some((match) => !match.played)) {
+        window.alert("Finalize todos os jogos da fase eliminatória atual antes de avançar.");
+        return;
+      }
+
+      const winners: number[] = [];
+      const confrontations = new Map<string, Match[]>();
+      currentMatches.forEach((match) => {
+        const key = [match.home, match.away].sort((x, y) => x - y).join("-");
+        const list = confrontations.get(key) ?? [];
+        list.push(match);
+        confrontations.set(key, list);
+      });
+
+      for (const legs of confrontations.values()) {
+        const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
+        const totals = teams.map((clubId) => ({
+          clubId,
+          goals: legs.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
+        })).sort((a, b) => b.goals - a.goals);
+        const penaltyWinner = legs.map((match) => match.penaltyWinner).find((id): id is number => id !== undefined);
+        if (teams.length !== 2 || legs.length !== 2 || (totals[0].goals === totals[1].goals && !penaltyWinner)) {
+          window.alert("Há um confronto empatado no agregado e sem vencedor nos pênaltis.");
+          return;
+        }
+        winners.push(penaltyWinner ?? totals[0].clubId);
+      }
+
+      const nextStage = currentStage / 2;
+      const roundStart: Record<number, number> = { 32: 13, 16: 15, 8: 17, 4: 19, 2: 21 };
+      let id = nextId(matches);
+      const created: Match[] = [];
+      for (let i = 0; i < winners.length; i += 2) {
+        created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage], home: winners[i], away: winners[i + 1], homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
+        created.push({ id: id++, championshipId: championship.id, round: roundStart[nextStage] + 1, home: winners[i + 1], away: winners[i], homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: nextStage });
+      }
+      setMatches([...matches, ...created]);
+      setRound(roundStart[nextStage]);
+      setSection("Partidas");
+      return;
+    }
+
     if (championship.division === "Série C") {
       const regular = myMatches.filter((match) => (match.stage ?? "regular") === "regular");
       const secondPhase = myMatches.filter((match) => match.stage === "secondPhase");
@@ -550,6 +644,33 @@ export default function App() {
       }
     }
 
+
+    if (target.stage === "knockout") {
+      const confrontation = updated.filter((match) =>
+        match.stage === "knockout" &&
+        match.knockoutRound === target.knockoutRound &&
+        [match.home, match.away].sort((x, y) => x - y).join("-") === [target.home, target.away].sort((x, y) => x - y).join("-")
+      );
+      if (confrontation.length === 2 && confrontation.every((match) => match.played)) {
+        const teams = [...new Set(confrontation.flatMap((match) => [match.home, match.away]))];
+        const totals = teams.map((clubId) => ({
+          clubId,
+          goals: confrontation.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
+        }));
+        if (totals.length === 2 && totals[0].goals === totals[1].goals) {
+          const secondLeg = confrontation.sort((a, b) => b.round - a.round)[0];
+          const winnerInput = window.prompt("Empate no agregado. A decisão será por pênaltis.\n\nDigite exatamente o nome do clube vencedor:\n" + clubName(secondLeg.home) + " ou " + clubName(secondLeg.away));
+          if (winnerInput) {
+            const winner = [secondLeg.home, secondLeg.away].find((clubId) => clubName(clubId).toLowerCase() === winnerInput.trim().toLowerCase());
+            if (winner) {
+              setMatches(updated.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner: winner } : match));
+              return;
+            }
+          }
+        }
+      }
+    }
+
     if (target.stage === "playoff") {
       const confrontation = updated.filter((match) =>
         match.stage === "playoff" &&
@@ -586,7 +707,7 @@ export default function App() {
     return Math.floor(Math.random() * 6);
   }
 
-  function generateResults(scope: "round" | "remaining" | "playoff" | "secondPhase" | "final") {
+  function generateResults(scope: "round" | "remaining" | "playoff" | "secondPhase" | "final" | "knockout") {
     if (!championship) return;
 
     const targets = myMatches.filter((match) => {
@@ -595,6 +716,7 @@ export default function App() {
       if (scope === "playoff") return match.stage === "playoff";
       if (scope === "secondPhase") return match.stage === "secondPhase";
       if (scope === "final") return match.stage === "final";
+      if (scope === "knockout") return match.stage === "knockout";
       return true;
     });
 
@@ -605,6 +727,7 @@ export default function App() {
         playoff: "Não há jogos sem resultado nos play-offs.",
         secondPhase: "Não há jogos sem resultado na segunda fase.",
         final: "Não há jogos sem resultado na final.",
+        knockout: "Não há jogos sem resultado no mata-mata da Série D.",
       };
       window.alert(messages[scope]);
       return;
@@ -616,6 +739,7 @@ export default function App() {
       playoff: "os 4 jogos dos play-offs",
       secondPhase: "todos os jogos da segunda fase",
       final: "os 2 jogos da final",
+      knockout: "a fase eliminatória da Série D",
     };
     const confirmed = window.confirm(
       `Gerar resultados aleatórios para ${labels[scope]}?\\n\\nOs jogos que já possuem resultado não serão alterados.`
@@ -636,6 +760,31 @@ export default function App() {
       const result = generated.get(match.id);
       return result ? { ...match, ...result, played: true, penaltyWinner: undefined } : match;
     });
+
+
+    if (scope === "knockout") {
+      const knockoutMatches = nextMatches.filter((match) => match.stage === "knockout" && match.played);
+      const confrontations = new Map<string, Match[]>();
+      knockoutMatches.forEach((match) => {
+        const key = [match.home, match.away].sort((x, y) => x - y).join("-");
+        const list = confrontations.get(key) ?? [];
+        list.push(match);
+        confrontations.set(key, list);
+      });
+      confrontations.forEach((legs) => {
+        if (legs.length !== 2) return;
+        const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
+        const totals = teams.map((clubId) => ({
+          clubId,
+          goals: legs.reduce((sum, match) => sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
+        }));
+        if (teams.length === 2 && totals[0].goals === totals[1].goals) {
+          const secondLeg = legs.sort((a, b) => b.round - a.round)[0];
+          const penaltyWinner = teams[Math.floor(Math.random() * teams.length)];
+          nextMatches = nextMatches.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner } : match);
+        }
+      });
+    }
 
     if (scope === "playoff") {
       const playoffMatches = nextMatches.filter((match) => match.stage === "playoff" && match.played);
