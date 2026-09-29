@@ -187,3 +187,18 @@ td:nth-child(2) { color: #d8e0e9; }
   .playoffGrid, .groupBoards { grid-template-columns:1fr; }
   .phaseIntro { flex-direction:column; }
 }
+
+.accessSummary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.accessCard { border:1px solid #1e2b3b; background:#0b131f; border-radius:8px; overflow:hidden; }
+.accessCardHead { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:9px 12px; border-bottom:1px solid #1e2b3b; }
+.accessCardHead b { font-size:9px; letter-spacing:.08em; color:#8190a3; }
+.accessCardHead span { font-size:9px; color:#9eacbf; }
+.accessTeams { display:grid; grid-template-columns:1fr 1fr; }
+.accessTeam { position:relative; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px; min-height:42px; border-right:1px solid #1e2b3b; }
+.accessTeam:last-child { border-right:0; }
+.accessTeam b { font-size:11px; }
+.accessTeam strong { font-size:13px; }
+.accessTeam.qualified { background:rgba(53,199,111,.13); box-shadow:inset 3px 0 #35c76f; }
+.accessTeam.qualified b, .accessTeam.qualified strong { color:#35c76f; }
+.accessTeam em { position:absolute; right:8px; bottom:3px; font-style:normal; font-size:7px; font-weight:800; color:#35c76f; letter-spacing:.08em; }
+@media (max-width: 800px) { .accessSummary { grid-template-columns:1fr; } }
