@@ -34,7 +34,7 @@ type Match = {
   awayScore: number | null;
   played: boolean;
   stage?: "regular" | "playoff" | "secondPhase" | "final" | "knockout";
-  group?: "A" | "B";
+  group?: string;
   penaltyWinner?: number;
   knockoutRound?: number;
 };
@@ -1461,7 +1461,7 @@ function Dashboard({ standings, matches, division, clubName, onPartidas, onClub,
         });
         return { clubId, played, wins, draws, losses, gf, ga, gd: gf - ga, points: wins * 3 + draws };
       }).sort((a, b) => b.points - a.points || b.wins - a.wins || b.gd - a.gd || b.gf - a.gf);
-    });
+    };
 
     return <>
       <section className="stats">
