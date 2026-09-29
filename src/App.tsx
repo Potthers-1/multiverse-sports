@@ -578,16 +578,12 @@ function App() {
     setMatches([...matches,...newMatches]);
     setSelectedId(newA.id);setSection("Visão geral");
     alert(
-      "Temporada "+nextSeason+" criada automaticamente.
+      `Temporada ${nextSeason} criada automaticamente.
 
-"+
-      "A → B: "+aRelegated.length+" rebaixados / "+aPromoted.length+" promovidos
-"+
-      "B → C: "+bRelegated.length+" rebaixados / "+promotedC.length+" promovidos
-"+
-      "C → D: "+cRelegated.length+" rebaixados
-"+
-      "D → C: "+promotedD.length+" promovidos"
+A → B: ${aRelegated.length} rebaixados / ${aPromoted.length} promovidos
+B → C: ${bRelegated.length} rebaixados / ${promotedC.length} promovidos
+C → D: ${cRelegated.length} rebaixados
+D → C: ${promotedD.length} promovidos`
     );
   };
 
