@@ -251,3 +251,27 @@ td:nth-child(2) { color: #d8e0e9; }
   color:#9eacbf;
   font-size:10px;
 }
+
+.historyPage { display:flex; flex-direction:column; gap:14px; }
+.historyHero { padding:16px; border:1px solid #1e2b3b; background:#0b131f; border-radius:8px; }
+.historyHero h2 { margin:4px 0; }
+.historyHero p { margin:0; color:#8190a3; font-size:11px; }
+.historyPanel { border:1px solid #1e2b3b; background:#0b131f; border-radius:8px; overflow:hidden; }
+.historyPanel .panelHead { padding:12px; border-bottom:1px solid #1e2b3b; }
+.historyCards { display:flex; flex-direction:column; }
+.historyCard { display:grid; grid-template-columns:32px minmax(180px,1fr) auto; align-items:center; gap:10px; padding:11px 12px; border-bottom:1px solid #182535; }
+.historyCard:last-child { border-bottom:0; }
+.historyCard > span { color:#718196; font-size:9px; }
+.historyCard strong { display:block; font-size:11px; }
+.historyCard small { display:block; margin-top:2px; color:#35c76f; font-size:9px; }
+.historyCard em { color:#8190a3; font-style:normal; font-size:9px; text-align:right; }
+.seasonHistory { display:flex; flex-direction:column; }
+.seasonHistoryRow { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border-bottom:1px solid #182535; }
+.seasonHistoryRow:last-child { border-bottom:0; }
+.seasonHistoryRow span { color:#718196; font-size:10px; }
+.seasonHistoryRow strong { font-size:10px; color:#d9e2ec; }
+@media (max-width: 700px) {
+  .historyCard { grid-template-columns:24px 1fr; }
+  .historyCard em { grid-column:2; text-align:left; }
+  .seasonHistoryRow { align-items:flex-start; flex-direction:column; gap:4px; }
+}
