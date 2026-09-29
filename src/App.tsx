@@ -461,19 +461,39 @@ export default function App() {
     return Math.floor(Math.random() * 6);
   }
 
-  function generateResults(scope: "round" | "remaining") {
+  function generateResults(scope: "round" | "remaining" | "playoff" | "secondPhase" | "final") {
     if (!championship) return;
-    const targets = myMatches.filter((match) =>
-      !match.played && (scope === "remaining" || match.round === round)
-    );
+
+    const targets = myMatches.filter((match) => {
+      if (match.played) return false;
+      if (scope === "round") return (match.stage ?? "regular") === "regular" && match.round === round;
+      if (scope === "playoff") return match.stage === "playoff";
+      if (scope === "secondPhase") return match.stage === "secondPhase";
+      if (scope === "final") return match.stage === "final";
+      return true;
+    });
+
     if (!targets.length) {
-      window.alert(scope === "round" ? "Não há jogos sem resultado nesta rodada." : "Não há jogos sem resultado neste campeonato.");
+      const messages = {
+        round: "Não há jogos sem resultado nesta rodada.",
+        remaining: "Não há jogos sem resultado neste campeonato.",
+        playoff: "Não há jogos sem resultado nos play-offs.",
+        secondPhase: "Não há jogos sem resultado na segunda fase.",
+        final: "Não há jogos sem resultado na final.",
+      };
+      window.alert(messages[scope]);
       return;
     }
 
-    const label = scope === "round" ? `a rodada ${round}` : "todas as rodadas restantes";
+    const labels = {
+      round: `a rodada ${round}`,
+      remaining: "todas as rodadas restantes",
+      playoff: "os 4 jogos dos play-offs",
+      secondPhase: "todos os jogos da segunda fase",
+      final: "os 2 jogos da final",
+    };
     const confirmed = window.confirm(
-      `Gerar resultados aleatórios para ${label}?\\n\\nOs jogos que já possuem resultado não serão alterados.`
+      `Gerar resultados aleatórios para ${labels[scope]}?\\n\\nOs jogos que já possuem resultado não serão alterados.`
     );
     if (!confirmed) return;
 
@@ -717,16 +737,17 @@ export default function App() {
           {championship?.division === "Série B" && myMatches.some((match) => match.stage === "playoff") ? (
             <div className="phasePage">
               <div className="phaseIntro">
-                <div><span className="eyebrow">PLAY-OFFS DE ACESSO</span><h2>4 jogos · 2 confrontos</h2><p>Os vencedores dos dois confrontos garantem o acesso à Série A.</p></div>
-                <button className="generateBtn phaseGenerate" onClick={() => generateResults("remaining")}>⚡ Gerar resultados dos play-offs</button>
+                <div><span className="eyebrow">PLAY-OFFS DE ACESSO</span><h2>4 jogos · 2 confrontos</h2><p>Ida: 6º x 3º e 5º x 4º. Volta: 3º x 6º e 4º x 5º. Os vencedores dos confrontos garantem o acesso à Série A.</p></div>
+                <button className="generateBtn phaseGenerate" onClick={() => generateResults("playoff")}>⚡ Gerar resultados dos play-offs</button>
               </div>
-              <div className="playoffGrid">{myMatches.filter((match) => match.stage === "playoff").map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
+              <PlayoffAccessSummary matches={myMatches.filter((match) => match.stage === "playoff")} clubName={clubName} />
+              <div className="playoffGrid">{myMatches.filter((match) => match.stage === "playoff").sort((a, b) => a.round - b.round || a.id - b.id).map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
             </div>
           ) : championship?.division === "Série C" && myMatches.some((match) => match.stage === "final") ? (
             <div className="phasePage">
               <div className="phaseIntro">
                 <div><span className="eyebrow">FINAL DA SÉRIE C</span><h2>2 jogos · campeão</h2><p>Os dois primeiros dos grupos já garantiram o acesso. Os líderes disputam a final em ida e volta.</p></div>
-                <button className="generateBtn phaseGenerate" onClick={() => generateResults("remaining")}>⚡ Gerar resultados da final</button>
+                <button className="generateBtn phaseGenerate" onClick={() => generateResults("final")}>⚡ Gerar resultados da final</button>
               </div>
               <div className="playoffGrid">{myMatches.filter((match) => match.stage === "final").map((match) => <ResultRow key={match.id} match={match} home={clubName(match.home)} away={clubName(match.away)} onSave={saveScore} />)}</div>
             </div>
@@ -734,7 +755,7 @@ export default function App() {
             <div className="phasePage">
               <div className="phaseIntro">
                 <div><span className="eyebrow">SEGUNDA FASE</span><h2>Grupo A · Grupo B</h2><p>Os dois primeiros de cada grupo garantem o acesso à Série B. Os líderes disputam a final em 2 jogos.</p></div>
-                <button className="generateBtn phaseGenerate" onClick={() => generateResults("remaining")}>⚡ Gerar resultados da segunda fase</button>
+                <button className="generateBtn phaseGenerate" onClick={() => generateResults("secondPhase")}>⚡ Gerar resultados da segunda fase</button>
               </div>
               <div className="groupBoards">
                 {(["A", "B"] as const).map((group) => {
@@ -785,6 +806,44 @@ function Dashboard({ standings, matches, division, clubName, onPartidas, onClub,
 
 function Manager({ title, button, onClick, children }: { title: string; button: string; onClick: () => void; children: React.ReactNode }) {
   return <section className="manager"><div className="managerHead"><div><span className="eyebrow">CADASTRO E GESTÃO</span><h2>{title}</h2></div><button className="primary" onClick={onClick}>＋ {button}</button></div>{children}</section>;
+}
+
+function PlayoffAccessSummary({ matches, clubName }: { matches: Match[]; clubName: (id: number) => string }) {
+  const confrontations = new Map<string, Match[]>();
+  matches.forEach((match) => {
+    const key = [match.home, match.away].sort((a, b) => a - b).join("-");
+    const list = confrontations.get(key) ?? [];
+    list.push(match);
+    confrontations.set(key, list);
+  });
+
+  return <div className="accessSummary">
+    {[...confrontations.values()].map((legs, index) => {
+      const teams = [...new Set(legs.flatMap((match) => [match.home, match.away]))];
+      const complete = legs.length === 2 && legs.every((match) => match.played);
+      const totals = teams.map((clubId) => ({
+        clubId,
+        goals: legs.reduce((sum, match) => {
+          if (!match.played) return sum;
+          return sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0);
+        }, 0),
+      })).sort((a, b) => b.goals - a.goals);
+
+      const winner = complete && totals.length === 2 && totals[0].goals !== totals[1].goals ? totals[0].clubId : null;
+      const tied = complete && totals.length === 2 && totals[0].goals === totals[1].goals;
+
+      return <div className="accessCard" key={index}>
+        <div className="accessCardHead"><b>CONFRONTO {index + 1}</b><span>{complete ? (tied ? "Empate no agregado" : "Classificado") : "Aguardando os 2 jogos"}</span></div>
+        <div className="accessTeams">
+          {teams.map((clubId) => <div key={clubId} className={winner === clubId ? "accessTeam qualified" : "accessTeam"}>
+            <b>{clubName(clubId)}</b>
+            {complete && <strong>{totals.find((item) => item.clubId === clubId)?.goals ?? 0}</strong>}
+            {winner === clubId && <em>ACESSO</em>}
+          </div>)}
+        </div>
+      </div>;
+    })}
+  </div>;
 }
 
 function ResultRow({ match, home, away, onSave }: { match: Match; home: string; away: string; onSave: (id: number, home: string, away: string) => void }) {
