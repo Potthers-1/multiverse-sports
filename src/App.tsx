@@ -1037,17 +1037,46 @@ function ChampionshipHistory({ championship, championships, clubs, matches }: { 
   const movements = seasonData.slice().sort((a, b) => Number(a.season.season) - Number(b.season.season)).flatMap((current, index, all) => {
     const next = all[index + 1];
     if (!next) return [];
+
     const currentNames = new Set(current.rows.map((r) => r.name));
     const nextNames = new Set(next.rows.map((r) => r.name));
-    const promoted = [...nextNames].filter((name) => !currentNames.has(name));
-    const relegated = [...currentNames].filter((name) => !nextNames.has(name));
+    const entered = [...nextNames].filter((name) => !currentNames.has(name));
+    const left = [...currentNames].filter((name) => !nextNames.has(name));
+
+    const findDivision = (season: string, name: string) => {
+      const championshipIds = championships
+        .filter((item) => item.country === championship.country && item.season === season)
+        .filter((item) => clubs.some((club) => club.championshipId === item.id && club.name === name))
+        .map((item) => item.division);
+      return championshipIds[0] ?? "outra divisão";
+    };
+
+    const incomingPromotion = entered.filter((name) => findDivision(next.season.season, name) === current.season.division);
+    const incomingFromLower = entered.filter((name) => {
+      const division = findDivision(current.season.season, name);
+      return division !== current.season.division && Number(division.replace(/\\D/g, "")) > Number(current.season.division.replace(/\\D/g, ""));
+    });
+    const incomingFromHigher = entered.filter((name) => {
+      const division = findDivision(current.season.season, name);
+      return division !== current.season.division && Number(division.replace(/\\D/g, "")) < Number(current.season.division.replace(/\\D/g, ""));
+    });
+
+    const outgoingToHigher = left.filter((name) => {
+      const division = findDivision(next.season.season, name);
+      return division !== current.season.division && Number(division.replace(/\\D/g, "")) < Number(current.season.division.replace(/\\D/g, ""));
+    });
+    const outgoingToLower = left.filter((name) => {
+      const division = findDivision(next.season.season, name);
+      return division !== current.season.division && Number(division.replace(/\\D/g, "")) > Number(current.season.division.replace(/\\D/g, ""));
+    });
+
     return [{
       from: current.season.season,
       to: next.season.season,
-      promoted,
-      relegated,
-      promotedCount: promoted.length,
-      relegatedCount: relegated.length,
+      incomingFromLower,
+      incomingFromHigher,
+      outgoingToHigher,
+      outgoingToLower,
     }];
   });
 
@@ -1090,19 +1119,23 @@ function ChampionshipHistory({ championship, championships, clubs, matches }: { 
               <span className="eyebrow">TEMPORADA</span>
               <strong>{move.from} → {move.to}</strong>
             </div>
-            <div className="movementTotals">
-              <span>{move.promotedCount} acessos</span>
-              <span>{move.relegatedCount} rebaixamentos</span>
-            </div>
           </div>
-          <div className="movementColumns">
+          <div className="movementFourGrid">
             <div className="movementBlock movementBlockUp">
-              <div className="movementBlockTitle"><span>⬆</span><strong>QUEM SUBIU PARA ESTA DIVISÃO</strong></div>
-              {move.promoted.length ? <div className="movementTeams">{move.promoted.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>ACESSO</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
+              <div className="movementBlockTitle"><span>⬆</span><strong>ACESSOS PARA ESTA DIVISÃO</strong></div>
+              {move.incomingFromLower.length ? <div className="movementTeams">{move.incomingFromLower.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>SUBIU</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
             </div>
             <div className="movementBlock movementBlockDown">
-              <div className="movementBlockTitle"><span>⬇</span><strong>QUEM SAIU DESTA DIVISÃO</strong></div>
-              {move.relegated.length ? <div className="movementTeams">{move.relegated.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>REBAIXADO</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
+              <div className="movementBlockTitle"><span>⬇</span><strong>REBAIXADOS PARA ESTA DIVISÃO</strong></div>
+              {move.incomingFromHigher.length ? <div className="movementTeams">{move.incomingFromHigher.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>CAIU</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
+            </div>
+            <div className="movementBlock movementBlockUp">
+              <div className="movementBlockTitle"><span>⬆</span><strong>ACESSOS DESTA DIVISÃO</strong></div>
+              {move.outgoingToHigher.length ? <div className="movementTeams">{move.outgoingToHigher.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>SUBIU</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
+            </div>
+            <div className="movementBlock movementBlockDown">
+              <div className="movementBlockTitle"><span>⬇</span><strong>REBAIXADOS DESTA DIVISÃO</strong></div>
+              {move.outgoingToLower.length ? <div className="movementTeams">{move.outgoingToLower.map((name) => <div className="movementTeam" key={name}><span>{name}</span><b>CAIU</b></div>)}</div> : <small className="movementNone">Nenhum clube</small>}
             </div>
           </div>
         </div>)}
