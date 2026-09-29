@@ -470,6 +470,32 @@ export default function App() {
         : match
     );
 
+    if (target.stage === "final") {
+      const finalMatches = updated.filter((match) => match.stage === "final");
+      if (finalMatches.length === 2 && finalMatches.every((match) => match.played)) {
+        const teams = [...new Set(finalMatches.flatMap((match) => [match.home, match.away]))];
+        const totals = teams.map((clubId) => ({
+          clubId,
+          goals: finalMatches.reduce((sum, match) =>
+            sum + (match.home === clubId ? (match.homeScore ?? 0) : match.away === clubId ? (match.awayScore ?? 0) : 0), 0),
+        }));
+        if (totals.length === 2 && totals[0].goals === totals[1].goals) {
+          const secondLeg = finalMatches.find((match) => match.round === 2) ?? finalMatches[1];
+          const winnerInput = window.prompt(
+            "Empate no agregado após o jogo de volta. A decisão do campeão será por pênaltis.\n\nDigite exatamente o nome do clube vencedor nos pênaltis:\n" +
+            clubName(secondLeg.home) + " ou " + clubName(secondLeg.away)
+          );
+          if (winnerInput) {
+            const winner = teams.find((clubId) => clubName(clubId).toLowerCase() === winnerInput.trim().toLowerCase());
+            if (winner) {
+              setMatches(updated.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner: winner } : match));
+              return;
+            }
+          }
+        }
+      }
+    }
+
     if (target.stage === "playoff") {
       const confrontation = updated.filter((match) =>
         match.stage === "playoff" &&
@@ -904,11 +930,12 @@ function FinalChampionSummary({ matches, clubName }: { matches: Match[]; clubNam
   })).sort((a, b) => b.goals - a.goals);
 
   const tied = totals.length === 2 && totals[0].goals === totals[1].goals;
-  if (tied) {
-    return <div className="championPending">🏆 Final empatada no agregado — aguardando critério de desempate.</div>;
+  const penaltyWinner = matches.find((match) => match.penaltyWinner)?.penaltyWinner;
+  if (tied && !penaltyWinner) {
+    return <div className="championPending">🏆 Final empatada no agregado — decisão por pênaltis.</div>;
   }
 
-  const champion = totals[0];
+  const champion = penaltyWinner ? { clubId: penaltyWinner, goals: totals.find((item) => item.clubId === penaltyWinner)?.goals ?? 0 } : totals[0];
   return <div className="championCard">
     <span>🏆 CAMPEÃO DA SÉRIE C</span>
     <strong>{clubName(champion.clubId)}</strong>
