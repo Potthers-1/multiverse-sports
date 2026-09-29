@@ -863,7 +863,7 @@ export default function App() {
     return Math.floor(Math.random() * 6);
   }
 
-  function generateResults(scope: "round" | "remaining" | "playoff" | "secondPhase" | "final" | "knockout") {
+  function generateResults(scope: "round" | "remaining" | "playoff" | "secondPhase" | "final" | "knockout", knockoutPhase?: number) {
     if (!championship) return;
 
     const targets = myMatches.filter((match) => {
@@ -873,8 +873,12 @@ export default function App() {
       if (scope === "secondPhase") return match.stage === "secondPhase";
       if (scope === "final") return match.stage === "final";
       if (scope === "knockout") {
-        const phases = myMatches.filter((m) => m.stage === "knockout").map((m) => m.knockoutRound ?? 0);
-        const current = phases.length ? Math.max(...phases) : 0;
+        const current = knockoutPhase ?? Math.max(
+          0,
+          ...myMatches
+            .filter((m) => m.stage === "knockout" && !m.played)
+            .map((m) => m.knockoutRound ?? 0)
+        );
         return match.stage === "knockout" && match.knockoutRound === current;
       }
       return true;
@@ -1272,7 +1276,7 @@ export default function App() {
                   <div><span className="eyebrow">SÉRIE D · MATA-MATA</span><h2>{labels[phase] ?? "Mata-mata"}</h2><p>{phase === 4 ? "Os 4 semifinalistas conquistam automaticamente o acesso à Série C." : phase === 2 ? "Final em dois jogos. O vencedor do agregado é o campeão." : "Ida e volta. O vencedor do agregado avança automaticamente."}</p></div>
                   <div className="phaseActions">
                     <button className="ghost phaseGenerate" onClick={() => setSection("Partidas")}>← Voltar às fases</button>
-                    <button className="generateBtn phaseGenerate" onClick={() => generateResults("knockout")}>⚡ Gerar resultados</button>
+                    <button className="generateBtn phaseGenerate" onClick={() => generateResults("knockout", phase)}>⚡ Gerar resultados</button>
                     {complete && phase > 2 && !myMatches.some((m) => m.stage === "knockout" && m.knockoutRound === phase / 2) && <button className="primary phaseGenerate" onClick={generateNextStage}>→ Avançar automaticamente</button>}
                   </div>
                 </div>
