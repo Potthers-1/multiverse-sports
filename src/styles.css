@@ -222,3 +222,7 @@ td:nth-child(2) { color: #d8e0e9; }
   color:#b8c7d8;
   background:#101c29;
 }
+
+.phaseActions { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+.phaseActions .phaseGenerate { margin:0; }
+@media (max-width: 800px) { .phaseActions { width:100%; justify-content:flex-start; } }
