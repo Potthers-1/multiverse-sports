@@ -207,11 +207,39 @@ export default function App() {
           awayScore: null,
           played: false,
           stage: "regular" as const,
-          group: undefined,
+          group: match.group,
         }))
     );
     localStorage.setItem("sports-simulation-reset-v1", "1");
   }, []);
+
+  // Repara grupos da Série D 2026 caso uma versão anterior do reset tenha apagado o campo group.
+  useEffect(() => {
+    if (localStorage.getItem("sports-serie-d-groups-repair-v1") === "1") return;
+    const seriesD = championships.find((champ) => champ.country === "Brasil" && champ.division === "Série D" && champ.season === "2026");
+    if (!seriesD) return;
+
+    const groupByClubId = new Map<number, string>();
+    Object.entries(SERIE_D_GROUPS).forEach(([group, names]) => {
+      names.forEach((name) => {
+        const club = clubs.find((item) => item.championshipId === seriesD.id && item.name === name);
+        if (club) groupByClubId.set(club.id, group);
+      });
+    });
+
+    let changed = false;
+    const repaired = matches.map((match) => {
+      if (match.championshipId !== seriesD.id || match.stage === "knockout" || match.group) return match;
+      const group = groupByClubId.get(match.home);
+      const awayGroup = groupByClubId.get(match.away);
+      if (!group || group !== awayGroup) return match;
+      changed = true;
+      return { ...match, group };
+    });
+
+    if (changed) setMatches(repaired);
+    localStorage.setItem("sports-serie-d-groups-repair-v1", "1");
+  }, [clubs, championships, matches]);
 
   useEffect(() => {
     if (championships.some((item) => item.country === "Brasil")) return;
