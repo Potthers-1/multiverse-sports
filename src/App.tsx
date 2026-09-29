@@ -60,13 +60,24 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-function getSerieDGroups(season: string): Record<string, string[]> {
+function getSerieDGroups(season: string, clubNames: string[] = SERIE_D_CLUB_NAMES): Record<string, string[]> {
   const key = `sports-serie-d-groups-${season}-v2`;
+  const expected = new Set(clubNames);
   try {
     const stored = localStorage.getItem(key);
-    if (stored) return JSON.parse(stored) as Record<string, string[]>;
+    if (stored) {
+      const parsed = JSON.parse(stored) as Record<string, string[]>;
+      const names = Object.values(parsed).flat();
+      if (
+        names.length === clubNames.length &&
+        names.every((name) => expected.has(name)) &&
+        expected.size === names.length
+      ) {
+        return parsed;
+      }
+    }
   } catch {}
-  const shuffled = shuffle(SERIE_D_CLUB_NAMES);
+  const shuffled = shuffle(clubNames);
   const groups: Record<string, string[]> = {};
   Object.keys(SERIE_D_GROUPS).forEach((letter, index) => {
     groups[letter] = shuffled.slice(index * 6, index * 6 + 6);
@@ -377,19 +388,46 @@ export default function App() {
 
 
   useEffect(() => {
-    const seriesD = championships.find((champ) => champ.country === "Brasil" && champ.division === "Série D" && champ.season === "2026");
-    if (!seriesD || matches.some((match) => match.championshipId === seriesD.id)) return;
-    const created: Match[] = [];
-    let id = nextId(matches);
-    const groups = getSerieDGroups(seriesD.season);
-    Object.entries(groups).forEach(([group, names]) => {
-      const ids = names.map((name) => clubs.find((club) => club.championshipId === seriesD.id && club.name === name)?.id).filter((value): value is number => value !== undefined);
-      if (ids.length !== 6) return;
-      const generated = generateRoundRobin(ids, 2, seriesD.id, id);
-      generated.forEach((match) => created.push({ ...match, group }));
-      id = nextId([...matches, ...created]);
+    const serieDChampionships = championships.filter(
+      (champ) => champ.country === "Brasil" && champ.division === "Série D"
+    );
+    if (!serieDChampionships.length) return;
+
+    let nextMatches = [...matches];
+    let changed = false;
+
+    serieDChampionships.forEach((seriesD) => {
+      if (nextMatches.some((match) => match.championshipId === seriesD.id)) return;
+
+      const dClubs = clubs
+        .filter((club) => club.championshipId === seriesD.id)
+        .map((club) => club.name);
+
+      if (dClubs.length !== 96 || new Set(dClubs).size !== 96) return;
+
+      const created: Match[] = [];
+      let id = nextId(nextMatches);
+      const groups = getSerieDGroups(seriesD.season, dClubs);
+
+      Object.entries(groups).forEach(([group, names]) => {
+        const ids = names
+          .map((name) => clubs.find((club) => club.championshipId === seriesD.id && club.name === name)?.id)
+          .filter((value): value is number => value !== undefined);
+
+        if (ids.length !== 6) return;
+
+        const generated = generateRoundRobin(ids, 2, seriesD.id, id);
+        generated.forEach((match) => created.push({ ...match, group }));
+        id = nextId([...nextMatches, ...created]);
+      });
+
+      if (created.length === 480) {
+        nextMatches = [...nextMatches, ...created];
+        changed = true;
+      }
     });
-    if (created.length === 480) setMatches([...matches, ...created]);
+
+    if (changed) setMatches(nextMatches);
   }, [clubs, championships, matches]);
 
   useEffect(() => {
@@ -1046,35 +1084,29 @@ export default function App() {
           nextMatches = nextMatches.map((match) =>
             match.id === secondLeg.id ? { ...match, penaltyWinner } : match
           );
-        }
-      }
-    }
-
-    setMatches(nextMatches);
-    if (scope === "knockout") {
-      const phase = nextMatches.find((match) => match.stage === "knockout" && !match.played)?.knockoutRound;
-      if (phase) setSection(`Série D · ${phase}`);
-      else setSection("Partidas");
-    } else {
-      setSection("Partidas");
-    }
-  }
-
-  function createNextBrazilSeason() {
+    function createNextBrazilSeason() {
     const brazilSeasons = championships
-      .filter((item) => item.country === "Brasil" && ["Série A", "Série B", "Série C"].includes(item.division))
+      .filter((item) => item.country === "Brasil" && ["Série A", "Série B", "Série C", "Série D"].includes(item.division))
       .map((item) => Number(item.season))
       .filter((season) => Number.isFinite(season));
     const currentSeason = Math.max(...brazilSeasons);
     const nextSeason = currentSeason + 1;
+
     const currentA = championships.find((item) => item.country === "Brasil" && item.division === "Série A" && Number(item.season) === currentSeason);
     const currentB = championships.find((item) => item.country === "Brasil" && item.division === "Série B" && Number(item.season) === currentSeason);
     const currentC = championships.find((item) => item.country === "Brasil" && item.division === "Série C" && Number(item.season) === currentSeason);
-    if (!currentA || !currentB || !currentC) {
-      window.alert("As Séries A, B e C da temporada mais recente precisam existir para gerar a próxima temporada.");
+    const currentD = championships.find((item) => item.country === "Brasil" && item.division === "Série D" && Number(item.season) === currentSeason);
+
+    if (!currentA || !currentB || !currentC || !currentD) {
+      window.alert("As Séries A, B, C e D da temporada mais recente precisam existir para gerar a próxima temporada.");
       return;
     }
-    if (championships.some((item) => item.country === "Brasil" && Number(item.season) === nextSeason && ["Série A", "Série B", "Série C"].includes(item.division))) {
+
+    if (championships.some((item) =>
+      item.country === "Brasil" &&
+      Number(item.season) === nextSeason &&
+      ["Série A", "Série B", "Série C", "Série D"].includes(item.division)
+    )) {
       window.alert("A próxima temporada já foi criada.");
       return;
     }
@@ -1083,17 +1115,24 @@ export default function App() {
       const teamIds = clubs.filter((club) => club.championshipId === champ.id).map((club) => club.id);
       return teamIds.map((clubId) => {
         let points = 0, gd = 0, gf = 0, played = 0;
-        matches.filter((match) => match.championshipId === champ.id && match.played && (match.stage ?? "regular") === "regular" && (match.home === clubId || match.away === clubId)).forEach((match) => {
-          const home = match.home === clubId;
-          const scored = home ? match.homeScore! : match.awayScore!;
-          const conceded = home ? match.awayScore! : match.homeScore!;
-          played++;
-          gf += scored;
-          gd += scored - conceded;
-          if (scored > conceded) points += champ.pointsWin;
-          else if (scored === conceded) points += champ.pointsDraw;
-          else points += champ.pointsLoss;
-        });
+        matches
+          .filter((match) =>
+            match.championshipId === champ.id &&
+            match.played &&
+            (match.stage ?? "regular") === "regular" &&
+            (match.home === clubId || match.away === clubId)
+          )
+          .forEach((match) => {
+            const home = match.home === clubId;
+            const scored = home ? match.homeScore! : match.awayScore!;
+            const conceded = home ? match.awayScore! : match.homeScore!;
+            played++;
+            gf += scored;
+            gd += scored - conceded;
+            if (scored > conceded) points += champ.pointsWin;
+            else if (scored === conceded) points += champ.pointsDraw;
+            else points += champ.pointsLoss;
+          });
         return { clubId, played, points, gd, gf };
       }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
     };
@@ -1103,12 +1142,15 @@ export default function App() {
     const cTable = tableFor(currentC);
 
     if (aTable.length < 20 || bTable.length < 20 || cTable.length < 20) {
-      window.alert("As três divisões precisam ter os 20 clubes cadastrados antes de gerar a próxima temporada.");
+      window.alert("As Séries A, B e C precisam ter os 20 clubes cadastrados antes de gerar a próxima temporada.");
       return;
     }
 
     const regularComplete = (champ: Championship) => {
-      const regular = matches.filter((match) => match.championshipId === champ.id && (match.stage ?? "regular") === "regular");
+      const regular = matches.filter((match) =>
+        match.championshipId === champ.id &&
+        (match.stage ?? "regular") === "regular"
+      );
       return regular.length > 0 && regular.every((match) => match.played);
     };
 
@@ -1117,10 +1159,10 @@ export default function App() {
       return;
     }
 
-    // Série A: os 4 últimos da classificação regular são rebaixados para a Série B.
+    // Série A: os 4 últimos são rebaixados para a Série B.
     const relegatedFromA = aTable.slice(-4).map((row) => row.clubId);
 
-    // Série B: 1º e 2º sobem diretamente. 3º x 6º e 4º x 5º definem as outras 2 vagas.
+    // Série B: 1º e 2º sobem diretamente; os vencedores dos playoffs completam as 4 vagas.
     const directToA = bTable.slice(0, 2).map((row) => row.clubId);
     const playoffMatches = matches.filter((match) => match.championshipId === currentB.id && match.stage === "playoff");
     const confrontations = new Map<string, Match[]>();
@@ -1131,7 +1173,10 @@ export default function App() {
       confrontations.set(key, list);
     });
 
-    if (confrontations.size !== 2 || [...confrontations.values()].some((legs) => legs.length !== 2 || !legs.every((match) => match.played))) {
+    if (
+      confrontations.size !== 2 ||
+      [...confrontations.values()].some((legs) => legs.length !== 2 || !legs.every((match) => match.played))
+    ) {
       window.alert("Finalize os 4 jogos dos play-offs da Série B antes de gerar a próxima temporada.");
       return;
     }
@@ -1153,30 +1198,42 @@ export default function App() {
         window.alert("Um dos play-offs da Série B terminou empatado no agregado e ainda não possui vencedor nos pênaltis.");
         return;
       }
-      playoffWinners.push(penaltyWinner ?? (totals[0].goals > totals[1].goals ? totals[0].clubId : totals[1].clubId));
+      playoffWinners.push(
+        penaltyWinner ??
+        (totals[0].goals > totals[1].goals ? totals[0].clubId : totals[1].clubId)
+      );
     }
 
-    // Série C: os 2 primeiros de cada grupo da segunda fase sobem para a Série B.
-    const secondPhase = matches.filter((match) => match.championshipId === currentC.id && match.stage === "secondPhase");
+    // Série C: 4 primeiros da segunda fase (2 de cada grupo) sobem para a Série B.
+    const secondPhase = matches.filter((match) =>
+      match.championshipId === currentC.id && match.stage === "secondPhase"
+    );
     if (secondPhase.length === 0 || !secondPhase.every((match) => match.played)) {
       window.alert("Finalize todos os jogos da segunda fase da Série C antes de gerar a próxima temporada.");
       return;
     }
 
     const groupTable = (group: "A" | "B") => {
-      const ids = [...new Set(secondPhase.filter((match) => match.group === group).flatMap((match) => [match.home, match.away]))];
+      const ids = [...new Set(
+        secondPhase
+          .filter((match) => match.group === group)
+          .flatMap((match) => [match.home, match.away])
+      )];
+
       return ids.map((clubId) => {
         let points = 0, gd = 0, gf = 0;
-        secondPhase.filter((match) => match.group === group && (match.home === clubId || match.away === clubId)).forEach((match) => {
-          const home = match.home === clubId;
-          const scored = home ? match.homeScore! : match.awayScore!;
-          const conceded = home ? match.awayScore! : match.homeScore!;
-          gf += scored;
-          gd += scored - conceded;
-          if (scored > conceded) points += currentC.pointsWin;
-          else if (scored === conceded) points += currentC.pointsDraw;
-          else points += currentC.pointsLoss;
-        });
+        secondPhase
+          .filter((match) => match.group === group && (match.home === clubId || match.away === clubId))
+          .forEach((match) => {
+            const home = match.home === clubId;
+            const scored = home ? match.homeScore! : match.awayScore!;
+            const conceded = home ? match.awayScore! : match.homeScore!;
+            gf += scored;
+            gd += scored - conceded;
+            if (scored > conceded) points += currentC.pointsWin;
+            else if (scored === conceded) points += currentC.pointsDraw;
+            else points += currentC.pointsLoss;
+          });
         return { clubId, points, gd, gf };
       }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
     };
@@ -1188,10 +1245,44 @@ export default function App() {
       return;
     }
 
-    const promotedToB = [cGroupA[0].clubId, cGroupA[1].clubId, cGroupB[0].clubId, cGroupB[1].clubId];
+    const promotedToB = [
+      cGroupA[0].clubId,
+      cGroupA[1].clubId,
+      cGroupB[0].clubId,
+      cGroupB[1].clubId
+    ];
 
-    // A regra de rebaixamento da Série C para uma divisão inferior ainda não foi definida.
-    // Portanto, nenhum clube é removido da Série C por rebaixamento neste momento.
+    // Série C: 17º–20º são rebaixados para a Série D.
+    const relegatedFromC = cTable.slice(-4).map((row) => row.clubId);
+
+    // Série D: os quatro vencedores da fase de 8 clubes são os semifinalistas e garantem acesso à Série C.
+    // Não é necessário disputar as semifinais/final para definir o acesso.
+    const dClubIds = clubs.filter((club) => club.championshipId === currentD.id).map((club) => club.id);
+    if (dClubIds.length !== 96) {
+      window.alert("A Série D precisa ter exatamente 96 clubes para gerar a próxima temporada.");
+      return;
+    }
+
+    const dPromotionMatches = matches.filter((match) =>
+      match.championshipId === currentD.id &&
+      match.stage === "knockout" &&
+      match.knockoutRound === 8
+    );
+
+    if (
+      dPromotionMatches.length !== 16 ||
+      !dPromotionMatches.every((match) => match.played)
+    ) {
+      window.alert("Finalize os 16 jogos das oitavas de final da Série D antes de gerar a próxima temporada. Os 4 vencedores serão os semifinalistas que garantem acesso à Série C.");
+      return;
+    }
+
+    const promotedDToC = getKnockoutWinners(matches, 8);
+    if (promotedDToC.length !== 4 || new Set(promotedDToC).size !== 4) {
+      window.alert("Não foi possível identificar os 4 semifinalistas da Série D que garantem acesso à Série C.");
+      return;
+    }
+
     const bRelegated = bTable.slice(-4).map((row) => row.clubId);
     const promotedToA = [...directToA, ...playoffWinners];
 
@@ -1199,29 +1290,55 @@ export default function App() {
     const nextChampionships: Championship[] = [
       { ...currentA, id: nextBase + 1, season: String(nextSeason) },
       { ...currentB, id: nextBase + 2, season: String(nextSeason) },
-      { ...currentC, id: nextBase + 3, season: String(nextSeason) }
+      { ...currentC, id: nextBase + 3, season: String(nextSeason) },
+      { ...currentD, id: nextBase + 4, season: String(nextSeason) }
     ];
 
     const nextAId = nextBase + 1;
     const nextBId = nextBase + 2;
     const nextCId = nextBase + 3;
+    const nextDId = nextBase + 4;
 
-    const idsFor = (champ: Championship) => clubs.filter((club) => club.championshipId === champ.id).map((club) => club.id);
+    const idsFor = (champ: Championship) =>
+      clubs.filter((club) => club.championshipId === champ.id).map((club) => club.id);
+
     const currentAClubIds = idsFor(currentA);
     const currentBClubIds = idsFor(currentB);
     const currentCClubIds = idsFor(currentC);
+    const currentDClubIds = idsFor(currentD);
 
     const promotedBToA = new Set(promotedToA);
     const relegatedAToB = new Set(relegatedFromA);
     const relegatedBToC = new Set(bRelegated);
     const promotedCToB = new Set(promotedToB);
+    const relegatedCToD = new Set(relegatedFromC);
+    const promotedDToC = new Set(promotedDToC);
 
-    const nextAClubIds = currentAClubIds.filter((id) => !relegatedAToB.has(id)).concat([...promotedBToA]);
-    const nextBClubIds = currentBClubIds.filter((id) => !relegatedBToC.has(id) && !promotedBToA.has(id)).concat([...relegatedAToB]).concat([...promotedCToB]);
-    const nextCClubIds = currentCClubIds.filter((id) => !promotedCToB.has(id)).concat([...relegatedBToC]);
+    const nextAClubIds = currentAClubIds
+      .filter((id) => !relegatedAToB.has(id))
+      .concat([...promotedBToA]);
 
-    if (nextAClubIds.length !== 20 || nextBClubIds.length !== 20 || nextCClubIds.length !== 20) {
-      window.alert("A movimentação não fechou os números esperados. A temporada 2027 não foi criada.");
+    const nextBClubIds = currentBClubIds
+      .filter((id) => !relegatedBToC.has(id) && !promotedBToA.has(id))
+      .concat([...relegatedAToB])
+      .concat([...promotedCToB]);
+
+    const nextCClubIds = currentCClubIds
+      .filter((id) => !promotedCToB.has(id) && !relegatedCToD.has(id))
+      .concat([...relegatedBToC])
+      .concat([...promotedDToC]);
+
+    const nextDClubIds = currentDClubIds
+      .filter((id) => !promotedDToC.has(id))
+      .concat([...relegatedCToD]);
+
+    if (
+      nextAClubIds.length !== 20 ||
+      nextBClubIds.length !== 20 ||
+      nextCClubIds.length !== 20 ||
+      nextDClubIds.length !== 96
+    ) {
+      window.alert("A movimentação entre A, B, C e D não fechou os números esperados. A próxima temporada não foi criada.");
       return;
     }
 
@@ -1235,7 +1352,8 @@ export default function App() {
     const newClubs = [
       ...createClubs(nextAClubIds, nextAId),
       ...createClubs(nextBClubIds, nextBId),
-      ...createClubs(nextCClubIds, nextCId)
+      ...createClubs(nextCClubIds, nextCId),
+      ...createClubs(nextDClubIds, nextDId)
     ];
 
     setChampionships([...championships, ...nextChampionships]);
@@ -1247,6 +1365,13 @@ export default function App() {
 
     window.alert(
       "Temporada " + nextSeason + " criada automaticamente com base nos resultados de " + currentSeason + ".\n\n" +
+      "A → B: " + relegatedFromA.length + " rebaixados / " + promotedToA.length + " promovidos\n" +
+      "B → C: " + bRelegated.length + " rebaixados / " + promotedToB.length + " promovidos\n" +
+      "C → B: " + promotedToB.length + " promovidos\n" +
+      "C → D: " + relegatedFromC.length + " rebaixados\n" +
+      "D → C: " + promotedDToC.length + " promovidos"
+    );
+  } automaticamente com base nos resultados de " + currentSeason + ".\n\n" +
       "A → B: " + relegatedFromA.length + " rebaixados / " + promotedToA.length + " promovidos\n" +
       "B → C: " + bRelegated.length + " rebaixados / " + promotedToB.length + " promovidos\n" +
       "C → B: " + promotedToB.length + " promovidos"
