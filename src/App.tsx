@@ -517,7 +517,7 @@ export default function App() {
         created.push({ id: id++, championshipId: championship.id, round: 39, home, away, homeScore: null, awayScore: null, played: false, stage: "playoff" });
         created.push({ id: id++, championshipId: championship.id, round: 40, home: away, away: home, homeScore: null, awayScore: null, played: false, stage: "playoff" });
       });
-      setMatches([...matches, ...created]);
+      setMatches([...workingMatches, ...created]);
       setRound(39);
       setSection("Partidas");
       return;
@@ -557,7 +557,7 @@ export default function App() {
           if (a.length !== 6 || b.length !== 6) return;
           pairings.push([a[0].clubId, b[3].clubId], [b[0].clubId, a[3].clubId], [a[1].clubId, b[2].clubId], [b[1].clubId, a[2].clubId]);
         }
-        let id = nextId(matches);
+        let id = nextId(workingMatches);
         const created: Match[] = [];
         pairings.forEach(([home, away]) => {
           created.push({ id: id++, championshipId: championship.id, round: 11, home, away, homeScore: null, awayScore: null, played: false, stage: "knockout", knockoutRound: 64 });
@@ -581,6 +581,7 @@ export default function App() {
       }
 
       const winners: number[] = [];
+      let workingMatches = matches;
       const confrontations = new Map<string, Match[]>();
       currentMatches.forEach((match) => {
         const key = [match.home, match.away].sort((x, y) => x - y).join("-");
@@ -612,7 +613,7 @@ export default function App() {
             window.alert("Nome do clube inválido. Nenhum clube foi eliminado e você pode tentar novamente.");
             return;
           }
-          setMatches(matches.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner } : match));
+          workingMatches = workingMatches.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner } : match);
         }
         winners.push(penaltyWinner ?? totals[0].clubId);
       }
