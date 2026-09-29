@@ -774,7 +774,10 @@ export default function App() {
             <div className="phasePage">
               <div className="phaseIntro">
                 <div><span className="eyebrow">SEGUNDA FASE</span><h2>Grupo A · Grupo B</h2><p>Os dois primeiros de cada grupo garantem o acesso à Série B. Os líderes disputam a final em 2 jogos.</p></div>
-                <button className="generateBtn phaseGenerate" onClick={() => generateResults("secondPhase")}>⚡ Gerar resultados da segunda fase</button>
+                <div className="phaseActions">
+                  <button className="generateBtn phaseGenerate" onClick={() => generateResults("secondPhase")}>⚡ Gerar resultados da segunda fase</button>
+                  {myMatches.some((match) => match.stage === "secondPhase") && myMatches.filter((match) => match.stage === "secondPhase").every((match) => match.played) && <button className="primary phaseGenerate" onClick={generateNextStage}>→ Ir para a final</button>}
+                </div>
               </div>
               <div className="groupBoards">
                 {(["A", "B"] as const).map((group) => {
