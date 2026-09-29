@@ -35,6 +35,7 @@ type Match = {
   played: boolean;
   stage?: "regular" | "playoff" | "secondPhase" | "final";
   group?: "A" | "B";
+  penaltyWinner?: number;
 };
 
 const seedChampionships: Championship[] = [];
@@ -470,7 +471,43 @@ export default function App() {
     if (home === "" || away === "") return;
     const h = Number(home), a = Number(away);
     if (!Number.isInteger(h) || !Number.isInteger(a) || h < 0 || a < 0) return;
-    setMatches(matches.map((match) => match.id === id ? { ...match, homeScore: h, awayScore: a, played: true } : match));
+
+    const target = matches.find((match) => match.id === id);
+    if (!target) return;
+
+    const updated = matches.map((match) =>
+      match.id === id
+        ? { ...match, homeScore: h, awayScore: a, played: true, penaltyWinner: undefined }
+        : match
+    );
+
+    if (target.stage === "playoff") {
+      const confrontation = updated.filter((match) =>
+        match.stage === "playoff" &&
+        [match.home, match.away].sort((x, y) => x - y).join("-") === [target.home, target.away].sort((x, y) => x - y).join("-")
+      );
+      if (confrontation.length === 2 && confrontation.every((match) => match.played)) {
+        const totalHome = confrontation.reduce((sum, match) => sum + (match.home === target.home ? (match.homeScore ?? 0) : (match.awayScore ?? 0)), 0);
+        const totalAway = confrontation.reduce((sum, match) => sum + (match.away === target.home ? (match.awayScore ?? 0) : (match.homeScore ?? 0)), 0);
+        if (totalHome === totalAway) {
+          const secondLeg = confrontation.find((match) => match.round === 40) ?? confrontation[1];
+          const winnerName = clubName(secondLeg.home) + " ou " + clubName(secondLeg.away);
+          const winnerInput = window.prompt(
+            "Empate no agregado após o jogo de volta. A decisão será por pênaltis.\n\nDigite exatamente o nome do clube vencedor nos pênaltis:\n" + winnerName
+          );
+          if (winnerInput) {
+            const winner = [secondLeg.home, secondLeg.away].find((clubId) => clubName(clubId).toLowerCase() === winnerInput.trim().toLowerCase());
+            if (winner) {
+              const next = updated.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner: winner } : match);
+              setMatches(next);
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    setMatches(updated);
   }
 
   function generateScore() {
@@ -881,16 +918,20 @@ function PlayoffAccessSummary({ matches, clubName }: { matches: Match[]; clubNam
         }, 0),
       })).sort((a, b) => b.goals - a.goals);
 
-      const winner = complete && totals.length === 2 && totals[0].goals !== totals[1].goals ? totals[0].clubId : null;
-      const tied = complete && totals.length === 2 && totals[0].goals === totals[1].goals;
+      const secondLeg = legs.find((match) => match.round === 40) ?? legs[1];
+      const penaltyWinner = secondLeg?.penaltyWinner;
+      const winner = complete
+        ? penaltyWinner ?? (totals.length === 2 && totals[0].goals !== totals[1].goals ? totals[0].clubId : null)
+        : null;
+      const tied = complete && totals.length === 2 && totals[0].goals === totals[1].goals && !penaltyWinner;
 
       return <div className="accessCard" key={index}>
-        <div className="accessCardHead"><b>CONFRONTO {index + 1}</b><span>{complete ? (tied ? "Empate no agregado" : "Classificado") : "Aguardando os 2 jogos"}</span></div>
+        <div className="accessCardHead"><b>CONFRONTO {index + 1}</b><span>{complete ? (tied ? "Pênaltis necessários" : "Classificado") : "Aguardando os 2 jogos"}</span></div>
         <div className="accessTeams">
           {teams.map((clubId) => <div key={clubId} className={winner === clubId ? "accessTeam qualified" : "accessTeam"}>
             <b>{clubName(clubId)}</b>
             {complete && <strong>{totals.find((item) => item.clubId === clubId)?.goals ?? 0}</strong>}
-            {winner === clubId && <em>ACESSO</em>}
+            {winner === clubId && <em>{penaltyWinner === clubId ? "ACESSO · PÊNALTIS" : "ACESSO"}</em>}
           </div>)}
         </div>
       </div>;
