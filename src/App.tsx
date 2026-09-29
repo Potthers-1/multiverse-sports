@@ -207,7 +207,13 @@ export default function App() {
           awayScore: null,
           played: false,
           stage: "regular" as const,
-          group: match.group,
+          group: match.group ?? (() => {
+            const champ = championships.find((item) => item.id === match.championshipId);
+            if (!champ || champ.division !== "Série D" || champ.season !== "2026") return undefined;
+            const home = clubs.find((club) => club.id === match.home)?.name;
+            const away = clubs.find((club) => club.id === match.away)?.name;
+            return Object.entries(SERIE_D_GROUPS).find(([, names]) => home && away && names.includes(home) && names.includes(away))?.[0];
+          })(),
         }))
     );
     localStorage.setItem("sports-simulation-reset-v1", "1");
