@@ -716,17 +716,9 @@ export default function App() {
         }));
         if (totals.length === 2 && totals[0].goals === totals[1].goals) {
           const secondLeg = finalMatches.find((match) => match.round === 2) ?? finalMatches[1];
-          const winnerInput = window.prompt(
-            "Empate no agregado após o jogo de volta. A decisão do campeão será por pênaltis.\n\nDigite exatamente o nome do clube vencedor nos pênaltis:\n" +
-            clubName(secondLeg.home) + " ou " + clubName(secondLeg.away)
-          );
-          if (winnerInput) {
-            const winner = teams.find((clubId) => clubName(clubId).toLowerCase() === winnerInput.trim().toLowerCase());
-            if (winner) {
-              setMatches(updated.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner: winner } : match));
-              return;
-            }
-          }
+          const winner = Math.random() < 0.5 ? secondLeg.home : secondLeg.away;
+          setMatches(updated.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner: winner } : match));
+          return;
         }
       }
     }
@@ -746,14 +738,9 @@ export default function App() {
         }));
         if (totals.length === 2 && totals[0].goals === totals[1].goals) {
           const secondLeg = confrontation.sort((a, b) => b.round - a.round)[0];
-          const winnerInput = window.prompt("Empate no agregado. A decisão será por pênaltis.\n\nDigite exatamente o nome do clube vencedor:\n" + clubName(secondLeg.home) + " ou " + clubName(secondLeg.away));
-          if (winnerInput) {
-            const winner = [secondLeg.home, secondLeg.away].find((clubId) => clubName(clubId).toLowerCase() === winnerInput.trim().toLowerCase());
-            if (winner) {
-              setMatches(updated.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner: winner } : match));
-              return;
-            }
-          }
+          const winner = Math.random() < 0.5 ? secondLeg.home : secondLeg.away;
+          setMatches(updated.map((match) => match.id === secondLeg.id ? { ...match, penaltyWinner: winner } : match));
+          return;
         }
       }
     }
@@ -921,7 +908,13 @@ export default function App() {
     }
 
     setMatches(nextMatches);
-    setSection("Partidas");
+    if (scope === "knockout") {
+      const phase = nextMatches.find((match) => match.stage === "knockout" && !match.played)?.knockoutRound;
+      if (phase) setSection(`Série D · ${phase}`);
+      else setSection("Partidas");
+    } else {
+      setSection("Partidas");
+    }
   }
 
   function createNextBrazilSeason() {
