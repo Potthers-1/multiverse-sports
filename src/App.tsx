@@ -276,7 +276,7 @@ export default function App() {
   const standings = useMemo(() => {
     return myClubs.map((club) => {
       let played = 0, wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
-      myMatches.filter((match) => match.played && (match.home === club.id || match.away === club.id)).forEach((match) => {
+      myMatches.filter((match) => match.played && (match.stage ?? "regular") === "regular" && (match.home === club.id || match.away === club.id)).forEach((match) => {
         const home = match.home === club.id;
         const scored = home ? match.homeScore! : match.awayScore!;
         const conceded = home ? match.awayScore! : match.homeScore!;
@@ -531,7 +531,7 @@ export default function App() {
       const teamIds = clubs.filter((club) => club.championshipId === champ.id).map((club) => club.id);
       return teamIds.map((clubId) => {
         let points = 0, gd = 0, gf = 0, played = 0;
-        matches.filter((match) => match.championshipId === champ.id && match.played && (match.home === clubId || match.away === clubId)).forEach((match) => {
+        matches.filter((match) => match.championshipId === champ.id && match.played && (match.stage ?? "regular") === "regular" && (match.home === clubId || match.away === clubId)).forEach((match) => {
           const home = match.home === clubId;
           const scored = home ? match.homeScore! : match.awayScore!;
           const conceded = home ? match.awayScore! : match.homeScore!;
