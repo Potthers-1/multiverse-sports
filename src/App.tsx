@@ -469,24 +469,67 @@ function App() {
     if (championship.division === "Série D") {
       const phases=[64,32,16,8,4,2];
       const existing=phases.filter((p)=>next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===p));
-      const current=Math.min(...existing.filter((p)=>next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===p&&!m.played)));
-      if (!Number.isFinite(current)) {
-        const completed=Math.max(...existing);
-        if (completed<=2) return;
-        const winners=knockoutWinner(next,completed);
-        const nextPhase=completed/2;
-        if (winners.length!==nextPhase) { alert("Não foi possível identificar todos os vencedores da fase."); return; }
-        const roundStart:Record<number,number>={32:13,16:15,8:17,4:19,2:21};
-        const created:Match[]=[];
-        for(let i=0;i<winners.length;i+=2){
-          const h=winners[i],a=winners[i+1];
-          created.push({id:id++,championshipId:championship.id,round:roundStart[nextPhase],home:h,away:a,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:nextPhase});
-          created.push({id:id++,championshipId:championship.id,round:roundStart[nextPhase]+1,home:a,away:h,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:nextPhase});
+
+      // Avança somente quando a fase imediatamente anterior estiver 100% concluída.
+      // 64 -> 32 -> 16 -> 8 (quartas) -> 4 (semifinais) -> 2 (final).
+      for (const completed of phases) {
+        if (!existing.includes(completed) || completed===2) continue;
+
+        const phaseMatches=next.filter((m)=>
+          m.championshipId===championship.id &&
+          m.stage==="knockout" &&
+          m.knockoutRound===completed
+        );
+
+        if (phaseMatches.length===completed && phaseMatches.every((m)=>m.played)) {
+          const nextPhase=completed/2;
+
+          // Se a próxima fase já existe, não a recrie.
+          if (existing.includes(nextPhase)) continue;
+
+          const winners=knockoutWinner(next,completed);
+          if (winners.length!==nextPhase) {
+            alert("Não foi possível identificar todos os vencedores da fase.");
+            return;
+          }
+
+          const roundStart:Record<number,number>={32:13,16:15,8:17,4:19,2:21};
+          const created:Match[]=[];
+
+          for(let i=0;i<winners.length;i+=2){
+            const h=winners[i],a=winners[i+1];
+            created.push({
+              id:id++,championshipId:championship.id,round:roundStart[nextPhase],
+              home:h,away:a,homeScore:null,awayScore:null,played:false,
+              stage:"knockout",knockoutRound:nextPhase
+            });
+            created.push({
+              id:id++,championshipId:championship.id,round:roundStart[nextPhase]+1,
+              home:a,away:h,homeScore:null,awayScore:null,played:false,
+              stage:"knockout",knockoutRound:nextPhase
+            });
+          }
+
+          setMatches([...next,...created]);
+          alert(`Série D: próxima fase criada — ${nextPhase} clubes.`);
+          return;
         }
-        setMatches([...next,...created]);
+      }
+
+      const pending=phases.find((p)=>existing.includes(p) && next.some((m)=>
+        m.championshipId===championship.id && m.stage==="knockout" &&
+        m.knockoutRound===p && !m.played
+      ));
+      if (pending) {
+        alert(`Finalize os ${pending} jogos da fase Série D · ${pending} antes de avançar.`);
+        return;
+      }
+      if (existing.includes(2)) {
+        alert("A Final da Série D já foi criada. Finalize os dois jogos para concluir o campeonato.");
         return;
       }
     }
+
     alert("Não há uma nova fase pronta para ser criada.");
   };
 
