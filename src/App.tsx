@@ -273,7 +273,7 @@ function buildAlagoasChampionship(championshipId:number, startClubId:number, sta
     "Turno único + semifinais + final",
     "8 clubes jogam entre si em turno único. Os 4 primeiros se classificam para as semifinais. As semifinais e a final são disputadas em dois jogos.",
     "O campeão alagoano é o vencedor da final.",
-    "Não há rebaixamento informado nesta 1ª divisão do Campeonato Alagoano.",
+    "O último colocado da 1ª fase é rebaixado para a 2ª Divisão do Campeonato Alagoano.",
     8,
     7,
     1,
