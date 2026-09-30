@@ -835,7 +835,14 @@ function App() {
         brasiliense2Existing.rounds=7;
         brasiliense2Existing.legs=1;
         const existingMatches=ms.filter((m)=>m.championshipId===brasiliense2Existing.id);
-        if (existingMatches.length!==21 && existingMatches.every((m)=>!m.played)) {
+        const regularMatches=existingMatches.filter((m)=>m.stage==="regular");
+        const nonRegularMatches=existingMatches.filter((m)=>m.stage!=="regular");
+        if (nonRegularMatches.length>0) {
+          // A 2ª Divisão não possui mata-mata: remove semifinais/final incorretamente criadas.
+          const cleaned=ms.filter((m)=>m.championshipId!==brasiliense2Existing.id);
+          ms.splice(0,ms.length,...cleaned,...regularMatches);
+        }
+        if (regularMatches.length!==21) {
           const remaining=ms.filter((m)=>m.championshipId!==brasiliense2Existing.id);
           const teamIds=cl.filter((x)=>x.championshipId===brasiliense2Existing.id).map((x)=>x.id);
           ms.splice(0,ms.length,...remaining,...roundRobin(teamIds,brasiliense2Existing.id,nextId(remaining),1));
@@ -992,6 +999,12 @@ function App() {
       if(final.length!==2 || !final.every(m=>m.played)) return null;
       const winners=knockoutWinner(final.map(m=>({...m,stage:"knockout" as Stage,knockoutRound:1})),1,champ.id);
       return winners[0] ?? null;
+    }
+
+    if (champ.division === "Estadual" && champ.name==="Campeonato Brasiliense - 2ª Divisão") {
+      const regular=games.filter(m=>m.stage==="regular");
+      if(!regular.length || !regular.every(m=>m.played)) return null;
+      return tableFor(champ, clubs.filter(c=>c.championshipId===champ.id).map(c=>c.id), regular)[0]?.clubId ?? null;
     }
 
     if (champ.division === "Estadual" && champ.name==="Campeonato Acreano - 2ª Divisão") {
@@ -1231,7 +1244,7 @@ function App() {
       }
     }
 
-    if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && championship.name!=="Campeonato Amazonense" && championship.name!=="Campeonato Amazonense - 2ª Divisão" && regularComplete(championship) &&
+    if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && championship.name!=="Campeonato Brasiliense - 2ª Divisão" && championship.name!=="Campeonato Amazonense" && championship.name!=="Campeonato Amazonense - 2ª Divisão" && regularComplete(championship) &&
         !next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout")) {
       const table=tableFor(championship,myClubs.map(c=>c.id),next);
       const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
@@ -1860,8 +1873,8 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
-              {championship.division==="Estadual"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===4)&&button("Semifinais",()=>setSection("Semifinais"))}
-              {championship.division==="Estadual"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
+              {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===4)&&button("Semifinais",()=>setSection("Semifinais"))}
+              {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
               {championship.division==="Série D"&&button("Classificados próxima temporada",()=>setSection("Classificados"))}
               {championship.division==="Série D"&&[64,32,16,8,4,2].map((p)=>myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===p)&&button(String(p===2?"Final":p===64?"Série D · 64":"Série D · "+p),()=>setSection("Série D · "+p)))}
               {competitionComplete(championship, matches) && button("🏆 Campeão",()=>setSection("Campeão"),true)}
@@ -1886,15 +1899,16 @@ D → C: ${promotedD.length} promovidos`
           {section==="Visão geral" && championship.division==="Estadual" && panel("Estrutura do campeonato",(()=>{
             const isAcre2 = championship.name==="Campeonato Acreano - 2ª Divisão";
             const isAlagoas2 = championship.name==="Campeonato Alagoano - 2ª Divisão";
-            const isStateSecond = isAcre2 || isAlagoas2;
+            const isDistritoFederal2 = championship.name==="Campeonato Brasiliense - 2ª Divisão";
+            const isStateSecond = isAcre2 || isAlagoas2 || isDistritoFederal2;
             return <>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:14}}>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?4:isAlagoas2?6:8}</strong><div style={{fontSize:12,color:"#8291a5"}}>clubes</div></div>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?6:isAlagoas2?5:7}</strong><div style={{fontSize:12,color:"#8291a5"}}>rodadas na 1ª fase</div></div>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?2:isAlagoas2?4:4}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isAcre2||isAlagoas2?"semifinalistas":"semifinalistas"}</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?4:isAlagoas2?6:isDistritoFederal2?7:8}</strong><div style={{fontSize:12,color:"#8291a5"}}>clubes</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?6:isAlagoas2?5:isDistritoFederal2?6:7}</strong><div style={{fontSize:12,color:"#8291a5"}}>rodadas na 1ª fase</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isDistritoFederal2?0:isAcre2?2:isAlagoas2?4:4}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isDistritoFederal2?"semifinalistas":"semifinalistas"}</div></div>
                 <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isStateSecond?0:2}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isAcre2?"vagas para a Série D":"vagas para a Série D"}</div></div>
               </div>
-              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : isAlagoas2 ? "Os 4 primeiros avançam para as semifinais. O campeão garante o acesso à 1ª Divisão de Alagoas." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
+              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : isAlagoas2 ? "Os 4 primeiros avançam para as semifinais. O campeão garante o acesso à 1ª Divisão de Alagoas." : isDistritoFederal2 ? "Fase única em turno único. Os 2 primeiros colocados garantem acesso à 1ª Divisão do Distrito Federal; o 1º colocado é o campeão." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
             </>;
           })())}
           {section==="Visão geral" && panel("Regulamento",<>
