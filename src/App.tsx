@@ -39,6 +39,8 @@ type Match = {
   group?: string;
   knockoutRound?: number;
   penaltyWinner?: number;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
 };
 
 type TableRow = {
@@ -356,6 +358,51 @@ function score() {
   if (r < 0.9) return Math.floor(Math.random() * 3);
   return Math.floor(Math.random() * 6);
 }
+
+function penaltyShootout() {
+  const winnerHome = Math.random() < 0.5;
+  const winnerScore = 3 + Math.floor(Math.random() * 3);
+  const loserScore = Math.floor(Math.random() * winnerScore);
+  return winnerHome
+    ? { home: winnerScore, away: loserScore }
+    : { home: loserScore, away: winnerScore };
+}
+
+function resolveAutomaticPenalties(allMatches: Match[]) {
+  const updated = allMatches.map((m) => ({ ...m }));
+  for (const m of updated) {
+    if (!m.played || m.penaltyWinner) continue;
+    if (!(m.stage === "knockout" || m.stage === "final" || m.stage === "playoff")) continue;
+
+    const teams = [m.home, m.away].sort((a,b)=>a-b);
+    const related = updated.filter((x) => {
+      if (!x.played || x.championshipId !== m.championshipId || x.stage !== m.stage) return false;
+      if (m.stage === "knockout" && x.knockoutRound !== m.knockoutRound) return false;
+      const pair = [x.home, x.away].sort((a,b)=>a-b);
+      return pair[0] === teams[0] && pair[1] === teams[1];
+    });
+
+    if (!related.length || related.length > 2 || !related.every((x)=>x.played)) continue;
+    const homeId = m.home;
+    const awayId = m.away;
+    const homeGoals = related.reduce((sum,x)=>sum + (x.home===homeId ? (x.homeScore??0) : x.away===homeId ? (x.awayScore??0) : 0),0);
+    const awayGoals = related.reduce((sum,x)=>sum + (x.home===awayId ? (x.homeScore??0) : x.away===awayId ? (x.awayScore??0) : 0),0);
+
+    if (homeGoals !== awayGoals) continue;
+
+    const shootout = penaltyShootout();
+    const winner = shootout.home > shootout.away ? homeId : awayId;
+    const last = [...related].sort((a,b)=>b.round-a.round)[related.length-1];
+    const target = updated.find((x)=>x.id===last.id);
+    if (target) {
+      target.penaltyWinner = winner;
+      target.penaltyHomeScore = shootout.home;
+      target.penaltyAwayScore = shootout.away;
+    }
+  }
+  return updated;
+}
+
 
 function createDGroups(clubNames: string[]) {
   const shuffled = shuffle(clubNames);
@@ -829,11 +876,14 @@ function App() {
       }
     }
     if (!target.length) { alert("Não há jogos sem resultado para gerar."); return; }
-    setMatches((all)=>all.map((m)=>{
-      if(!target.some((x)=>x.id===m.id)) return m;
-      const hs=score(),as=score();
-      return {...m,homeScore:hs,awayScore:as,played:true};
-    }));
+    setMatches((all)=>{
+      const updated = all.map((m)=>{
+        if(!target.some((x)=>x.id===m.id)) return m;
+        const hs=score(),as=score();
+        return {...m,homeScore:hs,awayScore:as,played:true};
+      });
+      return resolveAutomaticPenalties(updated);
+    });
   };
 
   const saveScore = (id:number) => {
@@ -841,7 +891,10 @@ function App() {
     if(!values) return;
     const hs=Number(values[0]),as=Number(values[1]);
     if(!Number.isInteger(hs)||!Number.isInteger(as)||hs<0||as<0) { alert("Informe placares válidos."); return; }
-    setMatches((all)=>all.map((m)=>m.id===id?{...m,homeScore:hs,awayScore:as,played:true}:m));
+    setMatches((all)=>{
+      const updated = all.map((m)=>m.id===id?{...m,homeScore:hs,awayScore:as,played:true}:m);
+      return resolveAutomaticPenalties(updated);
+    });
     setNewResult((x)=>{const copy={...x};delete copy[id];return copy;});
   };
 
@@ -1367,10 +1420,8 @@ D → C: ${promotedD.length} promovidos`
                   <span>{clubName(m.away)}</span>
                   {button("Salvar",()=>saveScore(m.id))}
                 </div>
-                {tie && isLastLeg && <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #1e2b3b",display:"flex",gap:8,alignItems:"center",justifyContent:"center",flexWrap:"wrap"}}>
-                  <strong style={{fontSize:13}}>⚽ Empate no agregado — pênaltis:</strong>
-                  {button(clubName(m.home)+(m.penaltyWinner===m.home?" ✓":""),()=>setPenaltyWinner(m.id,m.home))}
-                  {button(clubName(m.away)+(m.penaltyWinner===m.away?" ✓":""),()=>setPenaltyWinner(m.id,m.away))}
+                {tie && isLastLeg && m.penaltyWinner && <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #1e2b3b",textAlign:"center"}}>
+                  <strong style={{fontSize:13}}>⚽ Pênaltis: {clubName(m.penaltyWinner)} venceu {m.penaltyHomeScore ?? ""} × {m.penaltyAwayScore ?? ""}</strong>
                 </div>}
               </div>
             })}</div>
