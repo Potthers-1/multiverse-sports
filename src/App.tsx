@@ -56,12 +56,13 @@ type TableRow = {
   points: number;
 };
 
-const DATA_VERSION = "clean-rebuild-cd-2026-09-29-v1";
+const DATA_VERSION = "clean-rebuild-cd-2026-09-30-carioca-v2";
 const LS = {
   version: "sports-data-version",
   championships: "sports-championships",
   clubs: "sports-clubs",
   matches: "sports-matches",
+  cariocaV2: "sports-carioca-1d-v2",
 };
 
 const A_CLUBS = [
@@ -1144,6 +1145,39 @@ function App() {
         alagoas2026.relegation = "O último colocado da 1ª fase é rebaixado para a 2ª Divisão do Campeonato Alagoano.";
       }
 
+      // RECONSTRUÇÃO DEFINITIVA DA 1ª DIVISÃO DO CARIOCA.
+      // Executa uma única vez por instalação e separa completamente a Taça Guanabara
+      // do Grupo X e das fases eliminatórias. Isso evita que uma fase bloqueie a outra.
+      if (localStorage.getItem(LS.cariocaV2) !== "1") {
+        const carioca2026 = cs.find((c)=>c.name==="Campeonato Carioca" && c.season==="2026");
+        if (carioca2026) {
+          const groupA=["Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ"];
+          const groupB=["Botafogo","Madureira","Boavista - RJ","Flamengo","Nova Iguaçu","Maricá"];
+          const cariocaClubs=cl.filter(c=>c.championshipId===carioca2026.id);
+          cariocaClubs.forEach(c=>{
+            if(groupA.includes(c.name)) c.stateGroup="A";
+            if(groupB.includes(c.name)) c.stateGroup="B";
+          });
+          const aIds=groupA.map(name=>cariocaClubs.find(c=>c.name===name)?.id).filter((x):x is number=>x!==undefined);
+          const bIds=groupB.map(name=>cariocaClubs.find(c=>c.name===name)?.id).filter((x):x is number=>x!==undefined);
+          const rebuilt:Match[]=[];
+          let mid=Math.max(...ms.map(m=>m.id),0)+1;
+          for(let r=0;r<6;r++){
+            for(let a=0;a<6;a++){
+              const b=(a+r)%6;
+              const aId=aIds[a], bId=bIds[b];
+              const home=r<3?aId:bId;
+              const away=r<3?bId:aId;
+              rebuilt.push({id:mid++,championshipId:carioca2026.id,round:r+1,home,away,homeScore:null,awayScore:null,played:false,stage:"regular",group:(r<3?"A":"B")});
+            }
+          }
+          // Remove toda a 1ª divisão antiga e mantém as outras competições intactas.
+          const remaining=ms.filter(m=>m.championshipId!==carioca2026.id);
+          ms.splice(0,ms.length,...remaining,...rebuilt);
+          localStorage.setItem(LS.cariocaV2,"1");
+        }
+      }
+
       // Correção estrutural do Carioca 2026: os grupos são fixos e exclusivos.
       const carioca2026 = cs.find((c)=>c.name==="Campeonato Carioca" && c.season==="2026");
       if (carioca2026) {
@@ -1513,6 +1547,7 @@ function App() {
 
     if (championship.division === "Estadual" && championship.name==="Campeonato Carioca") {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const tg=regular.filter(m=>m.group==="A"||m.group==="B");
       const quarters=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
@@ -1520,37 +1555,48 @@ function App() {
       const rioFinal=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===41);
       const groupX=regular.filter(m=>m.group==="X");
 
-      if(regular.filter(m=>m.group==="A"||m.group==="B").length===36 && regular.filter(m=>m.group==="A"||m.group==="B").every(m=>m.played) && quarters.length===0){
+      if(tg.length===36 && tg.every(m=>m.played) && quarters.length===0){
         const idsA=myClubs.filter(c=>c.stateGroup==="A").map(c=>c.id);
         const idsB=myClubs.filter(c=>c.stateGroup==="B").map(c=>c.id);
-        const a=tableFor(championship,idsA,next), b=tableFor(championship,idsB,next);
-        if(a.length!==6||b.length!==6){alert("Não foi possível montar os grupos da Taça Guanabara.");return;}
-        const pairs=[[a[0].clubId,a[3].clubId],[a[1].clubId,a[2].clubId],[b[0].clubId,b[3].clubId],[b[1].clubId,b[2].clubId]];
-        pairs.forEach(([home,away])=>next.push({id:id++,championshipId:championship.id,round:7,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8}));
+        const a=tableFor(championship,idsA,next,"regular");
+        const b=tableFor(championship,idsB,next,"regular");
+        const pairs=[[a[0]?.clubId,a[3]?.clubId],[a[1]?.clubId,a[2]?.clubId],[b[0]?.clubId,b[3]?.clubId],[b[1]?.clubId,b[2]?.clubId]];
+        if(a.length!==6||b.length!==6||pairs.some(p=>p.some(x=>x===undefined))){alert("Não foi possível montar as quartas da Taça Guanabara.");return;}
+        pairs.forEach(([home,away])=>next.push({id:id++,championshipId:championship.id,round:7,home:home!,away:away!,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8}));
         const relegated=[a[4].clubId,a[5].clubId,b[4].clubId,b[5].clubId];
         const gx=roundRobin(relegated,championship.id,id,2,7,"X");
         gx.forEach(m=>m.group="X");
-        next.push(...gx); id=nextId(next);
-        setMatches(next);setSection("Quartas de final");alert("Quartas de final e Grupo X do Campeonato Carioca criados.");return;
+        next.push(...gx);
+        setMatches(next);setSection("Quartas de final");
+        alert("Taça Guanabara concluída. Quartas de final e Grupo X criados.");
+        return;
       }
 
       if(quarters.length===4 && quarters.every(m=>m.played) && semis.length===0){
-        const winners=quarters.map(m=>((m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner)).filter((x):x is number=>x!==undefined);
-        const losers=quarters.map(m=>((m.homeScore??0)>(m.awayScore??0)?m.away:(m.awayScore??0)>(m.homeScore??0)?m.home:m.penaltyWinner===m.home?m.away:m.home)).filter((x):x is number=>x!==undefined);
+        const winner=(m:Match)=>{
+          if((m.homeScore??0)>(m.awayScore??0)) return m.home;
+          if((m.awayScore??0)>(m.homeScore??0)) return m.away;
+          return m.penaltyWinner ?? null;
+        };
+        const loser=(m:Match)=>{
+          const w=winner(m);
+          return w===m.home?m.away:w===m.away?m.home:null;
+        };
+        const winners=quarters.map(winner).filter((x):x is number=>x!==null);
+        const losers=quarters.map(loser).filter((x):x is number=>x!==null);
         if(winners.length!==4||losers.length!==4){alert("Não foi possível identificar os classificados das quartas.");return;}
         const shuffledW=shuffle(winners), shuffledL=shuffle(losers);
         for(let k=0;k<2;k++){
-          const home=shuffledW[k*2],away=shuffledW[k*2+1];
-          next.push({id:id++,championshipId:championship.id,round:8,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:9,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+          const h=shuffledW[k*2], a=shuffledW[k*2+1];
+          next.push({id:id++,championshipId:championship.id,round:8,home:h,away:a,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:9,home:a,away:h,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+          const rh=shuffledL[k*2], ra=shuffledL[k*2+1];
+          next.push({id:id++,championshipId:championship.id,round:8,home:rh,away:ra,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:40,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:9,home:ra,away:rh,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:40,group:"volta"});
         }
-        const shuffledR=shuffle(shuffledL);
-        for(let k=0;k<2;k++){
-          const home=shuffledR[k*2],away=shuffledR[k*2+1];
-          next.push({id:id++,championshipId:championship.id,round:8,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:40,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:9,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:40,group:"volta"});
-        }
-        setMatches(next);setSection("Semifinais");alert("Semifinais do Campeonato Carioca e da Taça Rio criadas.");return;
+        setMatches(next);setSection("Semifinais");
+        alert("Semifinais do Campeonato Carioca e da Taça Rio criadas.");
+        return;
       }
 
       if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
@@ -1570,15 +1616,17 @@ function App() {
       if(groupX.length===12 && groupX.every(m=>m.played) && final.length===1 && final[0].played && !championships.some(c=>c.name==="Campeonato Carioca - 2ª Divisão"&&c.season==="2026")){
         const gxIds=[...new Set(groupX.flatMap(m=>[m.home,m.away]))];
         const gxTable=tableFor(championship,gxIds,next,"regular","X");
-        const direct=clubName(gxTable[gxTable.length-1].clubId);
-        const newChampId=Math.max(...championships.map(c=>c.id),0)+1;
-        const newClubId=Math.max(...clubs.map(c=>c.id),0)+1;
-        const newMatchId=Math.max(...next.map(m=>m.id),...matches.map(m=>m.id),0)+1;
-        const x=buildCariocaSecondDivision(newChampId,newClubId,newMatchId,direct);
-        setChampionships([...championships,x.championship]);
-        setClubs([...clubs,...x.clubs]);
-        setMatches([...next,...x.matches]);
-        alert("2ª Divisão do Carioca criada com o rebaixado da 1ª Divisão incluído.");
+        const direct=gxTable[gxTable.length-1]?.clubId;
+        if(direct){
+          const newChampId=Math.max(...championships.map(c=>c.id),0)+1;
+          const newClubId=Math.max(...clubs.map(c=>c.id),0)+1;
+          const newMatchId=Math.max(...next.map(m=>m.id),...matches.map(m=>m.id),0)+1;
+          const x=buildCariocaSecondDivision(newChampId,newClubId,newMatchId,clubName(direct));
+          setChampionships([...championships,x.championship]);
+          setClubs([...clubs,...x.clubs]);
+          setMatches([...next,...x.matches]);
+          alert("2ª Divisão do Carioca criada com o rebaixado da 1ª Divisão incluído.");
+        }
         return;
       }
       return;
@@ -1903,19 +1951,20 @@ function App() {
 
   const simulateCariocaFirstPhase = () => {
     if (!championship || championship.name !== "Campeonato Carioca") return;
-    const ids = new Set(
-      matches
-        .filter(m=>m.championshipId===championship.id && m.stage==="regular" && (m.group==="A" || m.group==="B"))
-        .map(m=>m.id)
+    const tg = matches.filter(m =>
+      m.championshipId===championship.id &&
+      m.stage==="regular" &&
+      (m.group==="A" || m.group==="B")
     );
-    if (ids.size !== 36) {
-      alert("A Taça Guanabara precisa ter 36 jogos na 1ª fase.");
+    if(tg.length!==36){
+      alert("A Taça Guanabara precisa ter exatamente 36 jogos.");
       return;
     }
-    setMatches(all => {
-      const updated = all.map(m => {
-        if (!ids.has(m.id) || m.played) return m;
-        return {...m, homeScore:score(), awayScore:score(), played:true};
+    setMatches(all=>{
+      const updated=all.map(m=>{
+        if(m.championshipId!==championship.id || m.stage!=="regular" || (m.group!=="A"&&m.group!=="B") || m.played) return m;
+        const hs=score(), as=score();
+        return {...m,homeScore:hs,awayScore:as,played:true};
       });
       return resolveAutomaticPenalties(updated);
     });
@@ -1957,6 +2006,13 @@ function App() {
   // Isso evita que a competição fique parada apenas porque o usuário não abriu "Preparar próxima fase".
   useEffect(() => {
     if (!championship || championship.division !== "Estadual" || championship.name==="Campeonato Acreano - 2ª Divisão") return;
+    if (championship.name==="Campeonato Carioca") {
+      // A 1ª Divisão possui duas fases regulares independentes: Taça Guanabara e Grupo X.
+      // A progressão da Taça Guanabara não pode depender da conclusão do Grupo X.
+      const tg=matches.filter(m=>m.championshipId===championship.id&&m.stage==="regular"&&(m.group==="A"||m.group==="B"));
+      if(tg.length===36 && tg.every(m=>m.played)) prepareNextPhase();
+      return;
+    }
     if (!regularComplete(championship)) return;
 
     if (championship.name==="Campeonato Carioca" || championship.name==="Campeonato Carioca - 2ª Divisão" || championship.name==="Campeonato Carioca - 3ª Divisão" || championship.name==="Campeonato Carioca - 4ª Divisão") {
@@ -2621,7 +2677,7 @@ D → C: ${promotedD.length} promovidos`
                     : myClubs.filter(c=>c.stateGroup===group).map(c=>c.id);
                   const phaseMatches=group==="X"
                     ? myMatches.filter(m=>m.stage==="regular"&&m.group==="X")
-                    : myMatches.filter(m=>m.stage==="regular"&&(m.group==="A"||m.group==="B")&&(ids.includes(m.home)||ids.includes(m.away)));
+                    : myMatches.filter(m=>m.stage==="regular"&&(m.group==="A"||m.group==="B"));
                   const rows=tableFor(championship,ids,phaseMatches,"regular");
                   return <div key={group} style={{marginBottom:18,border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
                     <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{group==="X"?"Grupo X":"Grupo "+group}</div>
