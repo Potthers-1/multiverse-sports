@@ -1867,9 +1867,34 @@ D → C: ${promotedD.length} promovidos`
               </div>
             ) : championship.name==="Campeonato Amazonense - 2ª Divisão" ? (
               <div>
-                <p style={{color:"#8291a5",marginTop:0}}>2ª Divisão do Amazonas — os 4 primeiros da primeira fase avançam às semifinais.</p>
-                <div style={{marginBottom:18}}>
-                  {currentTable.map((r,i)=><div key={r.clubId} style={{display:"flex",justifyContent:"space-between",padding:"10px 12px",borderBottom:"1px solid #1e2b3b",...zoneStyle(tableZone(championship.division,i+1,championship.state,championship.name))}}><span style={{fontWeight:800}}>{i+1}. {clubName(r.clubId)}</span><strong>{r.points}</strong></div>)}
+                <p style={{color:"#8291a5",marginTop:0}}>2ª Divisão do Amazonas — turno único. Os 4 primeiros da primeira fase avançam às semifinais.</p>
+                <div style={{overflowX:"auto",border:"1px solid #1e2b3b",borderRadius:14}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",minWidth:760}}>
+                    <thead>
+                      <tr style={{background:"#101a29",color:"#aebdce",fontSize:12}}>
+                        {["#","Clube","J","V","E","D","GP","GC","SG","PTS"].map(h=><th key={h} style={{padding:"12px 10px",textAlign:h==="Clube"?"left":"center",borderBottom:"1px solid #1e2b3b"}}>{h}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentTable.map((r,i)=>{
+                        const zone=tableZone(championship.division,i+1,championship.state,championship.name);
+                        return <tr key={r.clubId} style={{...zoneStyle(zone),borderBottom:"1px solid #1e2b3b"}}>
+                          <td style={{padding:"11px 10px",fontWeight:800,textAlign:"center"}}>{i+1}</td>
+                          <td style={{padding:"11px 10px"}}>
+                            <button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",textAlign:"left"}}>{clubName(r.clubId)}</button>
+                          </td>
+                          <td style={{textAlign:"center"}}>{r.played}</td>
+                          <td style={{textAlign:"center"}}>{r.wins}</td>
+                          <td style={{textAlign:"center"}}>{r.draws}</td>
+                          <td style={{textAlign:"center"}}>{r.losses}</td>
+                          <td style={{textAlign:"center"}}>{r.gf}</td>
+                          <td style={{textAlign:"center"}}>{r.ga}</td>
+                          <td style={{textAlign:"center"}}>{r.gd}</td>
+                          <td style={{textAlign:"center",fontWeight:900}}>{r.points}</td>
+                        </tr>;
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             ) : championship.name==="Campeonato Amapaense - 2ª Divisão" ? (
