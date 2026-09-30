@@ -102,6 +102,100 @@ const D_CLUBS = [
 
 const D_GROUPS = "ABCDEFGHIJKLMNOP".split("");
 
+const CLUB_LOGO_SLUGS: Record<string,string> = {
+  "Flamengo":"flamengo-crf",
+  "Internacional":"sc-internacional",
+  "Red Bull Bragantino":"rb-bragantino",
+  "Santos":"santos-fc",
+  "São Paulo":"sao-paulo-spfc",
+  "Atlético Goianiense":"atletico-goianiense",
+  "Botafogo - SP":"botafogo-sp",
+  "Botafogo - PB":"botafogo-pb",
+  "CRB":"crb",
+  "Cuiabá":"cuiaba",
+  "Operário - PR":"operario-pr",
+  "São Bernardo":"sao-bernardo",
+  "Volta Redonda":"volta-redonda",
+  "Ypiranga de Erechim":"ypiranga",
+  "Nacional - AM":"nacional-am",
+  "São Raimundo - RR":"sao-raimundo-rr",
+  "GAS":"gas",
+  "Gazin Porto Velho":"porto-velho",
+  "Gama":"gama",
+  "Brasiliense":"brasiliense",
+  "Aparecidense":"aparecidense",
+  "Primavera - MT":"primavera-mt",
+  "Capital - DF":"capital-df",
+  "Operário VG":"operario-vg",
+  "Trem":"trem",
+  "Águia de Marabá":"aguia-de-maraba",
+  "Sampaio Corrêa":"sampaio-correa",
+  "Moto Club":"moto-club",
+  "IAPE":"iape",
+  "Ferroviário":"ferroviario",
+  "Fluminense - PI":"fluminense-pi",
+  "Tirol":"tirol",
+  "Atlético Cearense":"atletico-cearense",
+  "América de Natal":"america-de-natal",
+  "Maguary":"maguary",
+  "Central":"central",
+  "Laguna":"laguna",
+  "Sergipe":"sergipe",
+  "Serra Branca":"serra-branca",
+  "Retrô":"retro",
+  "Decisão Goiana":"decisao-goiana",
+  "Juazeirense":"juazeirense",
+  "ASA":"asa-de-arapiraca",
+  "Jacuipense":"jacuipense",
+  "CSE":"cse",
+  "Atlético de Alagoinhas":"atletico-de-alagoinhas",
+  "ABECAT":"abecat-ouvidorense",
+  "Operário - MS":"operario-ms",
+  "Democrata GV":"democrata-gv",
+  "Vitória - ES":"vitoria-es",
+  "RIo Branco - ES":"rio-branco-es",
+  "Porto - BA":"porto-ba",
+  "Portuguesa":"portuguesa",
+  "Água Santa":"agua-santa",
+  "Portuguesa - RJ":"portuguesa-rj",
+  "America":"america-rj",
+  "Velo Club":"velo-clube",
+  "Sampaio Corrêa - RJ":"sampaio-correa-rj",
+  "Santa Catarina":"santa-catarina",
+  "FC Cascavel":"fc-cascavel",
+  "São Luiz":"sao-luiz",
+  "Guarany de Bagé":"guarany-de-bage",
+  "Marcílio Dias":"marcilio-dias",
+  "São Joseense":"sao-joseense",
+  "São José - RS":"sao-jose-rs",
+  "Brasil de Pelotas":"brasil-de-pelotas",
+};
+
+function clubLogoUrl(name: string) {
+  const slug = CLUB_LOGO_SLUGS[name] ?? name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, "e")
+    .replace(/\./g, "")
+    .replace(/\s*[-–—]\s*/g, "-")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `https://assets.footylogos.com/logos/${slug}/${slug}-logo-footylogos.svg`;
+}
+
+function ClubBadge({name,size=26}:{name:string;size?:number}) {
+  const [failed,setFailed] = React.useState(false);
+  if (failed) return <span style={{width:size,height:size,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:Math.max(12,size-10)}}>⚽</span>;
+  return <img
+    src={clubLogoUrl(name)}
+    alt={`Escudo do ${name}`}
+    title={name}
+    onError={()=>setFailed(true)}
+    style={{width:size,height:size,objectFit:"contain",flex:"0 0 auto",display:"block"}}
+  />;
+}
+
 function shuffle<T>(items: T[]) {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -808,7 +902,7 @@ D → C: ${promotedD.length} promovidos`
                           <tbody>
                             {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1))}>
                               <td style={{padding:8,fontWeight:700}}>{i+1}</td>
-                              <td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",textAlign:"left"}}>{clubName(r.clubId)}</button></td>
+                              <td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",textAlign:"left",display:"flex",alignItems:"center",gap:9}}><ClubBadge name={clubName(r.clubId)} size={26}/><span>{clubName(r.clubId)}</span></button></td>
                               <td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td>
                             </tr>)}
                           </tbody>
@@ -823,7 +917,7 @@ D → C: ${promotedD.length} promovidos`
                 <div style={{marginBottom:18}}>
                   <h3 style={{margin:"0 0 10px"}}>{championship.division==="Série C" ? "1ª fase" : "Classificação geral"}</h3>
                   <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
-                    {currentTable.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1))}><td style={{padding:10,fontWeight:700}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb"}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                    {currentTable.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1))}><td style={{padding:10,fontWeight:700}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",display:"flex",alignItems:"center",gap:9}}><ClubBadge name={clubName(r.clubId)} size={28}/><span>{clubName(r.clubId)}</span></button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
                   </tbody></table></div>
                 </div>
 
@@ -836,7 +930,7 @@ D → C: ${promotedD.length} promovidos`
                   const groupTable = (title:string, rows:TableRow[]) => <div style={{marginTop:18}}>
                     <h3 style={{margin:"0 0 10px"}}>{title}</h3>
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
-                      {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1))}><td style={{padding:10,fontWeight:700}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb"}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                      {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1))}><td style={{padding:10,fontWeight:700}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",display:"flex",alignItems:"center",gap:9}}><ClubBadge name={clubName(r.clubId)} size={28}/><span>{clubName(r.clubId)}</span></button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
                     </tbody></table></div>
                   </div>;
                   return <div><h2 style={{marginTop:22}}>Segunda fase — grupos</h2>{groupTable("Grupo A",groupA)}{groupTable("Grupo B",groupB)}</div>;
@@ -845,16 +939,18 @@ D → C: ${promotedD.length} promovidos`
             )}
           </>)}
 
-          {section==="Clubes" && panel("Clubes",<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>{myClubs.map(c=><button key={c.id} onClick={()=>setSelectedClub(c.name)} style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f",textAlign:"left",cursor:"pointer",fontWeight:700}}>{c.name}</button>)}</div>)}
+          {section==="Clubes" && <div style={{fontSize:11,color:"#65758a",marginBottom:8}}>Escudos: FootyLogos</div>}
+
+          {section==="Clubes" && panel("Clubes",<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>{myClubs.map(c=><button key={c.id} onClick={()=>setSelectedClub(c.name)} style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f",textAlign:"left",cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:10}}><ClubBadge name={c.name} size={34}/><span>{c.name}</span></button>)}</div>)}
 
           {section==="Jogos" && panel("Jogos",<>
             <div style={{marginBottom:14}}>{button("⚡ Gerar rodada",()=>generateResults("round"),true)} {button("⚡ Gerar restantes",()=>generateResults("remaining"))} {button("⚙ Preparar fase",prepareNextPhase)}</div>
-            <div style={{display:"grid",gap:8}}>{displayedMatches.slice(0,100).map(m=><div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 70px 1fr 110px",alignItems:"center",gap:10,padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f"}}><span style={{textAlign:"right"}}>{clubName(m.home)}</span><input value={newResult[m.id]?.[0]??(m.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[e.target.value,x[m.id]?.[1]??(m.awayScore??"").toString()]}))} style={{width:50}}/><span>{clubName(m.away)}</span><div><input value={newResult[m.id]?.[1]??(m.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[x[m.id]?.[0]??(m.homeScore??"").toString(),e.target.value]}))} style={{width:50}}/> {button(m.played?"Salvar":"Salvar",()=>saveScore(m.id))}</div></div>)}</div>
+            <div style={{display:"grid",gap:8}}>{displayedMatches.slice(0,100).map(m=><div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 70px 1fr 110px",alignItems:"center",gap:10,padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f"}}><span style={{textAlign:"right",display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8}}><span>{clubName(m.home)}</span><ClubBadge name={clubName(m.home)} size={26}/></span><input value={newResult[m.id]?.[0]??(m.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[e.target.value,x[m.id]?.[1]??(m.awayScore??"").toString()]}))} style={{width:50}}/><span style={{display:"flex",alignItems:"center",gap:8}}><ClubBadge name={clubName(m.away)} size={26}/><span>{clubName(m.away)}</span></span><div><input value={newResult[m.id]?.[1]??(m.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[x[m.id]?.[0]??(m.homeScore??"").toString(),e.target.value]}))} style={{width:50}}/> {button(m.played?"Salvar":"Salvar",()=>saveScore(m.id))}</div></div>)}</div>
           </>)}
 
           {(section==="Play-offs"||section==="Segunda fase"||section==="Final"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
             <div style={{marginBottom:14}}>{button("⚡ Gerar resultados desta fase",()=>generateResults("phase"),true)} {button("→ Avançar automaticamente",prepareNextPhase)}</div>
-            <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=><div key={m.id} style={{padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f",display:"flex",justifyContent:"space-between",gap:10}}><span>{clubName(m.home)}</span><strong>{m.played?m.homeScore+" × "+m.awayScore:"— × —"}</strong><span>{clubName(m.away)}</span></div>)}</div>
+            <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=><div key={m.id} style={{padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f",display:"flex",justifyContent:"space-between",gap:10}}><span style={{display:"flex",alignItems:"center",gap:8}}><ClubBadge name={clubName(m.home)} size={28}/><span>{clubName(m.home)}</span></span><strong>{m.played?m.homeScore+" × "+m.awayScore:"— × —"}</strong><span style={{display:"flex",alignItems:"center",gap:8}}><span>{clubName(m.away)}</span><ClubBadge name={clubName(m.away)} size={28}/></span></div>)}</div>
           </>)}
 
           {selectedClub && panel("Histórico do clube",<>
