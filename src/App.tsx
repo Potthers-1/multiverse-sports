@@ -392,7 +392,7 @@ function resolveAutomaticPenalties(allMatches: Match[]) {
 
     const shootout = penaltyShootout();
     const winner = shootout.home > shootout.away ? homeId : awayId;
-    const last = [...related].sort((a,b)=>b.round-a.round)[related.length-1];
+    const last = [...related].sort((a,b)=>b.round-a.round)[0];
     const target = updated.find((x)=>x.id===last.id);
     if (target) {
       target.penaltyWinner = winner;
