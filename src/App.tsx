@@ -551,13 +551,23 @@ function buildCariocaFirstDivision(championshipId:number, startClubId:number, st
   const clubs:Club[]=shuffled.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name),stateGroup:i<6?"A":"B"}));
   const result:Match[]=[];
   let id=startMatchId;
-  for(let a=0;a<6;a++) for(let b=0;b<6;b++){
-    const home=a%2===0?clubs.find(c=>c.name===groupA[a])!.id:clubs.find(c=>c.name===groupB[b])!.id;
-    const away=a%2===0?clubs.find(c=>c.name===groupB[b])!.id:clubs.find(c=>c.name===groupA[a])!.id;
-    result.push({id:id++,championshipId,round:(a+b)%6+1,home,away,homeScore:null,awayScore:null,played:false,stage:"regular",group:a<6?"A":"B"});
+  const aIds=groupA.map(name=>clubs.find(c=>c.name===name)!.id);
+  const bIds=groupB.map(name=>clubs.find(c=>c.name===name)!.id);
+  // Seis rodadas: cada clube enfrenta uma vez cada um dos 6 clubes do outro grupo.
+  // Cada equipe faz 3 jogos como mandante e 3 como visitante.
+  for(let r=0;r<6;r++){
+    for(let a=0;a<6;a++){
+      const b=(a+r)%6;
+      const aId=aIds[a], bId=bIds[b];
+      const home=r<3?aId:bId;
+      const away=r<3?bId:aId;
+      result.push({
+        id:id++,championshipId,round:r+1,home,away,
+        homeScore:null,awayScore:null,played:false,stage:"regular",
+        group:clubs.find(c=>c.id===home)?.stateGroup
+      });
+    }
   }
-  // Corrige o grupo da partida para a origem real dos clubes.
-  result.forEach(m=>{const h=clubs.find(c=>c.id===m.home);m.group=h?.stateGroup==="A"?"A":"B";});
   return {championship,clubs,matches:result};
 }
 
@@ -991,6 +1001,24 @@ function App() {
           const remaining=ms.filter((m)=>m.championshipId!==brasiliense2Existing.id);
           const teamIds=cl.filter((x)=>x.championshipId===brasiliense2Existing.id).map((x)=>x.id);
           ms.splice(0,ms.length,...remaining,...roundRobin(teamIds,brasiliense2Existing.id,nextId(remaining),1));
+        }
+      }
+
+      {
+        const carioca=cs.find((c)=>c.name==="Campeonato Carioca" && c.season==="2026");
+        if(carioca){
+          const cariocaClubs=cl.filter(c=>c.championshipId===carioca.id);
+          const regular=ms.filter(m=>m.championshipId===carioca.id&&m.stage==="regular"&&m.group!=="X");
+          const valid=regular.length===36 && regular.every(m=>{
+            const h=cariocaClubs.find(c=>c.id===m.home);
+            const a=cariocaClubs.find(c=>c.id===m.away);
+            return !!h&&!!a&&h.stateGroup!==a.stateGroup&&m.round>=1&&m.round<=6;
+          });
+          if(!valid && regular.every(m=>!m.played)){
+            const kept=ms.filter(m=>m.championshipId!==carioca.id || m.stage!=="regular" || m.group==="X");
+            const rebuilt=buildCariocaFirstDivision(carioca.id,cariocaClubs[0]?.id??0,nextId(kept)).matches;
+            ms.splice(0,ms.length,...kept,...rebuilt);
+          }
         }
       }
 
