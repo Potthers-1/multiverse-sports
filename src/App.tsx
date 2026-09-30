@@ -120,6 +120,16 @@ const ACRE_2_CLUBS = [
   "Atlético Acreano","Andirá","Nauás EC","Plácido de Castro",
 ];
 
+const AMAPA_1_CLUBS = [
+  "São José - AP","Oratório","Santos - AP","Independente - AP",
+  "Trem","Ypiranga - AP","Macapá","Cristal",
+];
+
+const AMAPA_2_CLUBS = [
+  "Portuguesa - AP","Cruzeiro - AP","Santana","Latidude Zero","Lagoa","Renovação",
+  "Rio Norte","São Paulo - AP","Canario","Mazagão","ADEC","Bare AP",
+];
+
 const D_GROUPS = "ABCDEFGHIJKLMNOP".split("");
 
 const D_STATE_SLOTS = [
@@ -312,6 +322,57 @@ function buildAlagoasSecondDivision(championshipId:number, startClubId:number, s
   }));
   const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
   return {championship,clubs,matches};
+}
+
+function buildAmapaChampionship(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Amapaense",
+    "Turno único + semifinais + final",
+    "8 clubes jogam entre si em turno único. Os 4 primeiros se classificam para as semifinais. As semifinais e a final são disputadas em dois jogos.",
+    "O campeão amapaense é o vencedor da final.",
+    "Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão do Campeonato Amapaense.",
+    8,
+    7,
+    1,
+    "Amapá"
+  );
+  const clubs:Club[] = AMAPA_1_CLUBS.map((name,i)=>({
+    id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
+  }));
+  const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
+  return {championship,clubs,matches};
+}
+
+function buildAmapaSecondDivision(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Amapaense - 2ª Divisão",
+    "2 grupos + semifinais + final",
+    "12 clubes divididos em dois grupos de 6. Cada grupo joga entre si em turno único. Os 2 primeiros de cada grupo avançam às semifinais. As semifinais e a final são disputadas em dois jogos. Os dois finalistas conquistam o acesso para a 1ª Divisão do Campeonato Amapaense.",
+    "Os dois finalistas garantem acesso à 1ª Divisão do Campeonato Amapaense.",
+    "Não há rebaixamento informado para a 2ª Divisão.",
+    12,
+    5,
+    1,
+    "Amapá"
+  );
+  const shuffled=shuffle(AMAPA_2_CLUBS);
+  const groupA=shuffled.slice(0,6);
+  const groupB=shuffled.slice(6,12);
+  const clubs:Club[]=shuffled.map((name,i)=>({
+    id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
+  }));
+  const result:Match[]=[];
+  const idsFor=(names:string[])=>names.map(name=>clubs.find(c=>c.name===name)!.id);
+  result.push(...roundRobin(idsFor(groupA),championshipId,startMatchId,1,0,"A"));
+  let next=nextId(result);
+  result.push(...roundRobin(idsFor(groupB),championshipId,next,1,0,"B"));
+  return {championship,clubs,matches:result};
 }
 
 function tableFor(
@@ -579,6 +640,26 @@ function App() {
         ms.push(...alagoas2.matches);
       }
 
+      if (!cs.some((c)=>c.name==="Campeonato Amapaense" && c.season==="2026")) {
+        const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
+        const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
+        const newMatchId = Math.max(...ms.map((m)=>m.id),0)+1;
+        const amapa = buildAmapaChampionship(newChampId,newClubId,newMatchId);
+        cs.push(amapa.championship);
+        cl.push(...amapa.clubs);
+        ms.push(...amapa.matches);
+      }
+
+      if (!cs.some((c)=>c.name==="Campeonato Amapaense - 2ª Divisão" && c.season==="2026")) {
+        const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
+        const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
+        const newMatchId = Math.max(...ms.map((m)=>m.id),0)+1;
+        const amapa2 = buildAmapaSecondDivision(newChampId,newClubId,newMatchId);
+        cs.push(amapa2.championship);
+        cl.push(...amapa2.clubs);
+        ms.push(...amapa2.matches);
+      }
+
       const alagoas2026 = cs.find((c)=>c.name==="Campeonato Alagoano" && c.season==="2026");
       if (alagoas2026) {
         alagoas2026.relegation = "O último colocado da 1ª fase é rebaixado para a 2ª Divisão do Campeonato Alagoano.";
@@ -617,6 +698,13 @@ function App() {
 
   const championClubId = (champ: Championship, allMatches: Match[]) => {
     const games = allMatches.filter((m) => m.championshipId === champ.id);
+
+    if (champ.division === "Estadual" && champ.name==="Campeonato Amapaense - 2ª Divisão") {
+      const final=games.filter(m=>m.stage==="final");
+      if(final.length!==2 || !final.every(m=>m.played)) return null;
+      const winners=knockoutWinner(final.map(m=>({...m,stage:"knockout" as Stage,knockoutRound:1})),1,champ.id);
+      return winners[0] ?? null;
+    }
 
     if (champ.division === "Estadual" && champ.name==="Campeonato Acreano - 2ª Divisão") {
       const regular=games.filter(m=>m.stage==="regular");
@@ -683,6 +771,52 @@ function App() {
     if (!championship) return;
     let next = resolveAutomaticPenalties(matches);
     let id = nextId(next);
+
+    if (championship.division === "Estadual" && championship.name==="Campeonato Amapaense - 2ª Divisão") {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const hasSemifinals=next.some(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const finalExists=next.some(m=>m.championshipId===championship.id&&m.stage==="final");
+
+      if (regular.length===10 && regular.every(m=>m.played) && !hasSemifinals) {
+        const idsA=[...new Set(regular.filter(m=>m.group==="A").flatMap(m=>[m.home,m.away]))];
+        const idsB=[...new Set(regular.filter(m=>m.group==="B").flatMap(m=>[m.home,m.away]))];
+        const a=tableFor(championship,idsA,next,"regular","A");
+        const b=tableFor(championship,idsB,next,"regular","B");
+        if(a.length!==6 || b.length!==6){alert("Não foi possível montar os grupos do Amapá.");return;}
+        const pairs=[[a[0].clubId,b[1].clubId],[b[0].clubId,a[1].clubId]];
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:6,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
+          next.push({id:id++,championshipId:championship.id,round:7,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
+        });
+        setMatches(next);
+        setSection("Semifinais");
+        alert("Semifinais da 2ª Divisão do Amapá criadas: 1º do Grupo A x 2º do Grupo B e 1º do Grupo B x 2º do Grupo A.");
+        return;
+      }
+
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      if(semis.length===4 && semis.every(m=>m.played) && !finalExists){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){alert("Não foi possível identificar os dois finalistas do Amapá.");return;}
+        const finalMatches=[
+          {id:id++,championshipId:championship.id,round:8,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final" as Stage},
+          {id:id++,championshipId:championship.id,round:9,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final" as Stage},
+        ];
+        setMatches([...next,...finalMatches]);
+        setSection("Final");
+        alert("Final da 2ª Divisão do Amapá criada em dois jogos. Os dois finalistas garantem acesso.");
+        return;
+      }
+
+      if(semis.length===4 && !semis.every(m=>m.played)){
+        alert("Finalize os 4 jogos das semifinais do Amapá.");
+        return;
+      }
+      if(finalExists && !next.filter(m=>m.championshipId===championship.id&&m.stage==="final").every(m=>m.played)){
+        alert("Finalize os 2 jogos da final do Amapá.");
+        return;
+      }
+    }
 
     if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && regularComplete(championship) &&
         !next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout")) {
@@ -1128,6 +1262,12 @@ D → C: ${promotedD.length} promovidos`
       if (state==="Alagoas" && name==="Campeonato Alagoano - 2ª Divisão") {
         return position <= 4 ? "qualification" : "";
       }
+      if (state==="Amapá" && name==="Campeonato Amapaense") {
+        if (position >= 7) return "relegation";
+        if (position <= 4) return "qualification";
+        return "";
+      }
+      if (state==="Amapá" && name==="Campeonato Amapaense - 2ª Divisão") return "";
       if (position <= 4) return "qualification";
       return "";
     }
@@ -1486,6 +1626,22 @@ D → C: ${promotedD.length} promovidos`
                           </tbody>
                         </table>
                       </div>
+                    </div>;
+                  })}
+                </div>
+              </div>
+            ) : championship.name==="Campeonato Amapaense - 2ª Divisão" ? (
+              <div>
+                <p style={{color:"#8291a5",marginTop:0}}>2ª Divisão do Amapá — dois grupos de 6 clubes. Os 2 melhores de cada grupo avançam às semifinais.</p>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(360px,1fr))",gap:18}}>
+                  {["A","B"].map((group) => {
+                    const groupClubs = myClubs.filter((c)=>myMatches.some((m)=>m.stage==="regular"&&m.group===group&&(m.home===c.id||m.away===c.id)));
+                    const rows=tableFor(championship,groupClubs.map(c=>c.id),myMatches,"regular",group);
+                    return <div key={group} style={{border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
+                      <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>Grupo {group}</div>
+                      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(x=><th key={x} style={{textAlign:"left",padding:8,borderBottom:"2px solid #1e2b3b",fontSize:11}}>{x}</th>)}</tr></thead><tbody>
+                        {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(i<2?"qualification":"")}><td style={{padding:8,fontWeight:700}}>{i+1}</td><td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",textAlign:"left"}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                      </tbody></table></div>
                     </div>;
                   })}
                 </div>
