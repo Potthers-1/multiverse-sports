@@ -110,6 +110,10 @@ const ALAGOAS_1_CLUBS = [
   "ASA","CSA","CRB","Murici","Cruzeiro - AL","Coruripe","Penedense","CSE",
 ];
 
+const ALAGOAS_2_CLUBS = [
+  "Zumbi","Sporting FC","Miguelense","Aliança","Jaciobá","São Domingos AL",
+];
+
 const ACRE_2_CLUBS = [
   "Atlético Acreano","Andirá","Nauás EC","Plácido de Castro",
 ];
@@ -280,6 +284,28 @@ function buildAlagoasChampionship(championshipId:number, startClubId:number, sta
     "Alagoas"
   );
   const clubs:Club[] = ALAGOAS_1_CLUBS.map((name,i)=>({
+    id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
+  }));
+  const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
+  return {championship,clubs,matches};
+}
+
+function buildAlagoasSecondDivision(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Alagoano - 2ª Divisão",
+    "Turno único + semifinais + final",
+    "6 clubes jogam entre si em turno único. Os 4 primeiros avançam para as semifinais. As semifinais e a final são disputadas em dois jogos.",
+    "Somente o campeão garante acesso para a 1ª Divisão do Campeonato Alagoano.",
+    "Não há rebaixamento informado para a 2ª Divisão.",
+    6,
+    5,
+    1,
+    "Alagoas"
+  );
+  const clubs:Club[] = ALAGOAS_2_CLUBS.map((name,i)=>({
     id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
   }));
   const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
@@ -488,6 +514,16 @@ function App() {
         cs.push(alagoas.championship);
         cl.push(...alagoas.clubs);
         ms.push(...alagoas.matches);
+      }
+
+      if (!cs.some((c)=>c.name==="Campeonato Alagoano - 2ª Divisão" && c.season==="2026")) {
+        const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
+        const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
+        const newMatchId = Math.max(...ms.map((m)=>m.id),0)+1;
+        const alagoas2 = buildAlagoasSecondDivision(newChampId,newClubId,newMatchId);
+        cs.push(alagoas2.championship);
+        cl.push(...alagoas2.clubs);
+        ms.push(...alagoas2.matches);
       }
 
       const alagoas2026 = cs.find((c)=>c.name==="Campeonato Alagoano" && c.season==="2026");
@@ -937,6 +973,9 @@ D → C: ${promotedD.length} promovidos`
         if (position <= 4) return "qualification";
         return "";
       }
+      if (state==="Alagoas" && name==="Campeonato Alagoano - 2ª Divisão") {
+        return position <= 4 ? "qualification" : "";
+      }
       if (position <= 4) return "qualification";
       return "";
     }
@@ -1074,14 +1113,16 @@ D → C: ${promotedD.length} promovidos`
 
           {section==="Visão geral" && championship.division==="Estadual" && panel("Estrutura do campeonato",(()=>{
             const isAcre2 = championship.name==="Campeonato Acreano - 2ª Divisão";
+            const isAlagoas2 = championship.name==="Campeonato Alagoano - 2ª Divisão";
+            const isStateSecond = isAcre2 || isAlagoas2;
             return <>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:14}}>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?4:8}</strong><div style={{fontSize:12,color:"#8291a5"}}>clubes</div></div>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?6:7}</strong><div style={{fontSize:12,color:"#8291a5"}}>rodadas na 1ª fase</div></div>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?2:4}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isAcre2?"vagas de acesso":"semifinalistas"}</div></div>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?0:2}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isAcre2?"vagas para a Série D":"vagas para a Série D"}</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?4:isAlagoas2?6:8}</strong><div style={{fontSize:12,color:"#8291a5"}}>clubes</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?6:isAlagoas2?5:7}</strong><div style={{fontSize:12,color:"#8291a5"}}>rodadas na 1ª fase</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?2:isAlagoas2?4:4}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isAcre2||isAlagoas2?"semifinalistas":"semifinalistas"}</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isStateSecond?0:2}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isAcre2?"vagas para a Série D":"vagas para a Série D"}</div></div>
               </div>
-              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
+              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : isAlagoas2 ? "Os 4 primeiros avançam para as semifinais. O campeão garante o acesso à 1ª Divisão de Alagoas." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
             </>;
           })())}
           {section==="Visão geral" && panel("Regulamento",<>
