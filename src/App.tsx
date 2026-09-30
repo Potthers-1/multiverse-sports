@@ -459,11 +459,11 @@ function buildDistritoFederalChampionship(championshipId:number, startClubId:num
 function buildDistritoFederalSecondDivision(championshipId:number, startClubId:number, startMatchId:number) {
   const championship = makeChampionship(
     championshipId,"Estadual","2026","Campeonato Brasiliense - 2ª Divisão",
-    "Turno único + acesso",
-    "Fase única com 7 clubes em turno único. Os 2 primeiros garantem o acesso à 1ª Divisão do Campeonato Brasiliense.",
-    "Os dois primeiros colocados garantem acesso à 1ª Divisão.",
+    "Turno único",
+    "Fase única com 7 clubes em turno único. Os 2 primeiros colocados garantem o acesso à 1ª Divisão do Campeonato Brasiliense. O 1º colocado é declarado campeão.",
+    "Os dois primeiros colocados garantem acesso à 1ª Divisão; o 1º colocado é o campeão.",
     "Não há rebaixamento informado para a 2ª Divisão.",
-    7,6,2,"Distrito Federal"
+    7,7,1,"Distrito Federal"
   );
   const clubs:Club[]=DISTRITO_FEDERAL_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
   return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
@@ -818,12 +818,28 @@ function App() {
         const brasiliense=buildDistritoFederalChampionship(newChampId,newClubId,newMatchId);
         cs.push(brasiliense.championship); cl.push(...brasiliense.clubs); ms.push(...brasiliense.matches);
       }
-      if (!cs.some((c)=>c.name==="Campeonato Brasiliense - 2ª Divisão" && c.season==="2026")) {
+      const brasiliense2Existing = cs.find((c)=>c.name==="Campeonato Brasiliense - 2ª Divisão" && c.season==="2026");
+      if (!brasiliense2Existing) {
         const newChampId=Math.max(...cs.map(c=>c.id),0)+1;
         const newClubId=Math.max(...cl.map(c=>c.id),0)+1;
         const newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
         const brasiliense2=buildDistritoFederalSecondDivision(newChampId,newClubId,newMatchId);
         cs.push(brasiliense2.championship); cl.push(...brasiliense2.clubs); ms.push(...brasiliense2.matches);
+      } else {
+        // Corrige a versão anterior da 2ª Divisão sem apagar uma temporada já disputada.
+        brasiliense2Existing.format="Turno único";
+        brasiliense2Existing.regulation="Fase única com 7 clubes em turno único. Os 2 primeiros colocados garantem o acesso à 1ª Divisão do Campeonato Brasiliense. O 1º colocado é declarado campeão.";
+        brasiliense2Existing.promotion="Os dois primeiros colocados garantem acesso à 1ª Divisão; o 1º colocado é o campeão.";
+        brasiliense2Existing.relegation="Não há rebaixamento informado para a 2ª Divisão.";
+        brasiliense2Existing.teamCount=7;
+        brasiliense2Existing.rounds=7;
+        brasiliense2Existing.legs=1;
+        const existingMatches=ms.filter((m)=>m.championshipId===brasiliense2Existing.id);
+        if (existingMatches.length!==21 && existingMatches.every((m)=>!m.played)) {
+          const remaining=ms.filter((m)=>m.championshipId!==brasiliense2Existing.id);
+          const teamIds=cl.filter((x)=>x.championshipId===brasiliense2Existing.id).map((x)=>x.id);
+          ms.splice(0,ms.length,...remaining,...roundRobin(teamIds,brasiliense2Existing.id,nextId(remaining),1));
+        }
       }
 
       if (!cs.some((c)=>c.name==="Campeonato Amapaense" && c.season==="2026")) {
@@ -1679,7 +1695,9 @@ D → C: ${promotedD.length} promovidos`
         if (position <= 4) return "qualification";
         return "";
       }
-      if (state==="Amapá" && name==="Campeonato Amapaense - 2ª Divisão") return "";      if (state==="Amazonas" && name==="Campeonato Amazonense") {
+      if (state==="Amapá" && name==="Campeonato Amapaense - 2ª Divisão") return "";
+      if (state==="Distrito Federal" && name==="Campeonato Brasiliense - 2ª Divisão") return position <= 2 ? "promotion" : "";
+      if (state==="Amazonas" && name==="Campeonato Amazonense") {
         if (position === 8) return "relegation";
         return "";
       }
