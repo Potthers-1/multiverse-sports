@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-type Division = "Série A" | "Série B" | "Série C" | "Série D";
+type Division = "Série A" | "Série B" | "Série C" | "Série D" | "Estadual";
 type Stage = "regular" | "playoff" | "secondPhase" | "knockout" | "final";
 
 type Championship = {
@@ -11,6 +11,7 @@ type Championship = {
   sport: string;
   category: string;
   division: Division;
+  state?: string;
   format: string;
   regulation: string;
   promotion: string;
@@ -98,6 +99,11 @@ const D_CLUBS = [
   "Noroeste","Velo Club","Sampaio Corrêa - RJ","Nova Iguaçu","Maricá",
   "Santa Catarina","Cianorte","FC Cascavel","São Luiz","Joinville","Guarany de Bagé",
   "Blumenau","Marcílio Dias","São Joseense","São José - RS","Brasil de Pelotas","Azuriz",
+];
+
+const ACRE_1_CLUBS = [
+  "Galvez","Humaitá","Santa Cruz - AC","Rio Branco - AC",
+  "Independência - AC","Vasco - AC","ADESG","São Francisco - AC",
 ];
 
 const D_GROUPS = "ABCDEFGHIJKLMNOP".split("");
@@ -196,13 +202,36 @@ function makeChampionship(
   relegation: string,
   teamCount: number,
   rounds: number,
-  legs: number
+  legs: number,
+  state?: string
 ): Championship {
   return {
     id, name, country: "Brasil", season, sport: "Futebol", category: "Profissional",
-    division, format, regulation, promotion, relegation, teamCount, rounds, legs,
+    division, state, format, regulation, promotion, relegation, teamCount, rounds, legs,
     pointsWin: 3, pointsDraw: 1, pointsLoss: 0,
   };
+}
+
+function buildAcreChampionship(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Acreano",
+    "Turno único + semifinais + final",
+    "8 clubes jogam entre si em turno único. Os 4 primeiros se classificam para as semifinais e os 2 últimos são rebaixados para a 2ª divisão. As semifinais são disputadas em dois jogos. A final é disputada em jogo único.",
+    "O campeão acreano é o vencedor da final.",
+    "Os dois últimos da 1ª fase são rebaixados para a 2ª divisão.",
+    8,
+    7,
+    1,
+    "Acre"
+  );
+  const clubs:Club[] = ACRE_1_CLUBS.map((name,i)=>({
+    id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
+  }));
+  const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
+  return {championship,clubs,matches};
 }
 
 function tableFor(
@@ -376,6 +405,19 @@ function App() {
       const cl = JSON.parse(localStorage.getItem(LS.clubs) || "[]") as Club[];
       const ms = JSON.parse(localStorage.getItem(LS.matches) || "[]") as Match[];
       if (!cs.length || !cl.length) { seed(); return; }
+
+      // Migração incremental: adiciona o primeiro estadual sem apagar
+      // qualquer simulação nacional já existente no navegador.
+      if (!cs.some((c)=>c.name==="Campeonato Acreano" && c.season==="2026")) {
+        const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
+        const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
+        const newMatchId = Math.max(...ms.map((m)=>m.id),0)+1;
+        const acre = buildAcreChampionship(newChampId,newClubId,newMatchId);
+        cs.push(acre.championship);
+        cl.push(...acre.clubs);
+        ms.push(...acre.matches);
+      }
+
       setChampionships(cs); setClubs(cl); setMatches(ms); setSelectedId(cs[0].id);
     } catch { seed(); }
   }, []);
@@ -409,6 +451,15 @@ function App() {
 
   const championClubId = (champ: Championship, allMatches: Match[]) => {
     const games = allMatches.filter((m) => m.championshipId === champ.id);
+
+    if (champ.division === "Estadual") {
+      const final=games.filter(m=>m.stage==="final");
+      if(final.length!==1 || !final[0].played) return null;
+      const m=final[0];
+      if((m.homeScore??0)>(m.awayScore??0)) return m.home;
+      if((m.awayScore??0)>(m.homeScore??0)) return m.away;
+      return m.penaltyWinner ?? null;
+    }
 
     if (champ.division === "Série A") {
       if (!games.some((m) => m.stage === "regular") || !games.filter((m) => m.stage === "regular").every((m) => m.played)) return null;
@@ -446,6 +497,41 @@ function App() {
     if (!championship) return;
     let next = [...matches];
     let id = nextId(next);
+
+    if (championship.division === "Estadual" && championship.state==="Acre" &&
+        regularComplete(championship) &&
+        !next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout")) {
+      const table=tableFor(championship,myClubs.map(c=>c.id),next);
+      const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
+      pairs.forEach(([home,away])=>{
+        next.push({id:id++,championshipId:championship.id,round:8,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
+        next.push({id:id++,championshipId:championship.id,round:9,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
+      });
+      setMatches(next);
+      alert("Semifinais do Campeonato Acreano criadas: 1º x 4º e 2º x 3º, em dois jogos.");
+      return;
+    }
+
+    if (championship.division === "Estadual" && championship.state==="Acre") {
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const finalExists=next.some(m=>m.championshipId===championship.id&&m.stage==="final");
+      if (semis.length===4 && semis.every(m=>m.played) && !finalExists) {
+        const winners=knockoutWinner(next,4);
+        if(winners.length!==2){alert("Não foi possível identificar os dois finalistas do Campeonato Acreano.");return;}
+        const finalMatch={id:id++,championshipId:championship.id,round:10,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final" as Stage};
+        setMatches([...next,finalMatch]);
+        alert("Final do Campeonato Acreano criada em jogo único.");
+        return;
+      }
+      if(semis.length===4 && !semis.every(m=>m.played)) {
+        alert("Finalize os 4 jogos das semifinais do Campeonato Acreano.");
+        return;
+      }
+      if(finalExists && !next.find(m=>m.championshipId===championship.id&&m.stage==="final")?.played) {
+        alert("Finalize a final do Campeonato Acreano para encerrar a competição.");
+        return;
+      }
+    }
 
     if (championship.division === "Série B" && regularComplete(championship) &&
         !next.some((m) => m.championshipId === championship.id && m.stage === "playoff")) {
@@ -717,6 +803,7 @@ D → C: ${promotedD.length} promovidos`
     ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===Number(section.replace("Série D · ","")))
     : section==="Segunda fase" ? myMatches.filter((m)=>m.stage==="secondPhase")
     : section==="Final" ? myMatches.filter((m)=>m.stage==="final")
+    : section==="Semifinais" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===4)
     : section==="Play-offs" ? myMatches.filter((m)=>m.stage==="playoff")
     : myMatches.filter((m)=>m.stage==="regular"&&m.round===Math.min(...myMatches.filter((m)=>m.stage==="regular"&&!m.played).map((m)=>m.round).concat([1])));
 
@@ -737,6 +824,12 @@ D → C: ${promotedD.length} promovidos`
       return "";
     }
     if (division==="Série D") return position <= 4 ? "qualification" : "";
+    if (division==="Estadual") {
+      if (position <= 4) return "qualification";
+      if (position >= 7) return "relegation";
+      return "";
+    }
+
     return "";
   };
 
@@ -757,6 +850,8 @@ D → C: ${promotedD.length} promovidos`
       ? [["#22c55e","Acesso direto"],["#f59e0b","Play-offs de acesso"],["#ef4444","Rebaixamento"]]
       : division==="Série C"
       ? [["#3b82f6","Classificação para a 2ª fase"],["#ef4444","Rebaixamento"]]
+      : division==="Estadual"
+      ? [["#3b82f6","Semifinais"],["#ef4444","Rebaixamento"]]
       : [["#3b82f6","Classificação para o mata-mata"]];
     return <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:14,fontSize:12,color:"#9eacbc"}}>
       {items.map(([color,label])=><span key={label} style={{display:"inline-flex",alignItems:"center",gap:6}}>
@@ -786,6 +881,12 @@ D → C: ${promotedD.length} promovidos`
         <aside style={{background:"#0a1019",color:"#fff",padding:18}}>
           <div style={{fontSize:12,opacity:.6,marginBottom:12}}>PAÍSES</div>
           <button onClick={()=>setSelectedId(championships.find((c)=>c.division==="Série A"&&c.season===String(Math.max(...championships.map((x)=>Number(x.season)))))?.id??1)} style={{width:"100%",textAlign:"left",background:"transparent",border:0,color:"#fff",padding:"10px",cursor:"pointer"}}>🇧🇷 Brasil</button>
+          <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>ESTADUAIS</div>
+          {championships.filter(c=>c.division==="Estadual" && c.state==="Acre").sort((a,b)=>Number(b.season)-Number(a.season)).slice(0,1).map(c=>(
+            <button key={c.id} onClick={()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}} style={{display:"block",width:"100%",textAlign:"left",border:0,borderRadius:8,padding:"9px 10px",marginBottom:4,background:championship?.id===c.id?"#111c2a":"transparent",color:"#fff",cursor:"pointer",fontWeight:800,fontSize:16}}>
+              🇧🇷 Acre
+            </button>
+          ))}
           <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>CAMPEONATOS</div>
           {(["Série A","Série B","Série C","Série D"] as Division[]).map((d)=>(
             <button
@@ -820,7 +921,7 @@ D → C: ${promotedD.length} promovidos`
 
         <main style={{padding:28,maxWidth:1250,width:"100%",boxSizing:"border-box"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:20}}>
-            <div><div style={{fontSize:13,color:"#65758a"}}>Brasil / {championship.division} / {championship.season}</div><h1 style={{margin:"6px 0"}}>{championship.name}</h1></div>
+            <div><div style={{fontSize:13,color:"#65758a"}}>Brasil / {championship.state ? championship.state+" / " : ""}{championship.division} / {championship.season}</div><h1 style={{margin:"6px 0"}}>{championship.name}</h1></div>
             <div>
               {button("Visão geral",()=>setSection("Visão geral"))}
               {button("Classificação",()=>setSection("Classificação"))}
@@ -829,6 +930,8 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
+              {championship.division==="Estadual"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===4)&&button("Semifinais",()=>setSection("Semifinais"))}
+              {championship.division==="Estadual"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
               {championship.division==="Série D"&&button("Classificados próxima temporada",()=>setSection("Classificados"))}
               {championship.division==="Série D"&&[64,32,16,8,4,2].map((p)=>myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===p)&&button(String(p===2?"Final":p===64?"Série D · 64":"Série D · "+p),()=>setSection("Série D · "+p)))}
               {competitionComplete(championship, matches) && button("🏆 Campeão",()=>setSection("Campeão"),true)}
@@ -850,6 +953,15 @@ D → C: ${promotedD.length} promovidos`
             </>);
           })()}
 
+          {section==="Visão geral" && championship.division==="Estadual" && panel("Estrutura do campeonato",<>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:14}}>
+              <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>8</strong><div style={{fontSize:12,color:"#8291a5"}}>clubes</div></div>
+              <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>7</strong><div style={{fontSize:12,color:"#8291a5"}}>rodadas na 1ª fase</div></div>
+              <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>4</strong><div style={{fontSize:12,color:"#8291a5"}}>semifinalistas</div></div>
+              <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>2</strong><div style={{fontSize:12,color:"#8291a5"}}>vagas para a Série D</div></div>
+            </div>
+            <p style={{color:"#8291a5"}}>As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes.</p>
+          </>)}
           {section==="Visão geral" && panel("Regulamento",<>
             <p>{championship.regulation}</p>
             <p><strong>Acesso:</strong> {championship.promotion}</p>
