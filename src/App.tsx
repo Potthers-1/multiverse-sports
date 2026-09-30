@@ -23,7 +23,7 @@ type Championship = {
   pointsLoss: number;
 };
 
-type Club = { id: number; name: string; championshipId: number };
+type Club = { id: number; name: string; championshipId: number; clubKey?: string };
 
 type Match = {
   id: number;
@@ -101,6 +101,27 @@ const D_CLUBS = [
 ];
 
 const D_GROUPS = "ABCDEFGHIJKLMNOP".split("");
+
+const D_STATE_SLOTS = [
+  { state:"São Paulo", slots:4 },
+  { state:"Rio de Janeiro", slots:3 }, { state:"Minas Gerais", slots:3 },
+  { state:"Rio Grande do Sul", slots:3 }, { state:"Paraná", slots:3 },
+  { state:"Ceará", slots:3 }, { state:"Goiás", slots:3 },
+  { state:"Santa Catarina", slots:3 }, { state:"Bahia", slots:3 },
+  { state:"Pernambuco", slots:2 }, { state:"Alagoas", slots:2 },
+  { state:"Pará", slots:2 }, { state:"Mato Grosso", slots:2 },
+  { state:"Amazonas", slots:2 }, { state:"Rio Grande do Norte", slots:2 },
+  { state:"Paraíba", slots:2 }, { state:"Maranhão", slots:2 },
+  { state:"Sergipe", slots:2 }, { state:"Distrito Federal", slots:2 },
+  { state:"Piauí", slots:2 }, { state:"Espírito Santo", slots:2 },
+  { state:"Tocantins", slots:2 }, { state:"Acre", slots:2 },
+  { state:"Rondônia", slots:2 }, { state:"Roraima", slots:2 },
+  { state:"Mato Grosso do Sul", slots:2 }, { state:"Amapá", slots:2 },
+];
+
+function makeClubKey(name:string) {
+  return name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+}
 
 function shuffle<T>(items: T[]) {
   const copy = [...items];
@@ -322,7 +343,7 @@ function App() {
     ];
     for (const [division,names] of lists) {
       const champ = cs.find((x) => x.division === division)!;
-      for (const name of names) allClubs.push({ id: clubId++, name, championshipId: champ.id });
+      for (const name of names) allClubs.push({ id: clubId++, name, championshipId: champ.id, clubKey: makeClubKey(name) });
     }
 
     const ms: Match[] = [];
@@ -808,6 +829,7 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
+              {championship.division==="Série D"&&button("Classificados 2027",()=>setSection("Classificados"))}
               {championship.division==="Série D"&&[64,32,16,8,4,2].map((p)=>myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===p)&&button(String(p===2?"Final":p===64?"Série D · 64":"Série D · "+p),()=>setSection("Série D · "+p)))}
               {competitionComplete(championship, matches) && button("🏆 Campeão",()=>setSection("Campeão"),true)}
             </div>
@@ -839,6 +861,62 @@ D → C: ${promotedD.length} promovidos`
               {button("📅 Criar próxima temporada",createNextSeason)}
             </div>
           </>)}
+
+          {section==="Classificados" && championship.division==="Série D" && (() => {
+            const currentSeason = Number(championship.season);
+            const nextSeason = currentSeason + 1;
+            const cChamp = championships.find((c)=>c.division==="Série C"&&Number(c.season)===currentSeason);
+            const cClubIds = cChamp ? clubs.filter((c)=>c.championshipId===cChamp.id).map((c)=>c.id) : [];
+            const cTable = cChamp ? tableFor(cChamp,cClubIds,matches) : [];
+            const cComplete = cChamp ? regularComplete(cChamp) : false;
+            const relegatedC = cComplete ? cTable.slice(-4).map((r)=>clubName(r.clubId)) : [];
+            const stateSlotCount = D_STATE_SLOTS.reduce((sum,x)=>sum+x.slots,0);
+            const totalSlots = 4 + stateSlotCount + 28;
+            const slotRow = (label:string,club:string|null,detail?:string) => (
+              <div style={{display:"grid",gridTemplateColumns:"55px 1fr 190px",gap:12,alignItems:"center",padding:"12px 14px",borderTop:"1px solid #172331"}}>
+                <span style={{color:"#65758a",fontWeight:800}}>#{slotIndex++}</span>
+                <strong style={{color:club?"#f4f7fb":"#65758a"}}>{club??"Aguardando classificação"}</strong>
+                <span style={{fontSize:12,color:"#8291a5",textAlign:"right"}}>{detail??"Vaga ainda não definida"}</span>
+              </div>
+            );
+            let slotIndex = 1;
+            return panel("Classificados para a Série D · "+nextSeason,<>
+              <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:18}}>
+                <div style={{padding:"14px 18px",borderRadius:12,background:"#0b131f",border:"1px solid #1e2b3b"}}><strong style={{fontSize:22}}>{totalSlots}</strong><div style={{fontSize:12,color:"#8291a5"}}>vagas</div></div>
+                <div style={{padding:"14px 18px",borderRadius:12,background:"#0b131f",border:"1px solid #1e2b3b"}}><strong style={{fontSize:22}}>{relegatedC.length}</strong><div style={{fontSize:12,color:"#8291a5"}}>rebaixados da Série C já definidos</div></div>
+              </div>
+
+              <h3>1. Rebaixados da Série C · 4 vagas</h3>
+              <div style={{border:"1px solid #1e2b3b",borderRadius:12,overflow:"hidden",background:"#0b131f"}}>
+                {[0,1,2,3].map((_,i)=>slotRow("","",relegatedC[i]??null,"Rebaixado da Série C"))}
+              </div>
+
+              <h3 style={{marginTop:24}}>2. Vagas dos estaduais · {stateSlotCount} vagas</h3>
+              <p style={{color:"#8291a5",marginTop:0}}>
+                As vagas serão preenchidas pela classificação de cada estadual. O sistema não contabiliza clubes que já tenham vaga na Série A, B ou C.
+              </p>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:12}}>
+                {D_STATE_SLOTS.map((x)=>(
+                  <div key={x.state} style={{border:"1px solid #1e2b3b",borderRadius:12,overflow:"hidden",background:"#0b131f"}}>
+                    <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{x.state} · {x.slots} vagas</div>
+                    {Array.from({length:x.slots},()=>null).map((_,i)=>(
+                      <div key={i} style={{padding:"10px 14px",borderTop:"1px solid #172331",display:"flex",justifyContent:"space-between",gap:10}}>
+                        <span style={{color:"#65758a"}}>Vaga {i+1}</span><strong style={{color:"#65758a"}}>Aguardando estadual</strong>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+
+              <h3 style={{marginTop:24}}>3. Série D anterior · 28 vagas</h3>
+              <p style={{color:"#8291a5",marginTop:0}}>
+                Reservadas aos clubes que chegaram à segunda fase da Série D anterior e não conquistaram o acesso. A definição dos 28 clubes será vinculada ao desempenho da edição anterior; se um deles também conquistar vaga estadual, a vaga estadual será repassada ao próximo clube elegível.
+              </p>
+              <div style={{border:"1px solid #1e2b3b",borderRadius:12,overflow:"hidden",background:"#0b131f"}}>
+                {Array.from({length:28},(_,i)=>slotRow("",null,"Série D anterior"))}
+              </div>
+            </>);
+          })()}
 
           {section==="Classificação" && panel("Classificação",<>
             {zoneLegend(championship.division)}
