@@ -110,6 +110,10 @@ const ALAGOAS_1_CLUBS = [
   "ASA","CSA","CRB","Murici","Cruzeiro - AL","Coruripe","Penedense","CSE",
 ];
 
+const ACRE_2_CLUBS = [
+  "Atlético Acreano","Andirá","Nauás EC","Plácido de Castro",
+];
+
 const D_GROUPS = "ABCDEFGHIJKLMNOP".split("");
 
 const D_STATE_SLOTS = [
@@ -235,6 +239,28 @@ function buildAcreChampionship(championshipId:number, startClubId:number, startM
     id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
   }));
   const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
+  return {championship,clubs,matches};
+}
+
+function buildAcreSecondDivision(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Acreano - 2ª Divisão",
+    "Turno e returno",
+    "4 clubes jogam entre si em turno e returno. Os 2 primeiros garantem o acesso para a 1ª divisão estadual. O 1º colocado é declarado campeão.",
+    "Os 2 primeiros colocados garantem acesso à 1ª divisão estadual.",
+    "Não há rebaixamento informado para a 2ª divisão.",
+    4,
+    6,
+    2,
+    "Acre"
+  );
+  const clubs:Club[] = ACRE_2_CLUBS.map((name,i)=>({
+    id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
+  }));
+  const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,2);
   return {championship,clubs,matches};
 }
 
@@ -444,6 +470,16 @@ function App() {
         ms.push(...acre.matches);
       }
 
+      if (!cs.some((c)=>c.name==="Campeonato Acreano - 2ª Divisão" && c.season==="2026")) {
+        const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
+        const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
+        const newMatchId = Math.max(...ms.map((m)=>m.id),0)+1;
+        const acre2 = buildAcreSecondDivision(newChampId,newClubId,newMatchId);
+        cs.push(acre2.championship);
+        cl.push(...acre2.clubs);
+        ms.push(...acre2.matches);
+      }
+
       if (!cs.some((c)=>c.name==="Campeonato Alagoano" && c.season==="2026")) {
         const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
         const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
@@ -487,6 +523,12 @@ function App() {
 
   const championClubId = (champ: Championship, allMatches: Match[]) => {
     const games = allMatches.filter((m) => m.championshipId === champ.id);
+
+    if (champ.division === "Estadual" && champ.name==="Campeonato Acreano - 2ª Divisão") {
+      const regular=games.filter(m=>m.stage==="regular");
+      if(!regular.length || !regular.every(m=>m.played)) return null;
+      return tableFor(champ, clubs.filter(c=>c.championshipId===champ.id).map(c=>c.id), regular)[0]?.clubId ?? null;
+    }
 
     if (champ.division === "Estadual") {
       const final=games.filter(m=>m.stage==="final");
@@ -548,7 +590,7 @@ function App() {
     let next = [...matches];
     let id = nextId(next);
 
-    if (championship.division === "Estadual" && regularComplete(championship) &&
+    if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && regularComplete(championship) &&
         !next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout")) {
       const table=tableFor(championship,myClubs.map(c=>c.id),next);
       const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
@@ -933,7 +975,7 @@ D → C: ${promotedD.length} promovidos`
           <div style={{fontSize:12,opacity:.6,marginBottom:12}}>PAÍSES</div>
           <button onClick={()=>setSelectedId(championships.find((c)=>c.division==="Série A"&&c.season===String(Math.max(...championships.map((x)=>Number(x.season)))))?.id??1)} style={{width:"100%",textAlign:"left",background:"transparent",border:0,color:"#fff",padding:"10px",cursor:"pointer"}}>🇧🇷 Brasil</button>
           <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>ESTADUAIS</div>
-          {championships.filter(c=>c.division==="Estadual").sort((a,b)=>(a.state||"").localeCompare(b.state||"")||Number(b.season)-Number(a.season)).filter((c,i,arr)=>i===arr.findIndex(x=>x.state===c.state)).map(c=>(
+          {championships.filter(c=>c.division==="Estadual").sort((a,b)=>(a.state||"").localeCompare(b.state||"")||Number(a.name).localeCompare(Number(b.name))||Number(b.season)-Number(a.season)).filter((c,i,arr)=>i===arr.findIndex(x=>x.state===c.state)).map(c=>(
             <button key={c.id} onClick={()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}} style={{display:"block",width:"100%",textAlign:"left",border:0,borderRadius:8,padding:"9px 10px",marginBottom:4,background:championship?.id===c.id?"#111c2a":"transparent",color:"#fff",cursor:"pointer",fontWeight:800,fontSize:16}}>
               🇧🇷 {c.state}
             </button>
@@ -978,6 +1020,15 @@ D → C: ${promotedD.length} promovidos`
               {button("Classificação",()=>setSection("Classificação"))}
               {button("Jogos",()=>setSection("Jogos"))}
               {button("Clubes",()=>setSection("Clubes"))}
+              {championship.state && (() => {
+                const stateDivisions = championships
+                  .filter(c=>c.state===championship.state && c.season===championship.season)
+                  .sort((a,b)=>a.name.localeCompare(b.name));
+                return stateDivisions.length>1 ? stateDivisions.map(c=>button(
+                  c.name.includes("2ª Divisão") ? "2ª Divisão" : "1ª Divisão",
+                  ()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}
+                )) : null;
+              })()}
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
