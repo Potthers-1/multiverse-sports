@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 type Division = "Série A" | "Série B" | "Série C" | "Série D";
 type Stage = "regular" | "playoff" | "secondPhase" | "knockout" | "final";
