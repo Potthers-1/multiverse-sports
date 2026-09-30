@@ -2274,6 +2274,8 @@ D → C: ${promotedD.length} promovidos`
                   .filter(c=>c.state===championship.state && c.season===championship.season)
                   .sort((a,b)=>a.name.localeCompare(b.name));
                 return stateDivisions.length>1 ? stateDivisions.map(c=>button(
+                  c.name.includes("4ª Divisão") ? "4ª Divisão" :
+                  c.name.includes("3ª Divisão") ? "3ª Divisão" :
                   c.name.includes("2ª Divisão") ? "2ª Divisão" : "1ª Divisão",
                   ()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}
                 )) : null;
