@@ -1433,7 +1433,7 @@ function App() {
       if(regular.filter(m=>m.group==="A"||m.group==="B").length===36 && regular.filter(m=>m.group==="A"||m.group==="B").every(m=>m.played) && quarters.length===0){
         const idsA=myClubs.filter(c=>c.stateGroup==="A").map(c=>c.id);
         const idsB=myClubs.filter(c=>c.stateGroup==="B").map(c=>c.id);
-        const a=tableFor(championship,idsA,next,"regular","A"), b=tableFor(championship,idsB,next,"regular","B");
+        const a=tableFor(championship,idsA,next), b=tableFor(championship,idsB,next);
         if(a.length!==6||b.length!==6){alert("Não foi possível montar os grupos da Taça Guanabara.");return;}
         const pairs=[[a[0].clubId,a[3].clubId],[a[1].clubId,a[2].clubId],[b[0].clubId,b[3].clubId],[b[1].clubId,b[2].clubId]];
         pairs.forEach(([home,away])=>next.push({id:id++,championshipId:championship.id,round:7,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8}));
@@ -1864,6 +1864,7 @@ function App() {
       }
       if(regular.length===66 && regular.every(m=>m.played) && !hasMainKnockout) prepareNextPhase();
       else if(matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4).length===2 && matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4).every(m=>m.played) && finals.length===0) prepareNextPhase();
+      else if(championship.name==="Campeonato Carioca - 2ª Divisão" && finals.length===1 && finals[0].played && !matches.some(m=>m.championshipId===championships.find(c=>c.name==="Campeonato Carioca"&&c.season==="2026")?.id && m.stage==="playoff")) prepareNextPhase();
       return;
     }
 
@@ -2494,7 +2495,7 @@ D → C: ${promotedD.length} promovidos`
                 <p style={{color:"#8291a5",marginTop:0}}>Taça Guanabara — dois grupos de 6, com confrontos entre grupos. O Grupo X reúne os dois últimos de cada grupo.</p>
                 {["A","B","X"].map((group) => {
                   const ids=myMatches.filter(m=>m.stage==="regular"&&m.group===group).flatMap(m=>[m.home,m.away]).filter((x,i,a)=>a.indexOf(x)===i);
-                  const rows=tableFor(championship,ids,myMatches,"regular",group);
+                  const rows=group==="X" ? tableFor(championship,ids,myMatches,"regular","X") : tableFor(championship,ids,myMatches);
                   return <div key={group} style={{marginBottom:18,border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
                     <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{group==="X"?"Grupo X":"Grupo "+group}</div>
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(h=><th key={h} style={{padding:8,textAlign:"left",fontSize:11,borderBottom:"2px solid #1e2b3b"}}>{h}</th>)}</tr></thead><tbody>
