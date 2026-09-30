@@ -390,55 +390,20 @@ function buildAmazonasChampionship(championshipId:number, startClubId:number, st
     "Estadual",
     "2026",
     "Campeonato Amazonense",
-    "Dois turnos + playoffs de cada turno + final",
-    "Primeiro turno: Os clubes do Grupo A enfrentam os do Grupo B. Segundo turno: os confrontos acontecem dentro de cada grupo. Em cada turno, os quatro melhores de cada grupo avançam aos playoffs, que serão disputadas em sistema de cruzamento olímpico (1º x 4º e 2º x 3º). Nas playoffs de final, o time de melhor campanha terá a vantagem do empate. Já em semifinais e finais, a vantagem será apenas de mando de campo. Em caso de igualdade, a classificação será definida nos pênaltis. A grande final será disputada entre os campeões dos dois turnos. Caso um mesmo clube conquiste os dois, será declarado campeão amazonense direto, sem necessidade de decisão. O pior time da classificação geral será rebaixado",
-    "O campeão é o vencedor da grande final entre os campeões dos turnos, salvo se o mesmo clube conquistar os dois turnos, quando será campeão direto.",
-    "O pior time da classificação geral é rebaixado para a 2ª Divisão do Campeonato Amazonense.",
+    "Turno único + semifinais + final",
+    "Os 8 clubes jogam entre si em turno único. Os 4 primeiros colocados avançam às semifinais, em sistema de cruzamento olímpico: 1º x 4º e 2º x 3º. As semifinais e a final são disputadas em jogo único. Em caso de empate, a decisão será definida nos pênaltis pelo sistema.",
+    "O campeão é o vencedor da final.",
+    "O pior time da classificação geral será rebaixado para a 2ª Divisão do Campeonato Amazonense.",
     8,
     7,
     1,
     "Amazonas"
   );
-  const shuffled=shuffle(AMAZONAS_1_CLUBS);
-  const groupA=shuffled.slice(0,4);
-  const groupB=shuffled.slice(4,8);
-  const clubs:Club[]=shuffled.map((name,i)=>({
-    id:startClubId+i,
-    name,
-    championshipId,
-    clubKey:makeClubKey(name),
-    stateGroup:groupA.includes(name) ? "A" : "B",
+  const clubs:Club[]=AMAZONAS_1_CLUBS.map((name,i)=>({
+    id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
   }));
-  const idsA=groupA.map(name=>clubs.find(c=>c.name===name)!.id);
-  const idsB=groupB.map(name=>clubs.find(c=>c.name===name)!.id);
-  const result:Match[]=[];
-  let id=startMatchId;
-  for(let r=0;r<4;r++){
-    const a=idsA[r%4];
-    const orderedB=[...idsB.slice(r),...idsB.slice(0,r)];
-    orderedB.forEach((b,j)=>{
-      const home=r%2===0?a:b;
-      const away=r%2===0?b:a;
-      result.push({id:id++,championshipId,round:r+1,home,away,homeScore:null,awayScore:null,played:false,stage:"regular"});
-    });
-  }
-  // Replace the simple cross-group loop above with the complete 4x4 schedule.
-  result.splice(0,result.length);
-  for(let r=0;r<4;r++){
-    for(let j=0;j<4;j++){
-      const a=idsA[r];
-      const b=idsB[(j+r)%4];
-      const home=(r+j)%2===0?a:b;
-      const away=(r+j)%2===0?b:a;
-      result.push({id:id++,championshipId,round:r+1,home,away,homeScore:null,awayScore:null,played:false,stage:"regular"});
-    }
-  }
-  const secondA=roundRobin(idsA,championshipId,id,1,4,"A");
-  result.push(...secondA);
-  id=nextId(result);
-  const secondB=roundRobin(idsB,championshipId,id,1,4,"B");
-  result.push(...secondB);
-  return {championship,clubs,matches:result};
+  const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
+  return {championship,clubs,matches};
 }
 
 function buildAmazonasSecondDivision(championshipId:number, startClubId:number, startMatchId:number) {
@@ -855,27 +820,19 @@ function App() {
     const games = allMatches.filter((m) => m.championshipId === champ.id);
 
     if (champ.division === "Estadual" && champ.name==="Campeonato Amazonense") {
-      const games=allMatches.filter(m=>m.championshipId===champ.id);
-      const playoffs=games.filter(m=>m.stage==="playoff");
-      const p1=playoffs.filter(m=>m.group==="1T");
-      const p2=playoffs.filter(m=>m.group==="2T");
+      const semis=games.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
       const final=games.filter(m=>m.stage==="final");
-      const winnerSingle=(m:Match)=>{
+      const winner=(m:Match)=>{
         if(!m.played) return null;
         if((m.homeScore??0)>(m.awayScore??0)) return m.home;
         if((m.awayScore??0)>(m.homeScore??0)) return m.away;
-        return m.penaltyWinner ?? m.tieAdvantageClubId ?? null;
+        return m.penaltyWinner ?? null;
       };
-      if(p1.length!==3 || !p1.every(m=>m.played)) return null;
-      if(p2.length!==3 || !p2.every(m=>m.played)) return null;
-      const p1Final=p1.find(m=>m.knockoutRound===2);
-      const p2Final=p2.find(m=>m.knockoutRound===2);
-      const w1=p1Final ? winnerSingle(p1Final) : null;
-      const w2=p2Final ? winnerSingle(p2Final) : null;
-      if(!w1 || !w2) return null;
-      if(w1===w2) return w1;
+      if(semis.length!==2 || !semis.every(m=>m.played)) return null;
+      const semifinalWinners=semis.map(winner);
+      if(semifinalWinners.some(w=>w===null)) return null;
       if(final.length!==1 || !final[0].played) return null;
-      return winnerSingle(final[0]);
+      return winner(final[0]);
     }
 
     if (champ.division === "Estadual" && champ.name==="Campeonato Amazonense - 2ª Divisão") {
@@ -969,96 +926,45 @@ function App() {
 
     if (championship.division === "Estadual" && championship.name==="Campeonato Amazonense") {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
-      const p1=next.filter(m=>m.championshipId===championship.id&&m.stage==="playoff"&&m.group==="1T");
-      const p2=next.filter(m=>m.championshipId===championship.id&&m.stage==="playoff"&&m.group==="2T");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
-      const clubsA=myClubs.filter(c=>c.stateGroup==="A").map(c=>c.id);
-      const clubsB=myClubs.filter(c=>c.stateGroup==="B").map(c=>c.id);
+      const ids=myClubs.map(c=>c.id);
 
-      const turnTable=(ids:number[],from:number,to:number)=>tableFor(championship,ids,next,"regular",undefined,from,to);
-      const addTurnPlayoffs=(turn:number, from:number, to:number, group:string)=>{
-        const pairs:number[][]=[];
-        for(const ids of [clubsA,clubsB]){
-          const t=turnTable(ids,from,to);
-          pairs.push([t[0].clubId,t[3].clubId],[t[1].clubId,t[2].clubId]);
-        }
-        const created:Match[]=[];
-        for(const [home,away] of pairs){
-          created.push({id:id++,championshipId:championship.id,round:8,home,away,homeScore:null,awayScore:null,played:false,stage:"playoff",group,knockoutRound:1});
-        }
-        const finalists=created.map(m=>m.id);
-        // Final is created after the two semifinals are completed.
+      if(regular.length===28 && regular.every(m=>m.played) && semis.length===0){
+        const table=tableFor(championship,ids,next);
+        const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
+        const created:Match[]=pairs.map(([home,away],idx)=>({
+          id:id++,championshipId:championship.id,round:8+idx,home,away,
+          homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4
+        }));
         next.push(...created);
-        setMatches(next);
-        setSection("Play-offs");
-        alert(`Play-offs do ${turn}º turno do Campeonato Amazonense criados.`);
-      };
-
-      if(regular.length===28 && regular.every(m=>m.played) && p1.length===0){
-        addTurnPlayoffs(1,1,4,"1T");
+        setMatches(next);setSection("Semifinais");
+        alert("Semifinais do Campeonato Amazonense criadas.");
         return;
       }
 
-      if(p1.length===4 && p1.every(m=>m.played) && !p1.some(m=>m.knockoutRound===2)){
-        // As quatro semifinais são: 1A x 4A, 2A x 3A, 1B x 4B e 2B x 3B.
-        // Os dois vencedores de cada grupo fazem a final do turno.
+      if(semis.length===2 && semis.every(m=>m.played) && final.length===0){
         const winner=(m:Match)=>{
           if((m.homeScore??0)>(m.awayScore??0)) return m.home;
           if((m.awayScore??0)>(m.homeScore??0)) return m.away;
           return m.penaltyWinner ?? null;
         };
-        const winners=p1.map(winner).filter((x):x is number=>x!==null);
-        if(winners.length!==4){alert("Não foi possível identificar os quatro vencedores das semifinais do 1º turno do Amazonas.");return;}
-        const groupASet=new Set(clubsA);
-        const groupAWinners=winners.filter(w=>groupASet.has(w));
-        const groupBWinners=winners.filter(w=>!groupASet.has(w));
-        if(groupAWinners.length!==2 || groupBWinners.length!==2){alert("Não foi possível separar os finalistas dos grupos do 1º turno do Amazonas.");return;}
-        const t1A=turnTable(clubsA,1,4),t1B=turnTable(clubsB,1,4);
-        const campaign=new Map<number,number>([...t1A,...t1B].map(x=>[x.clubId,x.points]));
-        const finalists=[groupAWinners[0],groupBWinners[0]];
-        // A final do turno é única; o melhor desempenho entre os finalistas tem a vantagem do empate.
-        const best=finalists.slice().sort((a,b)=>(campaign.get(b)??0)-(campaign.get(a)??0))[0];
-        next.push({id:id++,championshipId:championship.id,round:9,home:finalists[0],away:finalists[1],homeScore:null,awayScore:null,played:false,stage:"playoff",group:"1T",knockoutRound:2,tieAdvantageClubId:best});
-        setMatches(next);setSection("Play-offs");alert("Final do 1º turno do Campeonato Amazonense criada.");return;
+        const winners=semis.map(winner);
+        if(winners.some(w=>w===null)){
+          alert("Não foi possível identificar os vencedores das semifinais do Campeonato Amazonense.");
+          return;
+        }
+        next.push({
+          id:id++,championshipId:championship.id,round:10,
+          home:winners[0]!,away:winners[1]!,homeScore:null,awayScore:null,
+          played:false,stage:"final"
+        });
+        setMatches(next);setSection("Final");
+        alert("Final do Campeonato Amazonense criada.");
+        return;
       }
 
-      if(p1.length===5 && p1.every(m=>m.played) && p2.length===0){
-        addTurnPlayoffs(2,5,7,"2T");return;
-      }
-
-      if(p2.length===4 && p2.every(m=>m.played) && !p2.some(m=>m.knockoutRound===2)){
-        const winner=(m:Match)=>{
-          if((m.homeScore??0)>(m.awayScore??0)) return m.home;
-          if((m.awayScore??0)>(m.homeScore??0)) return m.away;
-          return m.penaltyWinner ?? null;
-        };
-        const winners=p2.map(winner).filter((x):x is number=>x!==null);
-        if(winners.length!==4){alert("Não foi possível identificar os quatro vencedores das semifinais do 2º turno do Amazonas.");return;}
-        const groupASet=new Set(clubsA);
-        const groupAWinners=winners.filter(w=>groupASet.has(w));
-        const groupBWinners=winners.filter(w=>!groupASet.has(w));
-        if(groupAWinners.length!==2 || groupBWinners.length!==2){alert("Não foi possível separar os finalistas dos grupos do 2º turno do Amazonas.");return;}
-        const t2A=turnTable(clubsA,5,7),t2B=turnTable(clubsB,5,7);
-        const campaign=new Map<number,number>([...t2A,...t2B].map(x=>[x.clubId,x.points]));
-        const finalists=[groupAWinners[0],groupBWinners[0]];
-        const best=finalists.slice().sort((a,b)=>(campaign.get(b)??0)-(campaign.get(a)??0))[0];
-        next.push({id:id++,championshipId:championship.id,round:12,home:finalists[0],away:finalists[1],homeScore:null,awayScore:null,played:false,stage:"playoff",group:"2T",knockoutRound:2,tieAdvantageClubId:best});
-        setMatches(next);setSection("Play-offs");alert("Final do 2º turno do Campeonato Amazonense criada.");return;
-      }
-
-      if(p2.length===5 && p2.every(m=>m.played) && final.length===0){
-        const winner=(m:Match)=>{
-          if((m.homeScore??0)>(m.awayScore??0)) return m.home;
-          if((m.awayScore??0)>(m.homeScore??0)) return m.away;
-          return m.penaltyWinner ?? m.tieAdvantageClubId ?? null;
-        };
-        const f1=p1.find(m=>m.knockoutRound===2), f2=p2.find(m=>m.knockoutRound===2);
-        const w1=f1?winner(f1):null,w2=f2?winner(f2):null;
-        if(!w1||!w2){alert("Não foi possível identificar os campeões dos turnos do Amazonas.");return;}
-        if(w1===w2){setMatches(next);setSection("Campeão");alert("O mesmo clube venceu os dois turnos e foi declarado campeão amazonense.");return;}
-        next.push({id:id++,championshipId:championship.id,round:13,home:w1,away:w2,homeScore:null,awayScore:null,played:false,stage:"final"});
-        setMatches(next);setSection("Final");alert("Grande final do Campeonato Amazonense criada.");return;
-      }
+      return;
     }
 
     if (championship.division === "Estadual" && championship.name==="Campeonato Amazonense - 2ª Divisão") {
@@ -1369,16 +1275,9 @@ function App() {
     if (!regularComplete(championship)) return;
 
     if (championship.name==="Campeonato Amazonense") {
-      const p1=matches.filter(m=>m.championshipId===championship.id&&m.stage==="playoff"&&m.group==="1T");
-      const p2=matches.filter(m=>m.championshipId===championship.id&&m.stage==="playoff"&&m.group==="2T");
+      const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
-      if (
-        p1.length===0 ||
-        (p1.length===4 && p1.every(m=>m.played)) ||
-        (p1.length===3 && p1.every(m=>m.played) && p2.length===0) ||
-        (p2.length===4 && p2.every(m=>m.played)) ||
-        (p2.length===3 && p2.every(m=>m.played) && final.length===0)
-      ) prepareNextPhase();
+      if(semis.length===0 || (semis.length===2 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
       return;
     }
 
