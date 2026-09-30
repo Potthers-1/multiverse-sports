@@ -490,6 +490,11 @@ function App() {
         ms.push(...alagoas.matches);
       }
 
+      const alagoas2026 = cs.find((c)=>c.name==="Campeonato Alagoano" && c.season==="2026");
+      if (alagoas2026) {
+        alagoas2026.relegation = "O último colocado da 1ª fase é rebaixado para a 2ª Divisão do Campeonato Alagoano.";
+      }
+
       setChampionships(cs); setClubs(cl); setMatches(ms); setSelectedId(cs[0].id);
     } catch { seed(); }
   }, []);
@@ -926,6 +931,11 @@ D → C: ${promotedD.length} promovidos`
       }
       if (state==="Acre" && name==="Campeonato Acreano - 2ª Divisão") {
         return position <= 2 ? "promotion" : "";
+      }
+      if (state==="Alagoas" && name==="Campeonato Alagoano") {
+        if (position === 8) return "relegation";
+        if (position <= 4) return "qualification";
+        return "";
       }
       if (position <= 4) return "qualification";
       return "";
