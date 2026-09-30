@@ -834,6 +834,22 @@ function App() {
       return winnerSingle(final[0]);
     }
 
+    if (champ.division === "Estadual" && champ.name==="Campeonato Amazonense - 2ª Divisão") {
+      const semis=games.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
+      const final=games.filter(m=>m.stage==="final");
+      const winner=(m:Match)=>{
+        if(!m.played) return null;
+        if((m.homeScore??0)>(m.awayScore??0)) return m.home;
+        if((m.awayScore??0)>(m.homeScore??0)) return m.away;
+        return m.penaltyWinner ?? null;
+      };
+      if(semis.length!==2 || !semis.every(m=>m.played)) return null;
+      const semifinalWinners=semis.map(winner).filter((x):x is number=>x!==null);
+      if(semifinalWinners.length!==2) return null;
+      if(final.length!==1 || !final[0].played) return null;
+      return winner(final[0]);
+    }
+
     if (champ.division === "Estadual" && champ.name==="Campeonato Amapaense - 2ª Divisão") {
       const final=games.filter(m=>m.stage==="final");
       if(final.length!==2 || !final.every(m=>m.played)) return null;
@@ -979,6 +995,27 @@ function App() {
       }
     }
 
+    if (championship.division === "Estadual" && championship.name==="Campeonato Amazonense - 2ª Divisão") {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(regular.length===21 && regular.every(m=>m.played) && semis.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next);
+        const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:7,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
+        });
+        setMatches(next);setSection("Semifinais");alert("Semifinais da 2ª Divisão do Amazonas criadas em jogo único.");return;
+      }
+      if(semis.length===2 && semis.every(m=>m.played) && final.length===0){
+        const winners=semis.map((m)=>((m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner)).filter((x):x is number=>x!==undefined);
+        if(winners.length!==2){alert("Não foi possível identificar os finalistas da 2ª Divisão do Amazonas.");return;}
+        next.push({id:id++,championshipId:championship.id,round:8,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
+        setMatches(next);setSection("Final");alert("Final da 2ª Divisão do Amazonas criada em jogo único. O campeão garante o acesso.");return;
+      }
+      return;
+    }
+
     if (championship.division === "Estadual" && championship.name==="Campeonato Amapaense - 2ª Divisão") {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
       const hasSemifinals=next.some(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
@@ -1025,7 +1062,7 @@ function App() {
       }
     }
 
-    if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && championship.name!=="Campeonato Amazonense" && regularComplete(championship) &&
+    if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && championship.name!=="Campeonato Amazonense" && championship.name!=="Campeonato Amazonense - 2ª Divisão" && regularComplete(championship) &&
         !next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout")) {
       const table=tableFor(championship,myClubs.map(c=>c.id),next);
       const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
@@ -1263,15 +1300,29 @@ function App() {
   // Isso evita que a competição fique parada apenas porque o usuário não abriu "Preparar próxima fase".
   useEffect(() => {
     if (!championship || championship.division !== "Estadual" || championship.name==="Campeonato Acreano - 2ª Divisão") return;
+    if (!regularComplete(championship)) return;
+
     if (championship.name==="Campeonato Amazonense") {
-      if (!regularComplete(championship)) return;
       const p1=matches.filter(m=>m.championshipId===championship.id&&m.stage==="playoff"&&m.group==="1T");
       const p2=matches.filter(m=>m.championshipId===championship.id&&m.stage==="playoff"&&m.group==="2T");
       const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
-      if (p1.length===0 || (p1.length===2 && p1.every(m=>m.played)) || (p2.length===3 && p2.every(m=>m.played) && final.length===0)) prepareNextPhase();
+      if (
+        p1.length===0 ||
+        (p1.length===2 && p1.every(m=>m.played)) ||
+        (p1.length===3 && p1.every(m=>m.played) && p2.length===0) ||
+        (p2.length===2 && p2.every(m=>m.played)) ||
+        (p2.length===3 && p2.every(m=>m.played) && final.length===0)
+      ) prepareNextPhase();
       return;
     }
-    if (!regularComplete(championship)) return;
+
+    if (championship.name==="Campeonato Amazonense - 2ª Divisão") {
+      const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if (semis.length===0 || (semis.length===2 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
+      return;
+    }
+
     const hasSemifinals = matches.some((m)=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
     if (!hasSemifinals) prepareNextPhase();
   }, [championship?.id, matches]);
