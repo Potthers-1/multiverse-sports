@@ -386,6 +386,41 @@ function App() {
     return games.length > 0 && games.every((m) => m.played);
   };
 
+  const championClubId = (champ: Championship, allMatches: Match[]) => {
+    const games = allMatches.filter((m) => m.championshipId === champ.id);
+
+    if (champ.division === "Série A") {
+      if (!games.some((m) => m.stage === "regular") || !games.filter((m) => m.stage === "regular").every((m) => m.played)) return null;
+      return tableFor(champ, clubs.filter((c) => c.championshipId === champ.id).map((c) => c.id), games)[0]?.clubId ?? null;
+    }
+
+    if (champ.division === "Série B") {
+      const regular = games.filter((m) => m.stage === "regular");
+      const playoffs = games.filter((m) => m.stage === "playoff");
+      if (!regular.length || !regular.every((m) => m.played) || playoffs.length !== 4 || !playoffs.every((m) => m.played)) return null;
+      return tableFor(champ, clubs.filter((c) => c.championshipId === champ.id).map((c) => c.id), games)[0]?.clubId ?? null;
+    }
+
+    if (champ.division === "Série C") {
+      const final = games.filter((m) => m.stage === "final");
+      if (final.length !== 2 || !final.every((m) => m.played)) return null;
+      const winners = knockoutWinner(final.map((m) => ({...m, stage: "knockout" as Stage, knockoutRound: 1})), 1);
+      return winners[0] ?? null;
+    }
+
+    const final = games.filter((m) => m.stage === "knockout" && m.knockoutRound === 2);
+    if (final.length !== 2 || !final.every((m) => m.played)) return null;
+    return knockoutWinner(games, 2)[0] ?? null;
+  };
+
+  const competitionComplete = (champ: Championship, allMatches: Match[]) => championClubId(champ, allMatches) !== null;
+
+  useEffect(() => {
+    if (championship && competitionComplete(championship, matches)) {
+      setSection("Campeão");
+    }
+  }, [championship?.id, matches]);
+
   const prepareNextPhase = () => {
     if (!championship) return;
     let next = [...matches];
@@ -774,8 +809,24 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
               {championship.division==="Série D"&&[64,32,16,8,4,2].map((p)=>myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===p)&&button(String(p===2?"Final":p===64?"Série D · 64":"Série D · "+p),()=>setSection("Série D · "+p)))}
+              {competitionComplete(championship, matches) && button("🏆 Campeão",()=>setSection("Campeão"),true)}
             </div>
           </div>
+
+          {section==="Campeão" && (() => {
+            const winnerId = championClubId(championship, matches);
+            const winner = winnerId ? clubName(winnerId) : null;
+            if (!winner) return null;
+            return panel("🏆 Campeão",<>
+              <div style={{textAlign:"center",padding:"34px 20px 40px"}}>
+                <div style={{fontSize:64,lineHeight:1,marginBottom:18}}>🏆</div>
+                <div style={{fontSize:13,color:"#65758a",textTransform:"uppercase",letterSpacing:2,fontWeight:800}}>Campeão</div>
+                <h2 style={{fontSize:38,margin:"10px 0 8px",color:"#fff"}}>{winner}</h2>
+                <div style={{fontSize:17,color:"#9eacbc"}}>{championship.name} · {championship.season}</div>
+                <div style={{marginTop:24,display:"inline-block",padding:"9px 16px",borderRadius:999,background:"rgba(38,217,255,.10)",border:"1px solid rgba(38,217,255,.25)",color:"#26d9ff",fontWeight:800}}>Temporada encerrada</div>
+              </div>
+            </>);
+          })()}
 
           {section==="Visão geral" && panel("Regulamento",<>
             <p>{championship.regulation}</p>
