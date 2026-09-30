@@ -1901,6 +1901,27 @@ function App() {
     });
   };
 
+  const simulateCariocaFirstPhase = () => {
+    if (!championship || championship.name !== "Campeonato Carioca") return;
+    const ids = new Set(
+      matches
+        .filter(m=>m.championshipId===championship.id && m.stage==="regular" && (m.group==="A" || m.group==="B"))
+        .map(m=>m.id)
+    );
+    if (ids.size !== 36) {
+      alert("A Taça Guanabara precisa ter 36 jogos na 1ª fase.");
+      return;
+    }
+    setMatches(all => {
+      const updated = all.map(m => {
+        if (!ids.has(m.id) || m.played) return m;
+        return {...m, homeScore:score(), awayScore:score(), played:true};
+      });
+      return resolveAutomaticPenalties(updated);
+    });
+    setSection("Classificação");
+  };
+
   const saveScore = (id:number) => {
     const values=newResult[id];
     if(!values) return;
@@ -2423,6 +2444,7 @@ D → C: ${promotedD.length} promovidos`
             <p><strong>Acesso:</strong> {championship.promotion}</p>
             <p><strong>Rebaixamento:</strong> {championship.relegation}</p>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              {championship.name==="Campeonato Carioca" && button("⚡ Simular 1ª fase",simulateCariocaFirstPhase,true)}
               {button("⚡ Gerar próxima rodada",()=>generateResults("round"),true)}
               {button("⚡ Gerar todos os jogos restantes",()=>generateResults("remaining"))}
               {button("⚙ Preparar próxima fase",prepareNextPhase)}
@@ -2557,6 +2579,11 @@ D → C: ${promotedD.length} promovidos`
           })()}
 
           {section==="Classificação" && panel("Classificação",<>
+            {championship.name==="Campeonato Carioca" && myMatches.filter(m=>m.stage==="regular"&&(m.group==="A"||m.group==="B")).some(m=>!m.played) && (
+              <div style={{marginBottom:14}}>
+                {button("⚡ Simular 1ª fase da Taça Guanabara",simulateCariocaFirstPhase,true)}
+              </div>
+            )}
             {zoneLegend(championship.division)}
             {championship.division==="Série D" ? (
               <div>
