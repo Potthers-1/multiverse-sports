@@ -381,8 +381,12 @@ function buildDMatches(championshipId: number, clubs: Club[], startId: number): 
   return result;
 }
 
-function knockoutWinner(matches: Match[], phase: number) {
-  const phaseMatches = matches.filter((m) => m.stage === "knockout" && m.knockoutRound === phase);
+function knockoutWinner(matches: Match[], phase: number, championshipId?: number) {
+  const phaseMatches = matches.filter((m) =>
+    m.stage === "knockout" &&
+    m.knockoutRound === phase &&
+    (championshipId === undefined || m.championshipId === championshipId)
+  );
   if (!phaseMatches.length || !phaseMatches.every((m) => m.played)) return [];
   const map = new Map<string, Match[]>();
   phaseMatches.forEach((m) => {
@@ -609,13 +613,13 @@ function App() {
     if (champ.division === "Série C") {
       const final = games.filter((m) => m.stage === "final");
       if (final.length !== 2 || !final.every((m) => m.played)) return null;
-      const winners = knockoutWinner(final.map((m) => ({...m, stage: "knockout" as Stage, knockoutRound: 1})), 1);
+      const winners = knockoutWinner(final.map((m) => ({...m, stage: "knockout" as Stage, knockoutRound: 1})), 1, champ.id);
       return winners[0] ?? null;
     }
 
     const final = games.filter((m) => m.stage === "knockout" && m.knockoutRound === 2);
     if (final.length !== 2 || !final.every((m) => m.played)) return null;
-    return knockoutWinner(games, 2)[0] ?? null;
+    return knockoutWinner(games, 2, champ.id)[0] ?? null;
   };
 
   const competitionComplete = (champ: Championship, allMatches: Match[]) => championClubId(champ, allMatches) !== null;
@@ -649,7 +653,7 @@ function App() {
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const finalExists=next.some(m=>m.championshipId===championship.id&&m.stage==="final");
       if (semis.length===4 && semis.every(m=>m.played) && !finalExists) {
-        const winners=knockoutWinner(next,4);
+        const winners=knockoutWinner(next,4,championship.id);
         if(winners.length!==2){alert(`Não foi possível identificar os dois finalistas do ${championship.name}.`);return;}
         const finalMatches = [
           {id:id++,championshipId:championship.id,round:10,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final" as Stage},
@@ -886,7 +890,7 @@ function App() {
     // CRITICAL RULE: the 4 Série D semifinalists are the 4 winners of the QUARTER-FINALS (phase 16).
     const dQuarter=matches.filter((m)=>m.championshipId===D.id&&m.stage==="knockout"&&m.knockoutRound===8);
     if(dQuarter.length!==8||!dQuarter.every((m)=>m.played)){alert("Finalize as 8 jogos das quartas de final da Série D. Os 4 vencedores são os semifinalistas e garantem acesso à Série C.");return;}
-    const promotedD=knockoutWinner(matches,8);
+    const promotedD=knockoutWinner(matches,8,D.id);
     if(promotedD.length!==4){alert("Não foi possível identificar os 4 semifinalistas da Série D.");return;}
 
     const aRelegated=aTable.slice(-4).map((r)=>r.clubId);
