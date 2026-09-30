@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 type Division = "Série A" | "Série B" | "Série C" | "Série D";
 type Stage = "regular" | "playoff" | "secondPhase" | "knockout" | "final";
@@ -185,7 +185,7 @@ function clubLogoUrl(name: string) {
 }
 
 function ClubBadge({name,size=26}:{name:string;size?:number}) {
-  const [failed,setFailed] = React.useState(false);
+  const [failed,setFailed] = useState(false);
   if (failed) return <span style={{width:size,height:size,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:Math.max(12,size-10)}}>⚽</span>;
   return <img
     src={clubLogoUrl(name)}
@@ -803,7 +803,7 @@ D → C: ${promotedD.length} promovidos`
     </div>;
   };
 
-  const panel = (title:string,children:React.ReactNode)=><section style={{background:"#0c121c",border:"1px solid #1e2b3b",borderRadius:18,padding:24,marginBottom:18}}><h2 style={{marginTop:0}}>{title}</h2>{children}</section>;
+  const panel = (title:string,children:ReactNode)=><section style={{background:"#0c121c",border:"1px solid #1e2b3b",borderRadius:18,padding:24,marginBottom:18}}><h2 style={{marginTop:0}}>{title}</h2>{children}</section>;
   const button=(label:string,onClick:()=>void,primary=false)=><button onClick={onClick} style={{border:0,borderRadius:10,padding:"10px 14px",cursor:"pointer",fontWeight:700,background:primary?"#26d9ff":"#0d1622",color:primary?"#031018":"#aebbc9",marginRight:8,marginBottom:8}}>{label}</button>;
 
   return (
