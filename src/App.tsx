@@ -106,6 +106,10 @@ const ACRE_1_CLUBS = [
   "Independência - AC","Vasco - AC","ADESG","São Francisco - AC",
 ];
 
+const ALAGOAS_1_CLUBS = [
+  "ASA","CSA","CRB","Murici","Cruzeiro - AL","Coruripe","Penedense","CSE",
+];
+
 const D_GROUPS = "ABCDEFGHIJKLMNOP".split("");
 
 const D_STATE_SLOTS = [
@@ -228,6 +232,28 @@ function buildAcreChampionship(championshipId:number, startClubId:number, startM
     "Acre"
   );
   const clubs:Club[] = ACRE_1_CLUBS.map((name,i)=>({
+    id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
+  }));
+  const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
+  return {championship,clubs,matches};
+}
+
+function buildAlagoasChampionship(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Alagoano",
+    "Turno único + semifinais + final",
+    "8 clubes jogam entre si em turno único. Os 4 primeiros se classificam para as semifinais. As semifinais e a final são disputadas em dois jogos.",
+    "O campeão alagoano é o vencedor da final.",
+    "Não há rebaixamento informado nesta 1ª divisão do Campeonato Alagoano.",
+    8,
+    7,
+    1,
+    "Alagoas"
+  );
+  const clubs:Club[] = ALAGOAS_1_CLUBS.map((name,i)=>({
     id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
   }));
   const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
@@ -418,6 +444,16 @@ function App() {
         ms.push(...acre.matches);
       }
 
+      if (!cs.some((c)=>c.name==="Campeonato Alagoano" && c.season==="2026")) {
+        const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
+        const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
+        const newMatchId = Math.max(...ms.map((m)=>m.id),0)+1;
+        const alagoas = buildAlagoasChampionship(newChampId,newClubId,newMatchId);
+        cs.push(alagoas.championship);
+        cl.push(...alagoas.clubs);
+        ms.push(...alagoas.matches);
+      }
+
       setChampionships(cs); setClubs(cl); setMatches(ms); setSelectedId(cs[0].id);
     } catch { seed(); }
   }, []);
@@ -454,11 +490,25 @@ function App() {
 
     if (champ.division === "Estadual") {
       const final=games.filter(m=>m.stage==="final");
-      if(final.length!==1 || !final[0].played) return null;
-      const m=final[0];
-      if((m.homeScore??0)>(m.awayScore??0)) return m.home;
-      if((m.awayScore??0)>(m.homeScore??0)) return m.away;
-      return m.penaltyWinner ?? null;
+      if(final.length===1) {
+        if(!final[0].played) return null;
+        const m=final[0];
+        if((m.homeScore??0)>(m.awayScore??0)) return m.home;
+        if((m.awayScore??0)>(m.homeScore??0)) return m.away;
+        return m.penaltyWinner ?? null;
+      }
+      if(final.length===2 && final.every(m=>m.played)) {
+        const teams=[...new Set(final.flatMap(m=>[m.home,m.away]))];
+        if(teams.length!==2) return null;
+        const totals=teams.map(clubId=>({
+          clubId,
+          goals:final.reduce((sum,m)=>sum+(m.home===clubId?(m.homeScore??0):m.away===clubId?(m.awayScore??0):0),0)
+        })).sort((a,b)=>b.goals-a.goals||a.clubId-b.clubId);
+        if(totals[0].goals>totals[1].goals) return totals[0].clubId;
+        const last=[...final].sort((a,b)=>b.round-a.round)[0];
+        return last.penaltyWinner ?? null;
+      }
+      return null;
     }
 
     if (champ.division === "Série A") {
@@ -498,8 +548,7 @@ function App() {
     let next = [...matches];
     let id = nextId(next);
 
-    if (championship.division === "Estadual" && championship.state==="Acre" &&
-        regularComplete(championship) &&
+    if (championship.division === "Estadual" && regularComplete(championship) &&
         !next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout")) {
       const table=tableFor(championship,myClubs.map(c=>c.id),next);
       const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
@@ -508,27 +557,30 @@ function App() {
         next.push({id:id++,championshipId:championship.id,round:9,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
       });
       setMatches(next);
-      alert("Semifinais do Campeonato Acreano criadas: 1º x 4º e 2º x 3º, em dois jogos.");
+      alert(`Semifinais do ${championship.name} criadas: 1º x 4º e 2º x 3º, em dois jogos.`);
       return;
     }
 
-    if (championship.division === "Estadual" && championship.state==="Acre") {
+    if (championship.division === "Estadual") {
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const finalExists=next.some(m=>m.championshipId===championship.id&&m.stage==="final");
       if (semis.length===4 && semis.every(m=>m.played) && !finalExists) {
         const winners=knockoutWinner(next,4);
-        if(winners.length!==2){alert("Não foi possível identificar os dois finalistas do Campeonato Acreano.");return;}
-        const finalMatch={id:id++,championshipId:championship.id,round:10,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final" as Stage};
-        setMatches([...next,finalMatch]);
-        alert("Final do Campeonato Acreano criada em jogo único.");
+        if(winners.length!==2){alert(`Não foi possível identificar os dois finalistas do ${championship.name}.`);return;}
+        const finalMatches = [
+          {id:id++,championshipId:championship.id,round:10,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final" as Stage},
+          {id:id++,championshipId:championship.id,round:11,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final" as Stage},
+        ];
+        setMatches([...next,...finalMatches]);
+        alert(`Final do ${championship.name} criada em dois jogos.`);
         return;
       }
       if(semis.length===4 && !semis.every(m=>m.played)) {
-        alert("Finalize os 4 jogos das semifinais do Campeonato Acreano.");
+        alert(`Finalize os 4 jogos das semifinais do ${championship.name}.`);
         return;
       }
-      if(finalExists && !next.find(m=>m.championshipId===championship.id&&m.stage==="final")?.played) {
-        alert("Finalize a final do Campeonato Acreano para encerrar a competição.");
+      if(finalExists && !next.filter(m=>m.championshipId===championship.id&&m.stage==="final").every(m=>m.played)) {
+        alert(`Finalize os 2 jogos da final do ${championship.name} para encerrar a competição.`);
         return;
       }
     }
@@ -881,9 +933,9 @@ D → C: ${promotedD.length} promovidos`
           <div style={{fontSize:12,opacity:.6,marginBottom:12}}>PAÍSES</div>
           <button onClick={()=>setSelectedId(championships.find((c)=>c.division==="Série A"&&c.season===String(Math.max(...championships.map((x)=>Number(x.season)))))?.id??1)} style={{width:"100%",textAlign:"left",background:"transparent",border:0,color:"#fff",padding:"10px",cursor:"pointer"}}>🇧🇷 Brasil</button>
           <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>ESTADUAIS</div>
-          {championships.filter(c=>c.division==="Estadual" && c.state==="Acre").sort((a,b)=>Number(b.season)-Number(a.season)).slice(0,1).map(c=>(
+          {championships.filter(c=>c.division==="Estadual").sort((a,b)=>(a.state||"").localeCompare(b.state||"")||Number(b.season)-Number(a.season)).filter((c,i,arr)=>i===arr.findIndex(x=>x.state===c.state)).map(c=>(
             <button key={c.id} onClick={()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}} style={{display:"block",width:"100%",textAlign:"left",border:0,borderRadius:8,padding:"9px 10px",marginBottom:4,background:championship?.id===c.id?"#111c2a":"transparent",color:"#fff",cursor:"pointer",fontWeight:800,fontSize:16}}>
-              🇧🇷 Acre
+              🇧🇷 {c.state}
             </button>
           ))}
           <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>CAMPEONATOS</div>
