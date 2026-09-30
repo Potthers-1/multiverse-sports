@@ -1166,7 +1166,30 @@ function App() {
           return !home || !away || home===away;
         });
         if(regular.length!==36 || hasWrongPairing) {
+          const oldRegular=regular.filter(m=>m.group==="A"||m.group==="B");
           const rebuilt=buildCariocaFirstDivision(carioca2026.id,cariocaClubs[0]?.id??0,Math.max(...ms.map(m=>m.id),0)+1);
+
+          // Ao corrigir a estrutura dos grupos, preserva os resultados já lançados.
+          const oldByPairRound=new Map<string,Match>();
+          oldRegular.forEach(m=>{
+            const key=[Math.min(m.home,m.away),Math.max(m.home,m.away),m.round].join("-");
+            oldByPairRound.set(key,m);
+          });
+          rebuilt.matches=rebuilt.matches.map(m=>{
+            const key=[Math.min(m.home,m.away),Math.max(m.home,m.away),m.round].join("-");
+            const old=oldByPairRound.get(key);
+            return old ? {
+              ...m,
+              homeScore: old.homeScore,
+              awayScore: old.awayScore,
+              played: old.played,
+              penaltyWinner: old.penaltyWinner,
+              penaltyHomeScore: old.penaltyHomeScore,
+              penaltyAwayScore: old.penaltyAwayScore,
+              tieAdvantageClubId: old.tieAdvantageClubId
+            } : m;
+          });
+
           const other=ms.filter(m=>!(m.championshipId===carioca2026.id&&m.stage==="regular"&&(m.group==="A"||m.group==="B")));
           ms.splice(0,ms.length,...other,...rebuilt.matches);
         }
@@ -2566,7 +2589,13 @@ D → C: ${promotedD.length} promovidos`
                   const ids=group==="X"
                     ? [...new Set(myMatches.filter(m=>m.stage==="regular"&&m.group==="X").flatMap(m=>[m.home,m.away]))]
                     : myClubs.filter(c=>c.stateGroup===group).map(c=>c.id);
-                  const rows=tableFor(championship,ids,myMatches,"regular",group==="X"?"X":undefined);
+                  const rows=tableFor(
+                    championship,
+                    ids,
+                    group==="X" ? myMatches : myMatches.filter(m=>m.stage==="regular" && (m.group==="A" || m.group==="B")),
+                    "regular",
+                    group==="X" ? "X" : undefined
+                  );
                   return <div key={group} style={{marginBottom:18,border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
                     <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{group==="X"?"Grupo X":"Grupo "+group}</div>
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(h=><th key={h} style={{padding:8,textAlign:"left",fontSize:11,borderBottom:"2px solid #1e2b3b"}}>{h}</th>)}</tr></thead><tbody>
