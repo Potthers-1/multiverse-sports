@@ -1150,6 +1150,7 @@ function App() {
       // do Grupo X e das fases eliminatórias. Isso evita que uma fase bloqueie a outra.
       if (localStorage.getItem(LS.cariocaV2) !== "1") {
         const carioca2026 = cs.find((c)=>c.name==="Campeonato Carioca" && c.season==="2026");
+        ms.forEach(m=>{\n          if(m.championshipId===carioca2026?.id && m.group==="X" && m.stage==="regular") m.stage="playoff" as Stage;\n        });
         if (carioca2026) {
           const groupA=["Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ"];
           const groupB=["Botafogo","Madureira","Boavista - RJ","Flamengo","Nova Iguaçu","Maricá"];
@@ -1553,7 +1554,7 @@ function App() {
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
       const rioSemis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===40);
       const rioFinal=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===41);
-      const groupX=regular.filter(m=>m.group==="X");
+      const groupX=next.filter(m=>m.championshipId===championship.id&&m.stage==="playoff"&&m.group==="X");
 
       if(tg.length===36 && tg.every(m=>m.played) && quarters.length===0){
         const idsA=myClubs.filter(c=>c.stateGroup==="A").map(c=>c.id);
@@ -1565,7 +1566,7 @@ function App() {
         pairs.forEach(([home,away])=>next.push({id:id++,championshipId:championship.id,round:7,home:home!,away:away!,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8}));
         const relegated=[a[4].clubId,a[5].clubId,b[4].clubId,b[5].clubId];
         const gx=roundRobin(relegated,championship.id,id,2,7,"X");
-        gx.forEach(m=>m.group="X");
+        gx.forEach(m=>{m.group="X";m.stage="playoff" as Stage;});
         next.push(...gx);
         setMatches(next);setSection("Quartas de final");
         alert("Taça Guanabara concluída. Quartas de final e Grupo X criados.");
@@ -1652,9 +1653,9 @@ function App() {
         if(a1 && !matches.some(m=>m.championshipId===a1.id&&m.stage==="playoff")){
           const f=final[0], winner=(f.homeScore??0)>(f.awayScore??0)?f.home:(f.awayScore??0)>(f.homeScore??0)?f.away:f.penaltyWinner;
           const vice=winner===f.home?f.away:f.home;
-          const gx=matches.filter(m=>m.championshipId===a1.id&&m.stage==="regular"&&m.group==="X");
+          const gx=matches.filter(m=>m.championshipId===a1.id&&m.stage==="playoff"&&m.group==="X");
           const gxIds=[...new Set(gx.flatMap(m=>[m.home,m.away]))];
-          const gxTable=tableFor(a1,gxIds,matches,"regular","X");
+          const gxTable=tableFor(a1,gxIds,matches.filter(m=>m.stage==="playoff"&&m.group==="X"),"playoff","X");
           const thirdGroupX=gxTable[2]?.clubId;
           if(vice && thirdGroupX){
             const nm={id:nextId(matches),championshipId:a1.id,round:50,home:thirdGroupX,away:vice,homeScore:null,awayScore:null,played:false,stage:"playoff" as Stage};
@@ -2025,7 +2026,7 @@ function App() {
         const s=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
         const rs=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===40);
         const rf=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===41);
-        const gx=regular.filter(m=>m.group==="X");
+        const gx=matches.filter(m=>m.championshipId===championship.id&&m.stage==="playoff"&&m.group==="X");
         if(main.length===36 && main.every(m=>m.played) && q.length===0) prepareNextPhase();
         else if(q.length===4 && q.every(m=>m.played) && s.length===0) prepareNextPhase();
         else if((s.length===4 && s.every(m=>m.played) && finals.length===0) || (rs.length===4 && rs.every(m=>m.played) && rf.length===0) || (gx.length===12 && gx.every(m=>m.played) && finals.length===1 && finals[0].played && !championships.some(c=>c.name==="Campeonato Carioca - 2ª Divisão"&&c.season==="2026"))) prepareNextPhase();
@@ -2670,17 +2671,17 @@ D → C: ${promotedD.length} promovidos`
               </div>
             ) : championship.name==="Campeonato Carioca" ? (
               <div>
-                <p style={{color:"#8291a5",marginTop:0}}>Taça Guanabara — dois grupos de 6, com confrontos entre grupos. O Grupo X reúne os dois últimos de cada grupo.</p>
+                <p style={{color:"#8291a5",marginTop:0}}>Taça Guanabara — dois grupos de 6, com confrontos entre grupos. O Grupo X é um play-off de rebaixamento disputado somente após o fim da 1ª fase e reúne os dois últimos de cada grupo.</p>
                 {["A","B","X"].map((group) => {
                   const ids=group==="X"
-                    ? [...new Set(myMatches.filter(m=>m.stage==="regular"&&m.group==="X").flatMap(m=>[m.home,m.away]))]
+                    ? [...new Set(myMatches.filter(m=>m.stage==="playoff"&&m.group==="X").flatMap(m=>[m.home,m.away]))]
                     : myClubs.filter(c=>c.stateGroup===group).map(c=>c.id);
                   const phaseMatches=group==="X"
-                    ? myMatches.filter(m=>m.stage==="regular"&&m.group==="X")
+                    ? myMatches.filter(m=>m.stage==="playoff"&&m.group==="X")
                     : myMatches.filter(m=>m.stage==="regular"&&(m.group==="A"||m.group==="B"));
                   const rows=tableFor(championship,ids,phaseMatches,"regular");
                   return <div key={group} style={{marginBottom:18,border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
-                    <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{group==="X"?"Grupo X":"Grupo "+group}</div>
+                    <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{group==="X"?"Grupo X — Play-off de rebaixamento":"Grupo "+group}</div>
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(h=><th key={h} style={{padding:8,textAlign:"left",fontSize:11,borderBottom:"2px solid #1e2b3b"}}>{h}</th>)}</tr></thead><tbody>
                       {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(group==="X"?(i===rows.length-1?"relegation":i===rows.length-2?"playoff":""):(i<4?"qualification":""))}><td style={{padding:8,fontWeight:800}}>{i+1}</td><td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb"}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
                     </tbody></table></div>
