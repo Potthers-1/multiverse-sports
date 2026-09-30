@@ -1904,7 +1904,7 @@ D → C: ${promotedD.length} promovidos`
               <div>
                 <p style={{color:"#8291a5",marginTop:0}}>2ª Divisão do Amazonas — os 4 primeiros da primeira fase avançam às semifinais.</p>
                 <div style={{marginBottom:18}}>
-                  {currentTable.map((r,i)=><div key={r.clubId} style={{display:"flex",justifyContent:"space-between",padding:"10px 12px",borderBottom:"1px solid #1e2b3b",...zoneStyle(tableZone(championship,i+1,championship.state,championship.name))}}><span style={{fontWeight:800}}>{i+1}. {clubName(r.clubId)}</span><strong>{r.points}</strong></div>)}
+                  {currentTable.map((r,i)=><div key={r.clubId} style={{display:"flex",justifyContent:"space-between",padding:"10px 12px",borderBottom:"1px solid #1e2b3b",...zoneStyle(tableZone(i+1,championship.state,championship.name))}}><span style={{fontWeight:800}}>{i+1}. {clubName(r.clubId)}</span><strong>{r.points}</strong></div>)}
                 </div>
               </div>
             ) : championship.name==="Campeonato Amapaense - 2ª Divisão" ? (
