@@ -56,7 +56,7 @@ type TableRow = {
   points: number;
 };
 
-const DATA_VERSION = "clean-rebuild-cd-2026-09-30-carioca-v2";
+const DATA_VERSION = "clean-rebuild-cd-2026-09-29-v1";
 const LS = {
   version: "sports-data-version",
   championships: "sports-championships",
