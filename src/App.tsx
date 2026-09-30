@@ -2064,7 +2064,7 @@ D → C: ${promotedD.length} promovidos`
     ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===Number(section.replace("Série D · ","")))
     : section==="Segunda fase" ? myMatches.filter((m)=>m.stage==="secondPhase")
     : section==="Final" ? myMatches.filter((m)=>m.stage==="final")
-    : section==="Taça Rio" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound>=40)
+    : section==="Taça Rio" ? myMatches.filter((m)=>m.stage==="knockout"&&(m.knockoutRound??0)>=40)
     : section==="Quartas de final" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===8)
     : section==="Semifinais" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===4)
     : section==="Play-offs" ? myMatches.filter((m)=>m.stage==="playoff")
