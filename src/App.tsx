@@ -604,7 +604,7 @@ function buildCariocaFourthDivision(championshipId:number,startClubId:number,sta
     "Taça Maracanã + semifinais + final",
     "As 12 equipes disputam a Taça Maracanã em grupo único, em turno único. As 4 melhores avançam às semifinais. A disputa segue com o mata-mata até a final; os finalistas garantem acesso.",
     "Os dois finalistas garantem acesso à 3ª Divisão.",
-    "Os dois últimos colocados da Taça Maracanã são rebaixados.",
+    "Não há rebaixamento na 4ª Divisão.",
     12,11,1,"Rio de Janeiro"
   );
   const clubs:Club[]=CARIOCA_4_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
