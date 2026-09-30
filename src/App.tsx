@@ -2281,7 +2281,7 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
-              {championship.division==="Estadual"&&championship.name==="Campeonato Carioca"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound>=40)&&button("Taça Rio",()=>setSection("Taça Rio"))}
+              {championship.division==="Estadual"&&championship.name==="Campeonato Carioca"&&myMatches.some((m)=>m.stage==="knockout"&&(m.knockoutRound??0)>=40)&&button("Taça Rio",()=>setSection("Taça Rio"))}
               {championship.division==="Estadual"&&championship.name==="Campeonato Capixaba"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===8)&&button("Quartas de final",()=>setSection("Quartas de final"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===4)&&button("Semifinais",()=>setSection("Semifinais"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
