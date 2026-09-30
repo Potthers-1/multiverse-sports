@@ -770,7 +770,7 @@ function App() {
           // Se a próxima fase já existe, não a recrie.
           if (existing.includes(nextPhase)) continue;
 
-          const winners=knockoutWinner(next,completed);
+          const winners=knockoutWinner(next,completed,championship.id);
           if (winners.length!==nextPhase) {
             alert("Não foi possível identificar todos os vencedores da fase.");
             return;
@@ -1168,10 +1168,10 @@ D → C: ${promotedD.length} promovidos`
             // 4 que conquistaram o acesso nas quartas (fase de 8).
             const dFirstPhase = myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===64);
             const dFirstComplete = dFirstPhase.length===64 && dFirstPhase.every((m)=>m.played);
-            const dSecondPhaseIds = dFirstComplete ? knockoutWinner(myMatches,64) : [];
+            const dSecondPhaseIds = dFirstComplete ? knockoutWinner(myMatches,64,championship.id) : [];
             const dQuarter = myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===8);
             const dAccessComplete = dQuarter.length===8 && dQuarter.every((m)=>m.played);
-            const promotedD = dAccessComplete ? knockoutWinner(myMatches,8) : [];
+            const promotedD = dAccessComplete ? knockoutWinner(myMatches,8,championship.id) : [];
             const dPrior28 = dAccessComplete
               ? dSecondPhaseIds.filter((id)=>!promotedD.includes(id))
               : [];
