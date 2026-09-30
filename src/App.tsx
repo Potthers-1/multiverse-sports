@@ -746,7 +746,7 @@ function App() {
         const existing = cl.filter((c)=>c.championshipId===amazonas2026.id);
         const played = ms.some((m)=>m.championshipId===amazonas2026.id && m.played);
         const names = new Set(existing.map((c)=>c.name));
-        if (!played && (existing.length!==AMAZONAS_1_CLUBS.length || names.size!==expectedAmazonas1.size || [...expectedAmazonas1].some(n=>!names.has(n)))) {
+        if (!played && (amazonas2026.format!=="Turno único + semifinais + final" || existing.length!==AMAZONAS_1_CLUBS.length || names.size!==expectedAmazonas1.size || [...expectedAmazonas1].some(n=>!names.has(n)))) {
           for (let i=cl.length-1;i>=0;i--) if (cl[i].championshipId===amazonas2026.id) cl.splice(i,1);
           for (let i=ms.length-1;i>=0;i--) if (ms[i].championshipId===amazonas2026.id) ms.splice(i,1);
           const rebuilt=buildAmazonasChampionship(amazonas2026.id,Math.max(...cl.map(c=>c.id),0)+1,Math.max(...ms.map(m=>m.id),0)+1);
