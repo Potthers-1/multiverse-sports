@@ -158,6 +158,16 @@ const DISTRITO_FEDERAL_2_CLUBS = [
   "Taguatinga","Planaltina","Canaa EC","Grêmio Valparaíso","Legião","Luziânia","Candango",
 ];
 
+const ESPIRITO_SANTO_1_CLUBS = [
+  "Vitória ES","Serra","Vilavelhense","Rio Branco ES","Porto Vitória",
+  "Desportiva Ferroviaria","Real Noroeste","Forte","Capixaba SC","Rio Branco VN",
+];
+
+const ESPIRITO_SANTO_2_CLUBS = [
+  "Linhares","Audax São Mateus","GEL","Doze","CTE Colatina",
+  "Estrela do Norte","Rive","Tupy","Sport ES","Pinheiros",
+];
+
 const D_GROUPS = "ABCDEFGHIJKLMNOP".split("");
 
 const D_STATE_SLOTS = [
@@ -454,6 +464,57 @@ function buildDistritoFederalChampionship(championshipId:number, startClubId:num
   );
   const clubs:Club[]=DISTRITO_FEDERAL_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
   return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildEspiritoSantoChampionship(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Capixaba",
+    "Turno único + quartas + semifinais + final",
+    "10 equipes disputam a primeira fase em turno único. Os 8 primeiros avançam ao mata-mata. Quartas de final, semifinais e final são disputadas em jogos de ida e volta. Os 2 últimos colocados da primeira fase são rebaixados.",
+    "O campeão capixaba é o vencedor da final.",
+    "Os 2 últimos colocados da primeira fase são rebaixados.",
+    10,
+    9,
+    1,
+    "Espírito Santo"
+  );
+  const clubs:Club[]=ESPIRITO_SANTO_1_CLUBS.map((name,i)=>({
+    id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
+  }));
+  const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
+  return {championship,clubs,matches};
+}
+
+function buildEspiritoSantoSecondDivision(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Capixaba - 2ª Divisão",
+    "2 grupos + semifinais + final",
+    "10 equipes são divididas em 2 grupos de 5 e jogam em turno e returno dentro de seus próprios grupos. Os 2 primeiros de cada grupo avançam às semifinais, disputadas em ida e volta. A final é disputada em jogo único. Os dois finalistas garantem o acesso.",
+    "Os dois finalistas garantem acesso à 1ª Divisão do Campeonato Capixaba.",
+    "Não há rebaixamento informado para a 2ª Divisão.",
+    10,
+    8,
+    2,
+    "Espírito Santo"
+  );
+  const shuffled=shuffle(ESPIRITO_SANTO_2_CLUBS);
+  const groupA=shuffled.slice(0,5);
+  const groupB=shuffled.slice(5,10);
+  const clubs:Club[]=shuffled.map((name,i)=>({
+    id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)
+  }));
+  const result:Match[]=[];
+  const idsFor=(names:string[])=>names.map(name=>clubs.find(c=>c.name===name)!.id);
+  result.push(...roundRobin(idsFor(groupA),championshipId,startMatchId,2,0,"A"));
+  let next=nextId(result);
+  result.push(...roundRobin(idsFor(groupB),championshipId,next,2,0,"B"));
+  return {championship,clubs,matches:result};
 }
 
 function buildDistritoFederalSecondDivision(championshipId:number, startClubId:number, startMatchId:number) {
@@ -847,6 +908,22 @@ function App() {
           const teamIds=cl.filter((x)=>x.championshipId===brasiliense2Existing.id).map((x)=>x.id);
           ms.splice(0,ms.length,...remaining,...roundRobin(teamIds,brasiliense2Existing.id,nextId(remaining),1));
         }
+      }
+
+      if (!cs.some((c)=>c.name==="Campeonato Capixaba" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1;
+        const newClubId=Math.max(...cl.map(c=>c.id),0)+1;
+        const newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const espirito=buildEspiritoSantoChampionship(newChampId,newClubId,newMatchId);
+        cs.push(espirito.championship); cl.push(...espirito.clubs); ms.push(...espirito.matches);
+      }
+
+      if (!cs.some((c)=>c.name==="Campeonato Capixaba - 2ª Divisão" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1;
+        const newClubId=Math.max(...cl.map(c=>c.id),0)+1;
+        const newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const espirito2=buildEspiritoSantoSecondDivision(newChampId,newClubId,newMatchId);
+        cs.push(espirito2.championship); cl.push(...espirito2.clubs); ms.push(...espirito2.matches);
       }
 
       if (!cs.some((c)=>c.name==="Campeonato Amapaense" && c.season==="2026")) {
@@ -1244,6 +1321,67 @@ function App() {
       }
     }
 
+    if (championship.division === "Estadual" && championship.name==="Campeonato Capixaba") {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const quarters=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+
+      if(regular.length===45 && regular.every(m=>m.played) && quarters.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next);
+        const pairs=[[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]];
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:10,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:11,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
+        });
+        setMatches(next);setSection("Quartas de final");alert("Quartas de final do Campeonato Capixaba criadas em ida e volta.");return;
+      }
+
+      if(quarters.length===8 && quarters.every(m=>m.played) && semis.length===0){
+        const winners=knockoutWinner(next,8,championship.id);
+        if(winners.length!==4){alert("Não foi possível identificar os 4 vencedores das quartas de final do Campeonato Capixaba.");return;}
+        [[winners[0],winners[3]],[winners[1],winners[2]]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:12,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:13,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");alert("Semifinais do Campeonato Capixaba criadas em ida e volta.");return;
+      }
+
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){alert("Não foi possível identificar os 2 finalistas do Campeonato Capixaba.");return;}
+        next.push({id:id++,championshipId:championship.id,round:14,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
+        setMatches(next);setSection("Final");alert("Final do Campeonato Capixaba criada em ida e volta.");return;
+      }
+      return;
+    }
+
+    if (championship.division === "Estadual" && championship.name==="Campeonato Capixaba - 2ª Divisão") {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+
+      if(regular.length===20 && regular.every(m=>m.played) && semis.length===0){
+        const tableA=tableFor(championship,myClubs.map(c=>c.id).filter(id=>next.some(m=>m.championshipId===championship.id&&m.group==="A"&&(m.home===id||m.away===id))),next,"regular","A");
+        const tableB=tableFor(championship,myClubs.map(c=>c.id).filter(id=>next.some(m=>m.championshipId===championship.id&&m.group==="B"&&(m.home===id||m.away===id))),next,"regular","B");
+        if(tableA.length<2||tableB.length<2){alert("Não foi possível identificar os 2 classificados de cada grupo do Capixaba.");return;}
+        const pairs=[[tableA[0].clubId,tableB[1].clubId],[tableB[0].clubId,tableA[1].clubId]];
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:9,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:10,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");alert("Semifinais do Campeonato Capixaba - 2ª Divisão criadas em ida e volta.");return;
+      }
+
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){alert("Não foi possível identificar os 2 finalistas do Capixaba.");return;}
+        next.push({id:id++,championshipId:championship.id,round:11,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
+        setMatches(next);setSection("Final");alert("Final do Campeonato Capixaba - 2ª Divisão criada em jogo único.");return;
+      }
+      return;
+    }
+
     if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && championship.name!=="Campeonato Brasiliense - 2ª Divisão" && championship.name!=="Campeonato Amazonense" && championship.name!=="Campeonato Amazonense - 2ª Divisão" && regularComplete(championship) &&
         !next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout")) {
       const table=tableFor(championship,myClubs.map(c=>c.id),next);
@@ -1484,6 +1622,21 @@ function App() {
     if (!championship || championship.division !== "Estadual" || championship.name==="Campeonato Acreano - 2ª Divisão") return;
     if (!regularComplete(championship)) return;
 
+    if (championship.name==="Campeonato Capixaba") {
+      const quarters=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(quarters.length===0 || (quarters.length===8 && quarters.every(m=>m.played) && semis.length===0) || (semis.length===4 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
+      return;
+    }
+
+    if (championship.name==="Campeonato Capixaba - 2ª Divisão") {
+      const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(semis.length===0 || (semis.length===4 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
+      return;
+    }
+
     if (championship.name==="Campeonato Amazonense") {
       const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
@@ -1665,6 +1818,7 @@ D → C: ${promotedD.length} promovidos`
     ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===Number(section.replace("Série D · ","")))
     : section==="Segunda fase" ? myMatches.filter((m)=>m.stage==="secondPhase")
     : section==="Final" ? myMatches.filter((m)=>m.stage==="final")
+    : section==="Quartas de final" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===8)
     : section==="Semifinais" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===4)
     : section==="Play-offs" ? myMatches.filter((m)=>m.stage==="playoff")
     : myMatches.filter((m)=>m.stage==="regular"&&m.round===Math.min(...myMatches.filter((m)=>m.stage==="regular"&&!m.played).map((m)=>m.round).concat([1])));
@@ -1686,6 +1840,12 @@ D → C: ${promotedD.length} promovidos`
       return "";
     }
     if (division==="Série D") return position <= 4 ? "qualification" : "";
+    if (division==="Estadual" && name==="Campeonato Capixaba") {
+      if(position<=8) return "qualification";
+      if(position>=9) return "relegation";
+      return "";
+    }
+    if (division==="Estadual" && name==="Campeonato Capixaba - 2ª Divisão") return position<=2 ? "qualification" : "";
     if (division==="Estadual") {
       if (state==="Acre" && name==="Campeonato Acreano") {
         if (position >= 7) return "relegation";
@@ -1873,6 +2033,7 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
+              {championship.division==="Estadual"&&championship.name==="Campeonato Capixaba"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===8)&&button("Quartas de final",()=>setSection("Quartas de final"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===4)&&button("Semifinais",()=>setSection("Semifinais"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
               {championship.division==="Série D"&&button("Classificados próxima temporada",()=>setSection("Classificados"))}
@@ -1900,15 +2061,17 @@ D → C: ${promotedD.length} promovidos`
             const isAcre2 = championship.name==="Campeonato Acreano - 2ª Divisão";
             const isAlagoas2 = championship.name==="Campeonato Alagoano - 2ª Divisão";
             const isDistritoFederal2 = championship.name==="Campeonato Brasiliense - 2ª Divisão";
-            const isStateSecond = isAcre2 || isAlagoas2 || isDistritoFederal2;
+            const isEspiritoSanto1 = championship.name==="Campeonato Capixaba";
+            const isEspiritoSanto2 = championship.name==="Campeonato Capixaba - 2ª Divisão";
+            const isStateSecond = isAcre2 || isAlagoas2 || isDistritoFederal2 || isEspiritoSanto2;
             return <>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:14}}>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?4:isAlagoas2?6:isDistritoFederal2?7:8}</strong><div style={{fontSize:12,color:"#8291a5"}}>clubes</div></div>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?6:isAlagoas2?5:isDistritoFederal2?6:7}</strong><div style={{fontSize:12,color:"#8291a5"}}>rodadas na 1ª fase</div></div>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isDistritoFederal2?0:isAcre2?2:isAlagoas2?4:4}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isDistritoFederal2?"semifinalistas":"semifinalistas"}</div></div>
-                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isStateSecond?0:2}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isAcre2?"vagas para a Série D":"vagas para a Série D"}</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?4:isAlagoas2?6:isDistritoFederal2?7:isEspiritoSanto1||isEspiritoSanto2?10:8}</strong><div style={{fontSize:12,color:"#8291a5"}}>clubes</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?6:isAlagoas2?5:isDistritoFederal2?6:isEspiritoSanto1?9:isEspiritoSanto2?8:7}</strong><div style={{fontSize:12,color:"#8291a5"}}>rodadas na 1ª fase</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isDistritoFederal2?0:isEspiritoSanto1?8:isEspiritoSanto2?4:isAcre2?2:isAlagoas2?4:4}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isDistritoFederal2||isEspiritoSanto1?"classificados ao mata-mata":"semifinalistas"}</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isEspiritoSanto1?0:isEspiritoSanto2?2:isStateSecond?0:2}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isEspiritoSanto2?"vagas de acesso":"vagas para a Série D"}</div></div>
               </div>
-              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : isAlagoas2 ? "Os 4 primeiros avançam para as semifinais. O campeão garante o acesso à 1ª Divisão de Alagoas." : isDistritoFederal2 ? "Fase única em turno único. Os 2 primeiros colocados garantem acesso à 1ª Divisão do Distrito Federal; o 1º colocado é o campeão." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
+              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : isAlagoas2 ? "Os 4 primeiros avançam para as semifinais. O campeão garante o acesso à 1ª Divisão de Alagoas." : isDistritoFederal2 ? "Fase única em turno único. Os 2 primeiros colocados garantem acesso à 1ª Divisão do Distrito Federal; o 1º colocado é o campeão." : isEspiritoSanto1 ? "10 clubes jogam em turno único. Os 8 primeiros avançam às quartas de final; quartas, semifinais e final são em ida e volta. Os 2 últimos são rebaixados." : isEspiritoSanto2 ? "Dois grupos de 5 em turno e returno. Os 2 primeiros de cada grupo avançam às semifinais em ida e volta; a final é em jogo único. Os dois finalistas sobem." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
             </>;
           })())}
           {section==="Visão geral" && panel("Regulamento",<>
@@ -2074,6 +2237,22 @@ D → C: ${promotedD.length} promovidos`
                           </tbody>
                         </table>
                       </div>
+                    </div>;
+                  })}
+                </div>
+              </div>
+            ) : championship.name==="Campeonato Capixaba - 2ª Divisão" ? (
+              <div>
+                <p style={{color:"#8291a5",marginTop:0}}>2ª Divisão do Espírito Santo — 2 grupos de 5 clubes, com turno e returno. Os 2 primeiros de cada grupo avançam às semifinais.</p>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(360px,1fr))",gap:18}}>
+                  {["A","B"].map((group) => {
+                    const groupClubs=myClubs.filter(c=>myMatches.some(m=>m.stage==="regular"&&m.group===group&&(m.home===c.id||m.away===c.id)));
+                    const rows=tableFor(championship,groupClubs.map(c=>c.id),myMatches,"regular",group);
+                    return <div key={group} style={{border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
+                      <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>Grupo {group}</div>
+                      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(x=><th key={x} style={{textAlign:"left",padding:8,borderBottom:"2px solid #1e2b3b",fontSize:11}}>{x}</th>)}</tr></thead><tbody>
+                        {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(i<2?"qualification":"")}><td style={{padding:8,fontWeight:700}}>{i+1}</td><td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",textAlign:"left"}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                      </tbody></table></div>
                     </div>;
                   })}
                 </div>
