@@ -919,7 +919,14 @@ D → C: ${promotedD.length} promovidos`
     }
     if (division==="Série D") return position <= 4 ? "qualification" : "";
     if (division==="Estadual") {
-      if (state==="Acre" && name==="Campeonato Acreano" && position >= 7) return "relegation";
+      if (state==="Acre" && name==="Campeonato Acreano") {
+        if (position >= 7) return "relegation";
+        if (position <= 4) return "qualification";
+        return "";
+      }
+      if (state==="Acre" && name==="Campeonato Acreano - 2ª Divisão") {
+        return position <= 2 ? "promotion" : "";
+      }
       if (position <= 4) return "qualification";
       return "";
     }
@@ -975,7 +982,7 @@ D → C: ${promotedD.length} promovidos`
           <div style={{fontSize:12,opacity:.6,marginBottom:12}}>PAÍSES</div>
           <button onClick={()=>setSelectedId(championships.find((c)=>c.division==="Série A"&&c.season===String(Math.max(...championships.map((x)=>Number(x.season)))))?.id??1)} style={{width:"100%",textAlign:"left",background:"transparent",border:0,color:"#fff",padding:"10px",cursor:"pointer"}}>🇧🇷 Brasil</button>
           <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>ESTADUAIS</div>
-          {championships.filter(c=>c.division==="Estadual").sort((a,b)=>(a.state||"").localeCompare(b.state||"")||Number(a.name).localeCompare(Number(b.name))||Number(b.season)-Number(a.season)).filter((c,i,arr)=>i===arr.findIndex(x=>x.state===c.state)).map(c=>(
+          {championships.filter(c=>c.division==="Estadual").sort((a,b)=>(a.state||"").localeCompare(b.state||"")||(a.name||"").localeCompare(b.name)||Number(b.season)-Number(a.season)).filter((c,i,arr)=>i===arr.findIndex(x=>x.state===c.state)).map(c=>(
             <button key={c.id} onClick={()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}} style={{display:"block",width:"100%",textAlign:"left",border:0,borderRadius:8,padding:"9px 10px",marginBottom:4,background:championship?.id===c.id?"#111c2a":"transparent",color:"#fff",cursor:"pointer",fontWeight:800,fontSize:16}}>
               🇧🇷 {c.state}
             </button>
@@ -1055,15 +1062,18 @@ D → C: ${promotedD.length} promovidos`
             </>);
           })()}
 
-          {section==="Visão geral" && championship.division==="Estadual" && panel("Estrutura do campeonato",<>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:14}}>
-              <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>8</strong><div style={{fontSize:12,color:"#8291a5"}}>clubes</div></div>
-              <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>7</strong><div style={{fontSize:12,color:"#8291a5"}}>rodadas na 1ª fase</div></div>
-              <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>4</strong><div style={{fontSize:12,color:"#8291a5"}}>semifinalistas</div></div>
-              <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>2</strong><div style={{fontSize:12,color:"#8291a5"}}>vagas para a Série D</div></div>
-            </div>
-            <p style={{color:"#8291a5"}}>As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes.</p>
-          </>)}
+          {section==="Visão geral" && championship.division==="Estadual" && panel("Estrutura do campeonato",(()=>{
+            const isAcre2 = championship.name==="Campeonato Acreano - 2ª Divisão";
+            return <>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:14}}>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?4:8}</strong><div style={{fontSize:12,color:"#8291a5"}}>clubes</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?6:7}</strong><div style={{fontSize:12,color:"#8291a5"}}>rodadas na 1ª fase</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?2:4}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isAcre2?"vagas de acesso":"semifinalistas"}</div></div>
+                <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?0:2}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isAcre2?"vagas para a Série D":"vagas para a Série D"}</div></div>
+              </div>
+              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
+            </>;
+          })())}
           {section==="Visão geral" && panel("Regulamento",<>
             <p>{championship.regulation}</p>
             <p><strong>Acesso:</strong> {championship.promotion}</p>
