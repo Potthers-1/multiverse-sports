@@ -542,8 +542,8 @@ function buildCariocaFirstDivision(championshipId:number, startClubId:number, st
     championshipId,"Estadual","2026","Campeonato Carioca",
     "Taça Guanabara + fase final + Taça Rio + Grupo X",
     "A Taça Guanabara é disputada por 12 clubes em dois grupos de 6, com confrontos entre grupos em seis rodadas. O líder de cada grupo é considerado campeão da Taça Guanabara de acordo com a melhor pontuação. Os 4 primeiros de cada grupo avançam às quartas, em jogo único, no cruzamento A1 x A4, A2 x A3, B1 x B4 e B2 x B3. As semifinais são em ida e volta após sorteio e a final do Campeonato em jogo único. A Taça Rio é disputada pelos derrotados das quartas, com semifinais em ida e volta após sorteio e final em jogo único. O Grupo X reúne os dois últimos de cada grupo em turno e returno: o último é rebaixado diretamente e o penúltimo disputa repescagem contra o vice-campeão da 2ª Divisão.",
-    "O campeão é o vencedor da final do Campeonato Carioca. Os dois finalistas da 2ª Divisão disputam o acesso conforme o regulamento.",
-    "O último do Grupo X é rebaixado diretamente. O penúltimo disputa repescagem pela permanência.",
+    "O campeão é o vencedor da final do Campeonato Carioca. O campeão da 2ª Divisão sobe diretamente. O vice-campeão da 2ª Divisão disputa um play-off de acesso contra o 3º colocado do Grupo X; o vencedor jogará a 1ª Divisão na temporada seguinte e o perdedor jogará a 2ª Divisão.",
+    "O último do Grupo X é rebaixado diretamente. O 3º colocado do Grupo X disputa o play-off de acesso/permanência contra o vice-campeão da 2ª Divisão.",
     12,6,1,"Rio de Janeiro"
   );
   const groupA=[
@@ -587,8 +587,8 @@ function buildCariocaSecondDivision(championshipId:number,startClubId:number,sta
   const championship=makeChampionship(
     championshipId,"Estadual","2026","Campeonato Carioca - 2ª Divisão",
     "Taça Santos Dumont + semifinais + final + repescagem",
-    "A Taça Santos Dumont é disputada por 12 clubes em grupo único, em turno único de 11 rodadas. Os 4 melhores avançam às semifinais. Os vencedores disputam a final. O campeão sobe diretamente e o vice disputa um play-off contra o penúltimo da 1ª Divisão. Os dois últimos da Taça Santos Dumont são rebaixados.",
-    "O campeão é promovido diretamente. O vice disputa a repescagem contra o penúltimo da 1ª Divisão.",
+    "A Taça Santos Dumont é disputada por 12 clubes em grupo único, em turno único de 11 rodadas. Os 4 melhores avançam às semifinais. Os vencedores disputam a final. O campeão sobe diretamente e o vice disputa um play-off de acesso contra o 3º colocado do Grupo X da 1ª Divisão. O vencedor do play-off jogará a 1ª Divisão na temporada seguinte e o perdedor jogará a 2ª Divisão. Os dois últimos da Taça Santos Dumont são rebaixados.",
+    "O campeão é promovido diretamente. O vice-campeão disputa um play-off de acesso contra o 3º colocado do Grupo X da 1ª Divisão; o vencedor disputará a 1ª Divisão na temporada seguinte e o perdedor disputará a 2ª Divisão.",
     "Os dois últimos colocados da Taça Santos Dumont são rebaixados.",
     12,11,1,"Rio de Janeiro"
   );
@@ -695,7 +695,7 @@ function tableFor(
   matches
     .filter((m) =>
       m.championshipId === championship.id &&
-      m.played &&
+      (m.played || (m.homeScore !== null && m.awayScore !== null)) &&
       m.stage === stage &&
       (group === undefined || m.group === group) &&
       (roundFrom === undefined || m.round >= roundFrom) &&
@@ -1607,10 +1607,12 @@ function App() {
           const gx=matches.filter(m=>m.championshipId===a1.id&&m.stage==="regular"&&m.group==="X");
           const gxIds=[...new Set(gx.flatMap(m=>[m.home,m.away]))];
           const gxTable=tableFor(a1,gxIds,matches,"regular","X");
-          const penultimate=gxTable[2]?.clubId;
-          if(vice && penultimate){
-            const nm={id:nextId(matches),championshipId:a1.id,round:50,home:penultimate,away:vice,homeScore:null,awayScore:null,played:false,stage:"playoff" as Stage};
-            setMatches([...matches,nm]);alert("Repescagem criada: penúltimo da 1ª Divisão x vice da 2ª Divisão.");return;
+          const thirdGroupX=gxTable[2]?.clubId;
+          if(vice && thirdGroupX){
+            const nm={id:nextId(matches),championshipId:a1.id,round:50,home:thirdGroupX,away:vice,homeScore:null,awayScore:null,played:false,stage:"playoff" as Stage};
+            setMatches([...matches,nm]);
+            alert("Play-off de acesso criado: 3º colocado do Grupo X x vice-campeão da 2ª Divisão.");
+            return;
           }
         }
       }
@@ -2157,7 +2159,7 @@ D → C: ${promotedD.length} promovidos`
     : section==="Taça Rio" ? myMatches.filter((m)=>m.stage==="knockout"&&(m.knockoutRound??0)>=40)
     : section==="Quartas de final" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===8)
     : section==="Semifinais" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===4)
-    : section==="Play-offs" ? myMatches.filter((m)=>m.stage==="playoff")
+    : section==="Play-offs" || section==="Play-off de acesso" ? myMatches.filter((m)=>m.stage==="playoff")
     : myMatches.filter((m)=>m.stage==="regular"&&m.round===Math.min(...myMatches.filter((m)=>m.stage==="regular"&&!m.played).map((m)=>m.round).concat([1])));
 
   const currentDPhase=section.startsWith("Série D ·")?Number(section.replace("Série D · ","")):null;
@@ -2373,7 +2375,8 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
-              {championship.division==="Estadual"&&championship.name==="Campeonato Carioca"&&myMatches.some((m)=>m.stage==="knockout"&&(m.knockoutRound??0)>=40)&&button("Taça Rio",()=>setSection("Taça Rio"))}
+              {championship.division==="Estadual"&&championship.name==="Campeonato Carioca"&&myMatches.some((m)=>m.stage==="knockout"&&(m.knockoutRound===40||m.knockoutRound===41))&&button("Taça Rio",()=>setSection("Taça Rio"))}
+              {championship.division==="Estadual"&&championship.name==="Campeonato Carioca"&&myMatches.some((m)=>m.stage==="playoff")&&button("Play-off de acesso",()=>setSection("Play-off de acesso"))}
               {championship.division==="Estadual"&&championship.name==="Campeonato Capixaba"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===8)&&button("Quartas de final",()=>setSection("Quartas de final"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===4)&&button("Semifinais",()=>setSection("Semifinais"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
@@ -2589,13 +2592,10 @@ D → C: ${promotedD.length} promovidos`
                   const ids=group==="X"
                     ? [...new Set(myMatches.filter(m=>m.stage==="regular"&&m.group==="X").flatMap(m=>[m.home,m.away]))]
                     : myClubs.filter(c=>c.stateGroup===group).map(c=>c.id);
-                  const rows=tableFor(
-                    championship,
-                    ids,
-                    group==="X" ? myMatches : myMatches.filter(m=>m.stage==="regular" && (m.group==="A" || m.group==="B")),
-                    "regular",
-                    group==="X" ? "X" : undefined
-                  );
+                  const phaseMatches=group==="X"
+                    ? myMatches.filter(m=>m.stage==="regular"&&m.group==="X")
+                    : myMatches.filter(m=>m.stage==="regular"&&(m.group==="A"||m.group==="B")&&(ids.includes(m.home)||ids.includes(m.away)));
+                  const rows=tableFor(championship,ids,phaseMatches,"regular");
                   return <div key={group} style={{marginBottom:18,border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
                     <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{group==="X"?"Grupo X":"Grupo "+group}</div>
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(h=><th key={h} style={{padding:8,textAlign:"left",fontSize:11,borderBottom:"2px solid #1e2b3b"}}>{h}</th>)}</tr></thead><tbody>
@@ -2720,12 +2720,64 @@ D → C: ${promotedD.length} promovidos`
 
           {section==="Clubes" && panel("Clubes",<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>{myClubs.map(c=><button key={c.id} onClick={()=>setSelectedClub(c.name)} style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f",textAlign:"left",cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:10}}><span>{c.name}</span></button>)}</div>)}
 
+          {section==="Play-off de acesso" && championship.name==="Campeonato Carioca" && panel("Play-off de acesso",<>
+            {(() => {
+              const p=myMatches.find(m=>m.stage==="playoff");
+              if(!p) return <p style={{color:"#65758a"}}>O play-off ainda não foi criado.</p>;
+              const winner=p.played ? ((p.homeScore??0)>(p.awayScore??0)?p.home:(p.awayScore??0)>(p.homeScore??0)?p.away:p.penaltyWinner??null) : null;
+              const loser=winner===p.home?p.away:winner===p.away?p.home:null;
+              return <>
+                <p style={{color:"#8291a5",marginTop:0}}>3º colocado do Grupo X da 1ª Divisão × vice-campeão da 2ª Divisão. Jogo único; empate é decidido automaticamente nos pênaltis.</p>
+                <div style={{padding:16,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 55px 20px 55px 1fr",alignItems:"center",gap:10}}>
+                    <strong style={{textAlign:"right"}}>{clubName(p.home)}</strong>
+                    <input value={newResult[p.id]?.[0]??(p.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[p.id]:[e.target.value,x[p.id]?.[1]??(p.awayScore??"").toString()]}))} style={{width:45}}/>
+                    <strong>×</strong>
+                    <input value={newResult[p.id]?.[1]??(p.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[p.id]:[x[p.id]?.[0]??(p.homeScore??"").toString(),e.target.value]}))} style={{width:45}}/>
+                    <strong>{clubName(p.away)}</strong>
+                  </div>
+                  <div style={{marginTop:12,textAlign:"center"}}>{button("Salvar",()=>saveScore(p.id),true)} {button("⚡ Gerar resultado",()=>generateResults("phase"))}</div>
+                  {p.played && p.penaltyWinner && <div style={{marginTop:10,textAlign:"center",color:"#26d9ff"}}>⚽ Pênaltis: {clubName(p.penaltyWinner)} venceu {p.penaltyHomeScore} × {p.penaltyAwayScore}</div>}
+                </div>
+                {winner && <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:14}}>
+                  <div style={{padding:14,borderRadius:12,background:"rgba(34,197,94,.10)",boxShadow:"inset 4px 0 0 #22c55e"}}><strong>1ª Divisão em 2027</strong><div style={{marginTop:5}}>{clubName(winner)}</div></div>
+                  <div style={{padding:14,borderRadius:12,background:"rgba(239,68,68,.10)",boxShadow:"inset 4px 0 0 #ef4444"}}><strong>2ª Divisão em 2027</strong><div style={{marginTop:5}}>{loser ? clubName(loser) : "—"}</div></div>
+                </div>}
+              </>;
+            })()}
+          </>)}
+
           {section==="Jogos" && panel("Jogos",<>
             <div style={{marginBottom:14}}>{button("⚡ Gerar rodada",()=>generateResults("round"),true)} {button("⚡ Gerar restantes",()=>generateResults("remaining"))} {button("⚙ Preparar fase",prepareNextPhase)}</div>
             <div style={{display:"grid",gap:8}}>{displayedMatches.slice(0,100).map(m=><div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 70px 1fr 110px",alignItems:"center",gap:10,padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f"}}><span style={{textAlign:"right",display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8}}><span>{clubName(m.home)}</span></span><input value={newResult[m.id]?.[0]??(m.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[e.target.value,x[m.id]?.[1]??(m.awayScore??"").toString()]}))} style={{width:50}}/><span style={{display:"flex",alignItems:"center",gap:8}}><span>{clubName(m.away)}</span></span><div><input value={newResult[m.id]?.[1]??(m.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[x[m.id]?.[0]??(m.homeScore??"").toString(),e.target.value]}))} style={{width:50}}/> {button(m.played?"Salvar":"Salvar",()=>saveScore(m.id))}</div></div>)}</div>
           </>)}
 
-          {(section==="Play-offs"||section==="Segunda fase"||section==="Quartas de final"||section==="Semifinais"||section==="Final"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
+          {section==="Taça Rio" && championship.name==="Campeonato Carioca" && panel("Taça Rio",<>
+            <p style={{color:"#8291a5",marginTop:0}}>Semifinais em ida e volta e final em jogo único. Em caso de empate no confronto, os pênaltis são definidos automaticamente pelo sistema.</p>
+            {(() => {
+              const rioSemis=myMatches.filter(m=>m.stage==="knockout"&&m.knockoutRound===40);
+              const rioFinal=myMatches.filter(m=>m.stage==="knockout"&&m.knockoutRound===41);
+              const renderRioMatch=(m:Match)=><div key={m.id} style={{padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f",marginBottom:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 55px 20px 55px 1fr 100px",alignItems:"center",gap:10}}>
+                  <span style={{textAlign:"right"}}>{clubName(m.home)}</span>
+                  <input value={newResult[m.id]?.[0]??(m.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[e.target.value,x[m.id]?.[1]??(m.awayScore??"").toString()]}))} style={{width:45}}/>
+                  <strong>×</strong>
+                  <input value={newResult[m.id]?.[1]??(m.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[x[m.id]?.[0]??(m.homeScore??"").toString(),e.target.value]}))} style={{width:45}}/>
+                  <span>{clubName(m.away)}</span>
+                  {button("Salvar",()=>saveScore(m.id))}
+                </div>
+                {m.played && m.penaltyWinner && <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid #1e2b3b",textAlign:"center"}}><strong>⚽ Pênaltis: {clubName(m.penaltyWinner)} venceu {m.penaltyHomeScore} × {m.penaltyAwayScore}</strong></div>}
+              </div>;
+              return <>
+                {rioSemis.length>0 && <><h3>Semifinais</h3>{rioSemis.map(renderRioMatch)}</>}
+                {rioFinal.length>0 && <><h3 style={{marginTop:20}}>Final</h3>{rioFinal.map(renderRioMatch)}</>}
+                {!rioSemis.length && !rioFinal.length && <p style={{color:"#65758a"}}>A Taça Rio ainda não foi criada.</p>}
+                <div style={{marginTop:14}}>{button("⚡ Gerar resultados desta fase",()=>generateResults("phase"),true)} {button("⚙ Preparar fase",prepareNextPhase)}</div>
+              </>;
+            })()}
+          </>)}
+
+          {(section==="Play-offs"||section==="Play-off de acesso"||section==="Segunda fase"||section==="Quartas de final"||section==="Semifinais"||section==="Final"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
             <div style={{marginBottom:14}}>{button("⚡ Gerar resultados desta fase",()=>generateResults("phase"),true)} {button("→ Avançar automaticamente",prepareNextPhase)}</div>
             <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=>{
               const tie=aggregateTieForMatch(m);
