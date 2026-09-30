@@ -684,27 +684,58 @@ D → C: ${promotedD.length} promovidos`
           </>)}
 
           {section==="Classificação" && panel("Classificação",<>
-            <div style={{marginBottom:18}}>
-              <h3 style={{margin:"0 0 10px"}}>{championship.division==="Série C" ? "1ª fase" : "Classificação geral"}</h3>
-              <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
-                {currentTable.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
-              </tbody></table></div>
-            </div>
+            {championship.division==="Série D" ? (
+              <div>
+                <p style={{color:"#8291a5",marginTop:0}}>Série D — 16 grupos de 6 equipes. Os 4 melhores de cada grupo avançam ao mata-mata.</p>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(360px,1fr))",gap:18}}>
+                  {D_GROUPS.map((group) => {
+                    const groupClubs = myClubs.filter((c) =>
+                      myMatches.some((m) => m.stage==="regular" && m.group===group && (m.home===c.id || m.away===c.id))
+                    );
+                    const rows = tableFor(championship, groupClubs.map((c)=>c.id), myMatches, "regular", group);
+                    return <div key={group} style={{border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
+                      <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>Grupo {group}</div>
+                      <div style={{overflowX:"auto"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                          <thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:8,borderBottom:"2px solid #1e2b3b",fontSize:11}}>{x}</th>)}</tr></thead>
+                          <tbody>
+                            {rows.map((r,i)=><tr key={r.clubId}>
+                              <td style={{padding:8}}>{i+1}</td>
+                              <td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700,color:"#d8e0e9",textAlign:"left"}}>{clubName(r.clubId)}</button></td>
+                              <td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td>
+                            </tr>)}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>;
+                  })}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{marginBottom:18}}>
+                  <h3 style={{margin:"0 0 10px"}}>{championship.division==="Série C" ? "1ª fase" : "Classificação geral"}</h3>
+                  <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
+                    {currentTable.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                  </tbody></table></div>
+                </div>
 
-            {championship.division==="Série C" && myMatches.some((m)=>m.stage==="secondPhase") && (() => {
-              const second = myMatches.filter((m)=>m.stage==="secondPhase");
-              const idsA = [...new Set(second.filter((m)=>m.group==="A").flatMap((m)=>[m.home,m.away]))];
-              const idsB = [...new Set(second.filter((m)=>m.group==="B").flatMap((m)=>[m.home,m.away]))];
-              const groupA = tableFor(championship, idsA, myMatches, "secondPhase", "A");
-              const groupB = tableFor(championship, idsB, myMatches, "secondPhase", "B");
-              const groupTable = (title:string, rows:TableRow[]) => <div style={{marginTop:18}}>
-                <h3 style={{margin:"0 0 10px"}}>{title}</h3>
-                <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
-                  {rows.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
-                </tbody></table></div>
-              </div>;
-              return <div><h2 style={{marginTop:22}}>Segunda fase — grupos</h2>{groupTable("Grupo A",groupA)}{groupTable("Grupo B",groupB)}</div>;
-            })()}
+                {championship.division==="Série C" && myMatches.some((m)=>m.stage==="secondPhase") && (() => {
+                  const second = myMatches.filter((m)=>m.stage==="secondPhase");
+                  const idsA = [...new Set(second.filter((m)=>m.group==="A").flatMap((m)=>[m.home,m.away]))];
+                  const idsB = [...new Set(second.filter((m)=>m.group==="B").flatMap((m)=>[m.home,m.away]))];
+                  const groupA = tableFor(championship, idsA, myMatches, "secondPhase", "A");
+                  const groupB = tableFor(championship, idsB, myMatches, "secondPhase", "B");
+                  const groupTable = (title:string, rows:TableRow[]) => <div style={{marginTop:18}}>
+                    <h3 style={{margin:"0 0 10px"}}>{title}</h3>
+                    <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
+                      {rows.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                    </tbody></table></div>
+                  </div>;
+                  return <div><h2 style={{marginTop:22}}>Segunda fase — grupos</h2>{groupTable("Grupo A",groupA)}{groupTable("Grupo B",groupB)}</div>;
+                })()}
+              </>
+            )}
           </>)}
 
           {section==="Clubes" && panel("Clubes",<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>{myClubs.map(c=><button key={c.id} onClick={()=>setSelectedClub(c.name)} style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f",textAlign:"left",cursor:"pointer",fontWeight:700}}>{c.name}</button>)}</div>)}
