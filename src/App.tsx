@@ -219,9 +219,9 @@ function buildAcreChampionship(championshipId:number, startClubId:number, startM
     "2026",
     "Campeonato Acreano",
     "Turno único + semifinais + final",
-    "8 clubes jogam entre si em turno único. Os 4 primeiros se classificam para as semifinais e os 2 últimos são rebaixados para a 2ª divisão. As semifinais são disputadas em dois jogos. A final é disputada em jogo único.",
+    "8 clubes jogam entre si em turno único. Os 4 primeiros se classificam para as semifinais. As semifinais são disputadas em dois jogos. A final é disputada em jogo único.",
     "O campeão acreano é o vencedor da final.",
-    "Os dois últimos da 1ª fase são rebaixados para a 2ª divisão.",
+    "Não há rebaixamento no Campeonato Acreano, pois não existe 2ª divisão estadual.",
     8,
     7,
     1,
@@ -826,7 +826,6 @@ D → C: ${promotedD.length} promovidos`
     if (division==="Série D") return position <= 4 ? "qualification" : "";
     if (division==="Estadual") {
       if (position <= 4) return "qualification";
-      if (position >= 7) return "relegation";
       return "";
     }
 
@@ -851,7 +850,7 @@ D → C: ${promotedD.length} promovidos`
       : division==="Série C"
       ? [["#3b82f6","Classificação para a 2ª fase"],["#ef4444","Rebaixamento"]]
       : division==="Estadual"
-      ? [["#3b82f6","Semifinais"],["#ef4444","Rebaixamento"]]
+      ? [["#3b82f6","Semifinais"]]
       : [["#3b82f6","Classificação para o mata-mata"]];
     return <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:14,fontSize:12,color:"#9eacbc"}}>
       {items.map(([color,label])=><span key={label} style={{display:"inline-flex",alignItems:"center",gap:6}}>
