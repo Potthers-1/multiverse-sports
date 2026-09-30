@@ -667,6 +667,48 @@ D → C: ${promotedD.length} promovidos`
   const currentDPhase=section.startsWith("Série D ·")?Number(section.replace("Série D · ","")):null;
   const phaseLabel=currentDPhase?({64:"1ª fase do mata-mata",32:"2ª fase do mata-mata",16:"Oitavas de final",8:"Quartas de final",4:"Semifinais",2:"Final"} as Record<number,string>)[currentDPhase]:"";
 
+  const tableZone = (division:Division, position:number) => {
+    if (division==="Série A") return position >= 17 ? "relegation" : "";
+    if (division==="Série B") {
+      if (position <= 2) return "promotion";
+      if (position <= 6) return "playoff";
+      if (position >= 17) return "relegation";
+      return "";
+    }
+    if (division==="Série C") {
+      if (position <= 8) return "qualification";
+      if (position >= 17) return "relegation";
+      return "";
+    }
+    if (division==="Série D") return position <= 4 ? "qualification" : "";
+    return "";
+  };
+
+  const zoneStyle = (zone:string) => zone==="promotion"
+    ? {background:"rgba(34,197,94,.10)",boxShadow:"inset 4px 0 0 #22c55e"}
+    : zone==="playoff"
+    ? {background:"rgba(245,158,11,.10)",boxShadow:"inset 4px 0 0 #f59e0b"}
+    : zone==="relegation"
+    ? {background:"rgba(239,68,68,.10)",boxShadow:"inset 4px 0 0 #ef4444"}
+    : zone==="qualification"
+    ? {background:"rgba(59,130,246,.10)",boxShadow:"inset 4px 0 0 #3b82f6"}
+    : {};
+
+  const zoneLegend = (division:Division) => {
+    const items = division==="Série A"
+      ? [["#ef4444","Rebaixamento"]]
+      : division==="Série B"
+      ? [["#22c55e","Acesso direto"],["#f59e0b","Play-offs de acesso"],["#ef4444","Rebaixamento"]]
+      : division==="Série C"
+      ? [["#3b82f6","Classificação para a 2ª fase"],["#ef4444","Rebaixamento"]]
+      : [["#3b82f6","Classificação para o mata-mata"]];
+    return <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:14,fontSize:12,color:"#9eacbc"}}>
+      {items.map(([color,label])=><span key={label} style={{display:"inline-flex",alignItems:"center",gap:6}}>
+        <span style={{width:10,height:10,borderRadius:2,background:color,display:"inline-block"}} />{label}
+      </span>)}
+    </div>;
+  };
+
   const panel = (title:string,children:React.ReactNode)=><section style={{background:"#0c121c",border:"1px solid #1e2b3b",borderRadius:18,padding:24,marginBottom:18}}><h2 style={{marginTop:0}}>{title}</h2>{children}</section>;
   const button=(label:string,onClick:()=>void,primary=false)=><button onClick={onClick} style={{border:0,borderRadius:10,padding:"10px 14px",cursor:"pointer",fontWeight:700,background:primary?"#26d9ff":"#0d1622",color:primary?"#031018":"#aebbc9",marginRight:8,marginBottom:8}}>{label}</button>;
 
@@ -675,9 +717,9 @@ D → C: ${promotedD.length} promovidos`
       <style>{`
       input, select { background:#070b12; color:#dfe7ef; border:1px solid #304155; border-radius:6px; padding:8px 10px; }
       input::placeholder { color:#65758a; }
-      table th { color:#65758a; }
-      table td { border-top:1px solid #172331; color:#8291a5; }
-      table td:nth-child(2) { color:#d8e0e9; }
+      table th { color:#8ea0b5; }
+      table td { border-top:1px solid #172331; color:#b9c5d3; }
+      table td:nth-child(2) { color:#f4f7fb; }
 `}</style>
       <div style={{minHeight:"100vh",background:"#070b12",fontFamily:"Arial, sans-serif",color:"#e8eef7"}}>
       <header style={{background:"#0a1019",color:"#fff",padding:"18px 28px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -748,6 +790,7 @@ D → C: ${promotedD.length} promovidos`
           </>)}
 
           {section==="Classificação" && panel("Classificação",<>
+            {zoneLegend(championship.division)}
             {championship.division==="Série D" ? (
               <div>
                 <p style={{color:"#8291a5",marginTop:0}}>Série D — 16 grupos de 6 equipes. Os 4 melhores de cada grupo avançam ao mata-mata.</p>
@@ -763,9 +806,9 @@ D → C: ${promotedD.length} promovidos`
                         <table style={{width:"100%",borderCollapse:"collapse"}}>
                           <thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:8,borderBottom:"2px solid #1e2b3b",fontSize:11}}>{x}</th>)}</tr></thead>
                           <tbody>
-                            {rows.map((r,i)=><tr key={r.clubId}>
-                              <td style={{padding:8}}>{i+1}</td>
-                              <td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700,color:"#d8e0e9",textAlign:"left"}}>{clubName(r.clubId)}</button></td>
+                            {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1))}>
+                              <td style={{padding:8,fontWeight:700}}>{i+1}</td>
+                              <td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",textAlign:"left"}}>{clubName(r.clubId)}</button></td>
                               <td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td>
                             </tr>)}
                           </tbody>
@@ -780,7 +823,7 @@ D → C: ${promotedD.length} promovidos`
                 <div style={{marginBottom:18}}>
                   <h3 style={{margin:"0 0 10px"}}>{championship.division==="Série C" ? "1ª fase" : "Classificação geral"}</h3>
                   <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
-                    {currentTable.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                    {currentTable.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1))}><td style={{padding:10,fontWeight:700}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb"}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
                   </tbody></table></div>
                 </div>
 
@@ -793,7 +836,7 @@ D → C: ${promotedD.length} promovidos`
                   const groupTable = (title:string, rows:TableRow[]) => <div style={{marginTop:18}}>
                     <h3 style={{margin:"0 0 10px"}}>{title}</h3>
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
-                      {rows.map((r,i)=><tr key={r.clubId}><td style={{padding:10}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:700}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                      {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1))}><td style={{padding:10,fontWeight:700}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb"}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
                     </tbody></table></div>
                   </div>;
                   return <div><h2 style={{marginTop:22}}>Segunda fase — grupos</h2>{groupTable("Grupo A",groupA)}{groupTable("Grupo B",groupB)}</div>;
