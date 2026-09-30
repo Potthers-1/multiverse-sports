@@ -927,6 +927,39 @@ function App() {
     if (!hasSemifinals) prepareNextPhase();
   }, [championship?.id, matches]);
 
+  const getStateDQualifiers = (season:number, excludedKeys:Set<string>) => {
+    const used = new Set<string>();
+    const result: {state:string; slot:number; clubId:number|null; clubName:string|null}[] = [];
+
+    for (const stateRule of D_STATE_SLOTS) {
+      const stateChamp = championships.find((c) =>
+        c.division==="Estadual" &&
+        c.state===stateRule.state &&
+        Number(c.season)===season &&
+        !c.name.includes("2ª Divisão")
+      );
+      const stateClubIds = stateChamp ? clubs.filter((c)=>c.championshipId===stateChamp.id).map((c)=>c.id) : [];
+      const stateComplete = stateChamp ? regularComplete(stateChamp) : false;
+      const table = stateChamp && stateComplete ? tableFor(stateChamp,stateClubIds,matches) : [];
+      let cursor = 0;
+
+      for (let slot=1; slot<=stateRule.slots; slot++) {
+        let chosen: TableRow|undefined;
+        while (cursor<table.length) {
+          const candidate = table[cursor++];
+          const key = makeClubKey(clubName(candidate.clubId));
+          if (excludedKeys.has(key) || used.has(key)) continue;
+          chosen = candidate;
+          break;
+        }
+        const chosenName = chosen ? clubName(chosen.clubId) : null;
+        if (chosenName) used.add(makeClubKey(chosenName));
+        result.push({state:stateRule.state,slot,clubId:chosen?.clubId??null,clubName:chosenName});
+      }
+    }
+    return result;
+  };
+
   const createNextSeason = () => {
     const seasons=championships.filter((c)=>c.country==="Brasil"&&["Série A","Série B","Série C","Série D"].includes(c.division)).map((c)=>Number(c.season));
     const currentSeason=Math.max(...seasons);
@@ -971,6 +1004,26 @@ function App() {
     const promotedD=knockoutWinner(matches,8,D.id);
     if(promotedD.length!==4){alert("Não foi possível identificar os 4 semifinalistas da Série D.");return;}
 
+    const dSecondPhaseMatches=matches.filter((m)=>m.championshipId===D.id&&m.stage==="knockout"&&m.knockoutRound===64);
+    if(dSecondPhaseMatches.length!==64||!dSecondPhaseMatches.every((m)=>m.played)){
+      alert("Finalize os 64 jogos da primeira fase do mata-mata da Série D.");return;
+    }
+    const dSecondPhaseIds=knockoutWinner(matches,64,D.id);
+    const dPrior28Ids=dSecondPhaseIds.filter((id)=>!promotedD.includes(id));
+    if(dPrior28Ids.length!==28){
+      alert("Não foi possível identificar as 28 vagas da Série D anterior.");return;
+    }
+
+    const nationalIds=new Set(
+      [A,B,C].flatMap((champ)=>clubs.filter((c)=>c.championshipId===champ.id).map((c)=>makeClubKey(c.name)))
+    );
+    const prior28Keys=new Set(dPrior28Ids.map((id)=>makeClubKey(clubName(id))));
+    const stateDSlots=getStateDQualifiers(currentSeason,new Set([...nationalIds,...prior28Keys]));
+    const stateDNames=stateDSlots.filter((x)=>x.clubName).map((x)=>x.clubName!);
+    if(stateDNames.length!==64){
+      alert("As vagas estaduais da Série D ainda não estão completas. Faltam "+(64-stateDNames.length)+" vaga(s). Finalize os estaduais necessários.");return;
+    }
+
     const aRelegated=aTable.slice(-4).map((r)=>r.clubId);
     const bRelegated=bTable.slice(-4).map((r)=>r.clubId);
     const cRelegated=cTable.slice(-4).map((r)=>r.clubId);
@@ -981,10 +1034,12 @@ function App() {
     const nextA=aid.filter((x)=>!aRelegated.includes(x)).concat(aPromoted);
     const nextB=bid.filter((x)=>!bRelegated.includes(x)&&!aPromoted.includes(x)).concat(aRelegated,promotedC);
     const nextC=cid.filter((x)=>!promotedC.includes(x)&&!cRelegated.includes(x)).concat(bRelegated,promotedD);
-    const nextD=did.filter((x)=>!promotedD.includes(x)).concat(cRelegated);
+    const cRelegatedNames=cRelegated.map((id)=>clubName(id));
+    const dPrior28Names=dPrior28Ids.map((id)=>clubName(id));
+    const nextDNames=[...new Set([...cRelegatedNames,...stateDNames,...dPrior28Names])];
 
-    if(nextA.length!==20||nextB.length!==20||nextC.length!==20||nextD.length!==96){
-      alert("A movimentação não fechou: A="+nextA.length+" B="+nextB.length+" C="+nextC.length+" D="+nextD.length);return;
+    if(nextA.length!==20||nextB.length!==20||nextC.length!==20||nextDNames.length!==96){
+      alert("A movimentação não fechou: A="+nextA.length+" B="+nextB.length+" C="+nextC.length+" D="+nextDNames.length);return;
     }
 
     const base=nextId(championships);
@@ -995,8 +1050,12 @@ function App() {
     const newCs=[newA,newB,newC,newD];
     let clubNext=nextId(clubs);
     const newClubRows:Club[]=[];
-    const addClubs=(ids:number[],champId:number)=>ids.map((old)=>{const source=clubs.find((c)=>c.id===old)!;return{id:clubNext++,name:source.name,championshipId:champId};});
-    newClubRows.push(...addClubs(nextA,newA.id),...addClubs(nextB,newB.id),...addClubs(nextC,newC.id),...addClubs(nextD,newD.id));
+    const addClubs=(ids:number[],champId:number)=>ids.map((old)=>{const source=clubs.find((c)=>c.id===old)!;return{id:clubNext++,name:source.name,championshipId:champId,clubKey:makeClubKey(source.name)};});
+    const addNamedClubs=(names:string[],champId:number)=>names.map((name)=>{
+      const source=clubs.find((c)=>makeClubKey(c.name)===makeClubKey(name));
+      return {id:clubNext++,name:source?.name??name,championshipId:champId,clubKey:makeClubKey(source?.name??name)};
+    });
+    newClubRows.push(...addClubs(nextA,newA.id),...addClubs(nextB,newB.id),...addClubs(nextC,newC.id),...addNamedClubs(nextDNames,newD.id));
 
     let matchNext=nextId(matches);
     const newMatches:Match[]=[];
@@ -1341,19 +1400,34 @@ D → C: ${promotedD.length} promovidos`
               <p style={{color:"#8291a5",marginTop:0}}>
                 Os estaduais serão preenchidos automaticamente conforme suas classificações forem concluídas. Clubes que já possuem vaga na Série A, B ou C não ocupam estas vagas.
               </p>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:12}}>
-                {D_STATE_SLOTS.map((x)=>(
-                  <div key={x.state} style={{border:"1px solid #1e2b3b",borderRadius:12,overflow:"hidden",background:"#0b131f"}}>
-                    <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{x.state} · {x.slots} vagas</div>
-                    {Array.from({length:x.slots},(_,i)=>(
-                      <div key={i} style={{padding:"10px 14px",borderTop:"1px solid #172331",display:"flex",justifyContent:"space-between",gap:10}}>
-                        <span style={{color:"#65758a"}}>Vaga {i+1}</span>
-                        <strong style={{color:"#65758a"}}>Aguardando estadual</strong>
+              {(() => {
+                const nationalKeys=new Set(
+                  championships
+                    .filter((c)=>["Série A","Série B","Série C"].includes(c.division)&&Number(c.season)===currentSeason)
+                    .flatMap((c)=>clubs.filter((cl)=>cl.championshipId===c.id).map((cl)=>makeClubKey(cl.name)))
+                );
+                const priorKeys=new Set<string>(dPrior28.map((id)=>makeClubKey(clubName(id))));
+                const stateSlots=getStateDQualifiers(currentSeason,new Set([...nationalKeys,...priorKeys]));
+                const defined=stateSlots.filter((x)=>x.clubName).length;
+                return <>
+                  <div style={{padding:"10px 14px",marginBottom:12,borderRadius:10,background:"rgba(34,197,94,.08)",border:"1px solid rgba(34,197,94,.22)",color:"#86efac"}}>
+                    {defined}/{stateSlotCount} vagas estaduais identificadas.
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:12}}>
+                    {D_STATE_SLOTS.map((x)=>(
+                      <div key={x.state} style={{border:"1px solid #1e2b3b",borderRadius:12,overflow:"hidden",background:"#0b131f"}}>
+                        <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{x.state} · {x.slots} vagas</div>
+                        {stateSlots.filter((s)=>s.state===x.state).map((s)=>(
+                          <div key={s.slot} style={{padding:"10px 14px",borderTop:"1px solid #172331",display:"flex",justifyContent:"space-between",gap:10}}>
+                            <span style={{color:"#65758a"}}>Vaga {s.slot}</span>
+                            <strong style={{color:s.clubName?"#f4f7fb":"#65758a"}}>{s.clubName??"Aguardando estadual"}</strong>
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>
-                ))}
-              </div>
+                </>;
+              })()}
 
               <h3 style={{marginTop:24}}>3. Série D anterior · 28 vagas</h3>
               <p style={{color:"#8291a5",marginTop:0}}>
