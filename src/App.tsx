@@ -139,6 +139,16 @@ const AMAZONAS_2_CLUBS = [
   "CDC Manicoré","Clipper","Fast Clube","Operário","Penarol","RB do Norte","Unidos do Alvorada",
 ];
 
+const BAHIA_1_CLUBS = [
+  "Bahia","Vitória","Jacuipense","Juazeirense","Jequié","Porto - BA",
+  "Barcelona de Ilhéus","Galícia","Bahia de Feira","Atlético de Alagoinhas",
+];
+
+const BAHIA_2_CLUBS = [
+  "Fluminense de Feira","SSA","Barreiras FC","Feira","Redenção","Leônico",
+  "Jacobina","Grapiúna","Vitória da Conquista","Camaçari",
+];
+
 const D_GROUPS = "ABCDEFGHIJKLMNOP".split("");
 
 const D_STATE_SLOTS = [
@@ -382,6 +392,46 @@ function buildAmapaSecondDivision(championshipId:number, startClubId:number, sta
   let next=nextId(result);
   result.push(...roundRobin(idsFor(groupB),championshipId,next,1,0,"B"));
   return {championship,clubs,matches:result};
+}
+
+function buildBahiaChampionship(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Baiano",
+    "Turno único + semifinais + final",
+    "As dez equipes disputam a primeira fase em turno único. Os quatro mais bem colocados avançam à semifinal. Os 2 últimos colocados são rebaixados. Semifinal e final são disputadas no sistema mata-mata em jogos apenas de ida. Em caso de empate, o confronto será definido em disputa de pênaltis pelo sistema.",
+    "O campeão baiano é o vencedor da final.",
+    "Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão do Campeonato Baiano.",
+    10,
+    9,
+    1,
+    "Bahia"
+  );
+  const clubs:Club[]=BAHIA_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
+  return {championship,clubs,matches};
+}
+
+function buildBahiaSecondDivision(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Baiano - 2ª Divisão",
+    "Turno único + semifinais + final",
+    "Na primeira fase, os dez participantes se enfrentarão em turno único com pontos corridos. Os quatro primeiros colocados se qualificarão para as semifinais, disputadas em jogos de ida e volta. Os vencedores prosseguirão para a decisão, disputada em duas partidas. O campeão e o vice-campeão garantem o acesso.",
+    "O campeão e o vice-campeão garantem acesso à 1ª Divisão do Campeonato Baiano.",
+    "Não há rebaixamento informado para a 2ª Divisão.",
+    10,
+    9,
+    1,
+    "Bahia"
+  );
+  const clubs:Club[]=BAHIA_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
+  return {championship,clubs,matches};
 }
 
 function buildAmazonasChampionship(championshipId:number, startClubId:number, startMatchId:number) {
@@ -706,6 +756,26 @@ function App() {
         ms.push(...amazonas.matches);
       }
 
+      if (!cs.some((c)=>c.name==="Campeonato Baiano" && c.season==="2026")) {
+        const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
+        const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
+        const newMatchId = Math.max(...ms.map((m)=>m.id),0)+1;
+        const bahia = buildBahiaChampionship(newChampId,newClubId,newMatchId);
+        cs.push(bahia.championship);
+        cl.push(...bahia.clubs);
+        ms.push(...bahia.matches);
+      }
+
+      if (!cs.some((c)=>c.name==="Campeonato Baiano - 2ª Divisão" && c.season==="2026")) {
+        const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
+        const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
+        const newMatchId = Math.max(...ms.map((m)=>m.id),0)+1;
+        const bahia2 = buildBahiaSecondDivision(newChampId,newClubId,newMatchId);
+        cs.push(bahia2.championship);
+        cl.push(...bahia2.clubs);
+        ms.push(...bahia2.matches);
+      }
+
       if (!cs.some((c)=>c.name==="Campeonato Amapaense" && c.season==="2026")) {
         const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
         const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
@@ -923,6 +993,41 @@ function App() {
     if (!championship) return;
     let next = resolveAutomaticPenalties(matches);
     let id = nextId(next);
+
+    if (championship.division === "Estadual" && championship.name==="Campeonato Baiano") {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+
+      if(regular.length===45 && regular.every(m=>m.played) && semis.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next);
+        const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:10,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
+        });
+        setMatches(next);setSection("Semifinais");
+        alert("Semifinais do Campeonato Baiano criadas em jogo único.");
+        return;
+      }
+
+      if(semis.length===2 && semis.every(m=>m.played) && final.length===0){
+        const winner=(m:Match)=>{
+          if((m.homeScore??0)>(m.awayScore??0)) return m.home;
+          if((m.awayScore??0)>(m.homeScore??0)) return m.away;
+          return m.penaltyWinner ?? null;
+        };
+        const winners=semis.map(winner);
+        if(winners.some(w=>w===null)){
+          alert("Não foi possível identificar os vencedores das semifinais do Campeonato Baiano.");
+          return;
+        }
+        next.push({id:id++,championshipId:championship.id,round:11,home:winners[0]!,away:winners[1]!,homeScore:null,awayScore:null,played:false,stage:"final"});
+        setMatches(next);setSection("Final");
+        alert("Final do Campeonato Baiano criada em jogo único.");
+        return;
+      }
+      return;
+    }
 
     if (championship.division === "Estadual" && championship.name==="Campeonato Amazonense") {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
