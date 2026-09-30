@@ -829,7 +829,7 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
-              {championship.division==="Série D"&&button("Classificados 2027",()=>setSection("Classificados"))}
+              {championship.division==="Série D"&&button("Classificados próxima temporada",()=>setSection("Classificados"))}
               {championship.division==="Série D"&&[64,32,16,8,4,2].map((p)=>myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===p)&&button(String(p===2?"Final":p===64?"Série D · 64":"Série D · "+p),()=>setSection("Série D · "+p)))}
               {competitionComplete(championship, matches) && button("🏆 Campeão",()=>setSection("Campeão"),true)}
             </div>
@@ -888,7 +888,7 @@ D → C: ${promotedD.length} promovidos`
 
               <h3>1. Rebaixados da Série C · 4 vagas</h3>
               <div style={{border:"1px solid #1e2b3b",borderRadius:12,overflow:"hidden",background:"#0b131f"}}>
-                {[0,1,2,3].map((_,i)=>slotRow("","",relegatedC[i]??null,"Rebaixado da Série C"))}
+                {[0,1,2,3].map((_,i)=>slotRow("",relegatedC[i]??null,"Rebaixado da Série C"))}
               </div>
 
               <h3 style={{marginTop:24}}>2. Vagas dos estaduais · {stateSlotCount} vagas</h3>
