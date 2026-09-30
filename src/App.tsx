@@ -149,6 +149,15 @@ const BAHIA_2_CLUBS = [
   "Jacobina","Grapiúna","Vitória da Conquista","Camaçari",
 ];
 
+const DISTRITO_FEDERAL_1_CLUBS = [
+  "Gama","Samambaia","Sobradinho","Ceilândia","Capital","Brasiliense",
+  "Real Brasília","Paranoa","Brasília","Aruc",
+];
+
+const DISTRITO_FEDERAL_2_CLUBS = [
+  "Taguatinga","Planaltina","Canaa EC","Grêmio Valparaíso","Legião","Luziânia","Candango",
+];
+
 const D_GROUPS = "ABCDEFGHIJKLMNOP".split("");
 
 const D_STATE_SLOTS = [
@@ -432,6 +441,32 @@ function buildBahiaSecondDivision(championshipId:number, startClubId:number, sta
   const clubs:Club[]=BAHIA_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
   const matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
   return {championship,clubs,matches};
+}
+
+function buildDistritoFederalChampionship(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Brasiliense",
+    "Turno único + semifinais + final",
+    "As dez equipes disputam a primeira fase em turno único. Os quatro mais bem colocados avançam à semifinal. Os 2 últimos colocados são rebaixados. A semifinal será disputada em jogos de ida e volta, enquanto a final será disputada em jogo único. Em caso de empate, o confronto será definido em disputa de pênaltis pelo sistema.",
+    "O campeão brasiliense é o vencedor da final.",
+    "Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão do Campeonato Brasiliense.",
+    10,9,1,"Distrito Federal"
+  );
+  const clubs:Club[]=DISTRITO_FEDERAL_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildDistritoFederalSecondDivision(championshipId:number, startClubId:number, startMatchId:number) {
+  const championship = makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Brasiliense - 2ª Divisão",
+    "Turno único + acesso",
+    "Fase única com 7 clubes em turno único. Os 2 primeiros garantem o acesso à 1ª Divisão do Campeonato Brasiliense.",
+    "Os dois primeiros colocados garantem acesso à 1ª Divisão.",
+    "Não há rebaixamento informado para a 2ª Divisão.",
+    7,6,2,"Distrito Federal"
+  );
+  const clubs:Club[]=DISTRITO_FEDERAL_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
 }
 
 function buildAmazonasChampionship(championshipId:number, startClubId:number, startMatchId:number) {
@@ -776,6 +811,21 @@ function App() {
         ms.push(...bahia2.matches);
       }
 
+      if (!cs.some((c)=>c.name==="Campeonato Brasiliense" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1;
+        const newClubId=Math.max(...cl.map(c=>c.id),0)+1;
+        const newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const brasiliense=buildDistritoFederalChampionship(newChampId,newClubId,newMatchId);
+        cs.push(brasiliense.championship); cl.push(...brasiliense.clubs); ms.push(...brasiliense.matches);
+      }
+      if (!cs.some((c)=>c.name==="Campeonato Brasiliense - 2ª Divisão" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1;
+        const newClubId=Math.max(...cl.map(c=>c.id),0)+1;
+        const newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const brasiliense2=buildDistritoFederalSecondDivision(newChampId,newClubId,newMatchId);
+        cs.push(brasiliense2.championship); cl.push(...brasiliense2.clubs); ms.push(...brasiliense2.matches);
+      }
+
       if (!cs.some((c)=>c.name==="Campeonato Amapaense" && c.season==="2026")) {
         const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
         const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
@@ -993,6 +1043,32 @@ function App() {
     if (!championship) return;
     let next = resolveAutomaticPenalties(matches);
     let id = nextId(next);
+
+    if (championship.division === "Estadual" && championship.name==="Campeonato Brasiliense") {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(regular.length===45 && regular.every(m=>m.played) && semis.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next);
+        [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([a,b])=>{
+          next.push({id:id++,championshipId:championship.id,round:10,home:a,away:b,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:11,home:b,away:a,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");alert("Semifinais do Campeonato Brasiliense criadas em ida e volta.");return;
+      }
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=Array.from(new Set(semis.map(m=>m.group==="ida"?null:null))).filter(Boolean);
+        const pairings=[[semis[0],semis[1]],[semis[2],semis[3]]].map(pair=>{
+          const [a,b]=pair;
+          const aggA=(a.homeScore??0)+(b.awayScore??0), aggB=(a.awayScore??0)+(b.homeScore??0);
+          return aggA>aggB?a.home:aggB>aggA?a.away:(b.penaltyWinner??null);
+        });
+        if(pairings.some(w=>w===null)){alert("Não foi possível identificar os vencedores das semifinais.");return;}
+        next.push({id:id++,championshipId:championship.id,round:12,home:pairings[0]!,away:pairings[1]!,homeScore:null,awayScore:null,played:false,stage:"final"});
+        setMatches(next);setSection("Final");alert("Final do Campeonato Brasiliense criada em jogo único.");return;
+      }
+      return;
+    }
 
     if (championship.division === "Estadual" && championship.name==="Campeonato Baiano") {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
