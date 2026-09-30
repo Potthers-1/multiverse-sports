@@ -546,9 +546,20 @@ function buildCariocaFirstDivision(championshipId:number, startClubId:number, st
     "O último do Grupo X é rebaixado diretamente. O penúltimo disputa repescagem pela permanência.",
     12,6,1,"Rio de Janeiro"
   );
-  const shuffled=shuffle(CARIOCA_1_CLUBS);
-  const groupA=shuffled.slice(0,6), groupB=shuffled.slice(6,12);
-  const clubs:Club[]=shuffled.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name),stateGroup:i<6?"A":"B"}));
+  const groupA=[
+    "Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ"
+  ];
+  const groupB=[
+    "Botafogo","Madureira","Boavista - RJ","Flamengo","Nova Iguaçu","Maricá"
+  ];
+  const groupedNames=[...groupA,...groupB];
+  const clubs:Club[]=groupedNames.map((name,i)=>({
+    id:startClubId+i,
+    name,
+    championshipId,
+    clubKey:makeClubKey(name),
+    stateGroup:i<6?"A":"B"
+  }));
   const result:Match[]=[];
   let id=startMatchId;
   const aIds=groupA.map(name=>clubs.find(c=>c.name===name)!.id);
@@ -1131,6 +1142,34 @@ function App() {
       const alagoas2026 = cs.find((c)=>c.name==="Campeonato Alagoano" && c.season==="2026");
       if (alagoas2026) {
         alagoas2026.relegation = "O último colocado da 1ª fase é rebaixado para a 2ª Divisão do Campeonato Alagoano.";
+      }
+
+      // Correção estrutural do Carioca 2026: os grupos são fixos e exclusivos.
+      const carioca2026 = cs.find((c)=>c.name==="Campeonato Carioca" && c.season==="2026");
+      if (carioca2026) {
+        const groupA=new Set([
+          "Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ"
+        ]);
+        const groupB=new Set([
+          "Botafogo","Madureira","Boavista - RJ","Flamengo","Nova Iguaçu","Maricá"
+        ]);
+        const cariocaClubs=cl.filter(c=>c.championshipId===carioca2026.id);
+        cariocaClubs.forEach(c=>{
+          if(groupA.has(c.name)) c.stateGroup="A";
+          else if(groupB.has(c.name)) c.stateGroup="B";
+        });
+
+        const regular=ms.filter(m=>m.championshipId===carioca2026.id&&m.stage==="regular"&&(m.group==="A"||m.group==="B"));
+        const hasWrongPairing=regular.some(m=>{
+          const home=cl.find(c=>c.id===m.home)?.stateGroup;
+          const away=cl.find(c=>c.id===m.away)?.stateGroup;
+          return !home || !away || home===away;
+        });
+        if(regular.length!==36 || hasWrongPairing) {
+          const rebuilt=buildCariocaFirstDivision(carioca2026.id,cariocaClubs[0]?.id??0,Math.max(...ms.map(m=>m.id),0)+1);
+          const other=ms.filter(m=>!(m.championshipId===carioca2026.id&&m.stage==="regular"&&(m.group==="A"||m.group==="B")));
+          ms.splice(0,ms.length,...other,...rebuilt.matches);
+        }
       }
 
       setChampionships(cs); setClubs(cl); setMatches(ms); setSelectedId(cs[0].id);
@@ -2524,8 +2563,10 @@ D → C: ${promotedD.length} promovidos`
               <div>
                 <p style={{color:"#8291a5",marginTop:0}}>Taça Guanabara — dois grupos de 6, com confrontos entre grupos. O Grupo X reúne os dois últimos de cada grupo.</p>
                 {["A","B","X"].map((group) => {
-                  const ids=myMatches.filter(m=>m.stage==="regular"&&m.group===group).flatMap(m=>[m.home,m.away]).filter((x,i,a)=>a.indexOf(x)===i);
-                  const rows=group==="X" ? tableFor(championship,ids,myMatches,"regular","X") : tableFor(championship,ids,myMatches);
+                  const ids=group==="X"
+                    ? [...new Set(myMatches.filter(m=>m.stage==="regular"&&m.group==="X").flatMap(m=>[m.home,m.away]))]
+                    : myClubs.filter(c=>c.stateGroup===group).map(c=>c.id);
+                  const rows=tableFor(championship,ids,myMatches,"regular",group==="X"?"X":undefined);
                   return <div key={group} style={{marginBottom:18,border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
                     <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{group==="X"?"Grupo X":"Grupo "+group}</div>
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(h=><th key={h} style={{padding:8,textAlign:"left",fontSize:11,borderBottom:"2px solid #1e2b3b"}}>{h}</th>)}</tr></thead><tbody>
