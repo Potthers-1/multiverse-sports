@@ -640,6 +640,7 @@ function App() {
         next.push({id:id++,championshipId:championship.id,round:9,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
       });
       setMatches(next);
+      setSection("Semifinais");
       alert(`Semifinais do ${championship.name} criadas: 1º x 4º e 2º x 3º, em dois jogos.`);
       return;
     }
@@ -655,6 +656,7 @@ function App() {
           {id:id++,championshipId:championship.id,round:11,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final" as Stage},
         ];
         setMatches([...next,...finalMatches]);
+        setSection("Final");
         alert(`Final do ${championship.name} criada em dois jogos.`);
         return;
       }
@@ -837,6 +839,15 @@ function App() {
     setMatches((all)=>all.map((m)=>m.id===id?{...m,homeScore:hs,awayScore:as,played:true}:m));
     setNewResult((x)=>{const copy={...x};delete copy[id];return copy;});
   };
+
+  // Nos estaduais, a semifinal é criada automaticamente assim que a 1ª fase termina.
+  // Isso evita que a competição fique parada apenas porque o usuário não abriu "Preparar próxima fase".
+  useEffect(() => {
+    if (!championship || championship.division !== "Estadual" || championship.name==="Campeonato Acreano - 2ª Divisão") return;
+    if (!regularComplete(championship)) return;
+    const hasSemifinals = matches.some((m)=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+    if (!hasSemifinals) prepareNextPhase();
+  }, [championship?.id, matches]);
 
   const createNextSeason = () => {
     const seasons=championships.filter((c)=>c.country==="Brasil"&&["Série A","Série B","Série C","Série D"].includes(c.division)).map((c)=>Number(c.season));
