@@ -2545,7 +2545,7 @@ D → C: ${promotedD.length} promovidos`
               <div>
                 <p style={{color:"#8291a5",marginTop:0}}>Fase principal — turno único. Os 4 primeiros avançam às semifinais.</p>
                 <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(h=><th key={h} style={{padding:9,textAlign:"left",borderBottom:"2px solid #1e2b3b"}}>{h}</th>)}</tr></thead><tbody>
-                  {currentTable.map((r,i)=><tr key={r.clubId} style={zoneStyle(i<4?"qualification":i>=10?"relegation":"")}><td style={{padding:9}}>{i+1}</td><td style={{padding:9}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",fontWeight:800,color:"#f4f7fb"}}>{clubName(r.clubId))}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                  {currentTable.map((r,i)=><tr key={r.clubId} style={zoneStyle(i<4?"qualification":i>=10?"relegation":"")}><td style={{padding:9}}>{i+1}</td><td style={{padding:9}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",fontWeight:800,color:"#f4f7fb"}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
                 </tbody></table></div>
               </div>
             ) : championship.name==="Campeonato Carioca - 4ª Divisão" ? (
