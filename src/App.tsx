@@ -470,6 +470,7 @@ function App() {
   const [section, setSection] = useState("Visão geral");
   const [selectedClub, setSelectedClub] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [statesOpen, setStatesOpen] = useState(false);
   const [newResult, setNewResult] = useState<Record<number, [string, string]>>({});
   const [newChamp, setNewChamp] = useState({
     name: "", season: "2026", division: "Série A" as Division, teams: 20,
@@ -1122,12 +1123,6 @@ D → C: ${promotedD.length} promovidos`
         <aside style={{background:"#0a1019",color:"#fff",padding:18}}>
           <div style={{fontSize:12,opacity:.6,marginBottom:12}}>PAÍSES</div>
           <button onClick={()=>setSelectedId(championships.find((c)=>c.division==="Série A"&&c.season===String(Math.max(...championships.map((x)=>Number(x.season)))))?.id??1)} style={{width:"100%",textAlign:"left",background:"transparent",border:0,color:"#fff",padding:"10px",cursor:"pointer"}}>🇧🇷 Brasil</button>
-          <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>ESTADUAIS</div>
-          {championships.filter(c=>c.division==="Estadual").sort((a,b)=>(a.state||"").localeCompare(b.state||"")||(a.name||"").localeCompare(b.name)||Number(b.season)-Number(a.season)).filter((c,i,arr)=>i===arr.findIndex(x=>x.state===c.state)).map(c=>(
-            <button key={c.id} onClick={()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}} style={{display:"block",width:"100%",textAlign:"left",border:0,borderRadius:8,padding:"9px 10px",marginBottom:4,background:championship?.id===c.id?"#111c2a":"transparent",color:"#fff",cursor:"pointer",fontWeight:800,fontSize:16}}>
-              🇧🇷 {c.state}
-            </button>
-          ))}
           <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>CAMPEONATOS</div>
           {(["Série A","Série B","Série C","Série D"] as Division[]).map((d)=>(
             <button
@@ -1158,6 +1153,58 @@ D → C: ${promotedD.length} promovidos`
               }}
             >{d}</button>
           ))}
+          <button
+            onClick={()=>setStatesOpen(v=>!v)}
+            style={{
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"space-between",
+              width:"100%",
+              textAlign:"left",
+              border:0,
+              borderRadius:8,
+              padding:"9px 10px",
+              marginTop:4,
+              marginBottom:4,
+              background:championship?.division==="Estadual" ? "#111c2a" : "transparent",
+              color:"#fff",
+              cursor:"pointer",
+              fontWeight:800,
+              fontSize:16,
+            }}
+          >
+            <span>Estaduais</span><span style={{fontSize:13,opacity:.75}}>{statesOpen?"▾":"▸"}</span>
+          </button>
+          {statesOpen && (
+            <div style={{paddingLeft:10,borderLeft:"1px solid #1e2b3b",margin:"2px 0 8px 6px"}}>
+              {championships
+                .filter(c=>c.division==="Estadual")
+                .sort((a,b)=>(a.state||"").localeCompare(b.state||"")||(a.name||"").localeCompare(b.name)||Number(b.season)-Number(a.season))
+                .filter((c,i,arr)=>i===arr.findIndex(x=>x.state===c.state))
+                .map(c=>(
+                  <button
+                    key={c.id}
+                    onClick={()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}}
+                    style={{
+                      display:"block",
+                      width:"100%",
+                      textAlign:"left",
+                      border:0,
+                      borderRadius:7,
+                      padding:"8px 8px",
+                      marginBottom:3,
+                      background:championship?.id===c.id?"#111c2a":"transparent",
+                      color:"#fff",
+                      cursor:"pointer",
+                      fontWeight:800,
+                      fontSize:15,
+                    }}
+                  >
+                    🇧🇷 {c.state}
+                  </button>
+                ))}
+            </div>
+          )}
         </aside>
 
         <main style={{padding:28,maxWidth:1250,width:"100%",boxSizing:"border-box"}}>
