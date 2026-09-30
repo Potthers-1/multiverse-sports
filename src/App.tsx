@@ -865,43 +865,76 @@ D → C: ${promotedD.length} promovidos`
           {section==="Classificados" && championship.division==="Série D" && (() => {
             const currentSeason = Number(championship.season);
             const nextSeason = currentSeason + 1;
+
+            // Rebaixados da Série C: definidos assim que a 1ª fase da C termina.
             const cChamp = championships.find((c)=>c.division==="Série C"&&Number(c.season)===currentSeason);
             const cClubIds = cChamp ? clubs.filter((c)=>c.championshipId===cChamp.id).map((c)=>c.id) : [];
             const cTable = cChamp ? tableFor(cChamp,cClubIds,matches) : [];
             const cComplete = cChamp ? regularComplete(cChamp) : false;
-            const relegatedC = cComplete ? cTable.slice(-4).map((r)=>clubName(r.clubId)) : [];
+            const relegatedC = cComplete ? cTable.slice(-4).map((r)=>r.clubId) : [];
+
+            // As 28 vagas da Série D anterior são os 32 clubes que avançaram
+            // à 2ª fase do mata-mata (vencedores da fase de 64), menos os
+            // 4 que conquistaram o acesso nas quartas (fase de 8).
+            const dFirstPhase = myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===64);
+            const dFirstComplete = dFirstPhase.length===64 && dFirstPhase.every((m)=>m.played);
+            const dSecondPhaseIds = dFirstComplete ? knockoutWinner(myMatches,64) : [];
+            const dQuarter = myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===8);
+            const dAccessComplete = dQuarter.length===8 && dQuarter.every((m)=>m.played);
+            const promotedD = dAccessComplete ? knockoutWinner(myMatches,8) : [];
+            const dPrior28 = dAccessComplete
+              ? dSecondPhaseIds.filter((id)=>!promotedD.includes(id))
+              : [];
+
             const stateSlotCount = D_STATE_SLOTS.reduce((sum,x)=>sum+x.slots,0);
             const totalSlots = 4 + stateSlotCount + 28;
-            const slotRow = (label:string,club:string|null,detail?:string) => (
-              <div style={{display:"grid",gridTemplateColumns:"55px 1fr 190px",gap:12,alignItems:"center",padding:"12px 14px",borderTop:"1px solid #172331"}}>
+            let slotIndex = 1;
+
+            const slotRow = (clubId:number|null,detail:string,accent=false) => (
+              <div style={{display:"grid",gridTemplateColumns:"55px 1fr 240px",gap:12,alignItems:"center",padding:"12px 14px",borderTop:"1px solid #172331"}}>
                 <span style={{color:"#65758a",fontWeight:800}}>#{slotIndex++}</span>
-                <strong style={{color:club?"#f4f7fb":"#65758a"}}>{club??"Aguardando classificação"}</strong>
-                <span style={{fontSize:12,color:"#8291a5",textAlign:"right"}}>{detail??"Vaga ainda não definida"}</span>
+                <strong style={{color:clubId?"#f4f7fb":"#65758a"}}>{clubId ? clubName(clubId) : "Aguardando classificação"}</strong>
+                <span style={{fontSize:12,color:accent?"#26d9ff":"#8291a5",textAlign:"right"}}>{detail}</span>
               </div>
             );
-            let slotIndex = 1;
+
             return panel("Classificados para a Série D · "+nextSeason,<>
               <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:18}}>
-                <div style={{padding:"14px 18px",borderRadius:12,background:"#0b131f",border:"1px solid #1e2b3b"}}><strong style={{fontSize:22}}>{totalSlots}</strong><div style={{fontSize:12,color:"#8291a5"}}>vagas</div></div>
-                <div style={{padding:"14px 18px",borderRadius:12,background:"#0b131f",border:"1px solid #1e2b3b"}}><strong style={{fontSize:22}}>{relegatedC.length}</strong><div style={{fontSize:12,color:"#8291a5"}}>rebaixados da Série C já definidos</div></div>
+                <div style={{padding:"14px 18px",borderRadius:12,background:"#0b131f",border:"1px solid #1e2b3b"}}>
+                  <strong style={{fontSize:22}}>{totalSlots}</strong>
+                  <div style={{fontSize:12,color:"#8291a5"}}>vagas totais</div>
+                </div>
+                <div style={{padding:"14px 18px",borderRadius:12,background:"#0b131f",border:"1px solid #1e2b3b"}}>
+                  <strong style={{fontSize:22}}>{relegatedC.length}/4</strong>
+                  <div style={{fontSize:12,color:"#8291a5"}}>rebaixados da Série C definidos</div>
+                </div>
+                <div style={{padding:"14px 18px",borderRadius:12,background:"#0b131f",border:"1px solid #1e2b3b"}}>
+                  <strong style={{fontSize:22}}>{dPrior28.length}/28</strong>
+                  <div style={{fontSize:12,color:"#8291a5"}}>vagas da Série D anterior definidas</div>
+                </div>
               </div>
 
               <h3>1. Rebaixados da Série C · 4 vagas</h3>
               <div style={{border:"1px solid #1e2b3b",borderRadius:12,overflow:"hidden",background:"#0b131f"}}>
-                {[0,1,2,3].map((_,i)=>slotRow("",relegatedC[i]??null,"Rebaixado da Série C"))}
+                {[0,1,2,3].map((_,i)=>slotRow(
+                  relegatedC[i]??null,
+                  relegatedC[i] ? "Rebaixado da Série C" : "Aguardando término da 1ª fase da Série C",
+                  !!relegatedC[i]
+                ))}
               </div>
 
               <h3 style={{marginTop:24}}>2. Vagas dos estaduais · {stateSlotCount} vagas</h3>
               <p style={{color:"#8291a5",marginTop:0}}>
-                As vagas serão preenchidas pela classificação de cada estadual. O sistema não contabiliza clubes que já tenham vaga na Série A, B ou C.
+                Os estaduais serão preenchidos automaticamente conforme suas classificações forem concluídas. Clubes que já possuem vaga na Série A, B ou C não ocupam estas vagas.
               </p>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:12}}>
                 {D_STATE_SLOTS.map((x)=>(
                   <div key={x.state} style={{border:"1px solid #1e2b3b",borderRadius:12,overflow:"hidden",background:"#0b131f"}}>
                     <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{x.state} · {x.slots} vagas</div>
-                    {Array.from({length:x.slots},()=>null).map((_,i)=>(
+                    {Array.from({length:x.slots},(_,i)=>(
                       <div key={i} style={{padding:"10px 14px",borderTop:"1px solid #172331",display:"flex",justifyContent:"space-between",gap:10}}>
-                        <span style={{color:"#65758a"}}>Vaga {i+1}</span><strong style={{color:"#65758a"}}>Aguardando estadual</strong>
+                        <span style={{color:"#65758a"}}>Vaga {i+1}</span>
+                        <strong style={{color:"#65758a"}}>Aguardando estadual</strong>
                       </div>
                     ))}
                   </div>
@@ -910,10 +943,32 @@ D → C: ${promotedD.length} promovidos`
 
               <h3 style={{marginTop:24}}>3. Série D anterior · 28 vagas</h3>
               <p style={{color:"#8291a5",marginTop:0}}>
-                Reservadas aos clubes que chegaram à segunda fase da Série D anterior e não conquistaram o acesso. A definição dos 28 clubes será vinculada ao desempenho da edição anterior; se um deles também conquistar vaga estadual, a vaga estadual será repassada ao próximo clube elegível.
+                Estas vagas são atualizadas diretamente pela Série D anterior: os 32 clubes que avançaram da primeira fase do mata-mata para a segunda fase, menos os 4 que conquistaram o acesso nas quartas de final.
               </p>
+
+              {!dFirstComplete && (
+                <div style={{padding:"12px 14px",marginBottom:12,borderRadius:10,background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.25)",color:"#f59e0b"}}>
+                  Aguardando a conclusão dos 64 jogos da primeira fase do mata-mata da Série D para identificar os 32 clubes da segunda fase.
+                </div>
+              )}
+
+              {dFirstComplete && !dAccessComplete && (
+                <div style={{padding:"12px 14px",marginBottom:12,borderRadius:10,background:"rgba(59,130,246,.08)",border:"1px solid rgba(59,130,246,.25)",color:"#60a5fa"}}>
+                  {dSecondPhaseIds.length} clubes já chegaram à segunda fase. As 28 vagas definitivas serão confirmadas após as quartas de final, quando os 4 acessos à Série C forem conhecidos.
+                </div>
+              )}
+
               <div style={{border:"1px solid #1e2b3b",borderRadius:12,overflow:"hidden",background:"#0b131f"}}>
-                {Array.from({length:28},(_,i)=>slotRow("",null,"Série D anterior"))}
+                {dAccessComplete
+                  ? dPrior28.map((clubId)=>slotRow(clubId,"Classificado pela Série D anterior",true))
+                  : Array.from({length:28},(_,i)=>(
+                      <div key={i} style={{display:"grid",gridTemplateColumns:"55px 1fr 240px",gap:12,alignItems:"center",padding:"12px 14px",borderTop:"1px solid #172331"}}>
+                        <span style={{color:"#65758a",fontWeight:800}}>#{slotIndex++}</span>
+                        <strong style={{color:"#65758a"}}>Aguardando classificação</strong>
+                        <span style={{fontSize:12,color:"#8291a5",textAlign:"right"}}>Série D anterior</span>
+                      </div>
+                    ))
+                }
               </div>
             </>);
           })()}
