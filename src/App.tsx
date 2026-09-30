@@ -408,7 +408,8 @@ function knockoutWinner(matches: Match[], phase: number, championshipId?: number
     if (totals[0].goals > totals[1].goals) winners.push(totals[0].clubId);
     else {
       const second = [...legs].sort((a, b) => b.round - a.round)[0];
-      winners.push(second.penaltyWinner ?? second.home);
+      if (!second.penaltyWinner) return [];
+      winners.push(second.penaltyWinner);
     }
   }
   return winners;
@@ -844,6 +845,25 @@ function App() {
     setNewResult((x)=>{const copy={...x};delete copy[id];return copy;});
   };
 
+  const setPenaltyWinner = (matchId:number, clubId:number) => {
+    setMatches((all)=>all.map((m)=>m.id===matchId ? {...m, penaltyWinner:clubId} : m));
+  };
+
+  const aggregateTieForMatch = (m:Match) => {
+    if (!m.played || m.stage!=="knockout" && m.stage!=="playoff" && m.stage!=="final") return false;
+    const related = matches.filter((x)=>
+      x.championshipId===m.championshipId &&
+      x.stage===m.stage &&
+      (x.knockoutRound===m.knockoutRound || x.stage==="playoff" || x.stage==="final") &&
+      x.played &&
+      [x.home,x.away].some(id=>id===m.home || id===m.away)
+    );
+    const teams=[...new Set(related.flatMap(x=>[x.home,x.away]))];
+    if(teams.length!==2) return false;
+    const totals=teams.map(id=>related.reduce((sum,x)=>sum+(x.home===id?(x.homeScore??0):x.away===id?(x.awayScore??0):0),0));
+    return totals.length===2 && totals[0]===totals[1];
+  };
+
   // Nos estaduais, a semifinal é criada automaticamente assim que a 1ª fase termina.
   // Isso evita que a competição fique parada apenas porque o usuário não abriu "Preparar próxima fase".
   useEffect(() => {
@@ -878,7 +898,11 @@ function App() {
     for(const legs of bGroups.values()){
       const teams=[...new Set(legs.flatMap((m)=>[m.home,m.away]))];
       const goals=teams.map((t)=>({t,g:legs.reduce((s,m)=>s+(m.home===t?(m.homeScore??0):(m.away===t?(m.awayScore??0):0)),0)})).sort((x,y)=>y.g-x.g);
-      bWinners.push(goals[0].g===goals[1].g?(legs.find((m)=>m.penaltyWinner)?.penaltyWinner??goals[0].t):goals[0].t);
+      if(goals[0].g===goals[1].g){
+        const last=[...legs].sort((a,b)=>b.round-a.round)[0];
+        if(!last.penaltyWinner){alert("Defina o vencedor nos pênaltis de cada play-off empatado da Série B.");return;}
+        bWinners.push(last.penaltyWinner);
+      } else bWinners.push(goals[0].t);
     }
 
     const cSecond=matches.filter((m)=>m.championshipId===C.id&&m.stage==="secondPhase");
@@ -1330,7 +1354,26 @@ D → C: ${promotedD.length} promovidos`
 
           {(section==="Play-offs"||section==="Segunda fase"||section==="Semifinais"||section==="Final"||currentDPhase!==null) && panel(currentDPhase?phaseLabel:section,<>
             <div style={{marginBottom:14}}>{button("⚡ Gerar resultados desta fase",()=>generateResults("phase"),true)} {button("→ Avançar automaticamente",prepareNextPhase)}</div>
-            <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=><div key={m.id} style={{padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f",display:"flex",justifyContent:"space-between",gap:10}}><span style={{display:"flex",alignItems:"center",gap:8}}><span>{clubName(m.home)}</span></span><strong>{m.played?m.homeScore+" × "+m.awayScore:"— × —"}</strong><span style={{display:"flex",alignItems:"center",gap:8}}><span>{clubName(m.away)}</span></span></div>)}</div>
+            <div style={{display:"grid",gap:8}}>{displayedMatches.map(m=>{
+              const tie=aggregateTieForMatch(m);
+              const phaseLegs=displayedMatches.filter(x=>x.stage===m.stage && x.knockoutRound===m.knockoutRound && x.championshipId===m.championshipId);
+              const isLastLeg=phaseLegs.length<=1 || m.round===Math.max(...phaseLegs.map(x=>x.round));
+              return <div key={m.id} style={{padding:12,border:"1px solid #1e2b3b",borderRadius:10,background:"#0b131f"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 55px 20px 55px 1fr 100px",alignItems:"center",gap:10}}>
+                  <span style={{textAlign:"right"}}>{clubName(m.home)}</span>
+                  <input value={newResult[m.id]?.[0]??(m.homeScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[e.target.value,x[m.id]?.[1]??(m.awayScore??"").toString()]}))} style={{width:45}}/>
+                  <strong>×</strong>
+                  <input value={newResult[m.id]?.[1]??(m.awayScore??"")} onChange={e=>setNewResult(x=>({...x,[m.id]:[x[m.id]?.[0]??(m.homeScore??"").toString(),e.target.value]}))} style={{width:45}}/>
+                  <span>{clubName(m.away)}</span>
+                  {button("Salvar",()=>saveScore(m.id))}
+                </div>
+                {tie && isLastLeg && <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #1e2b3b",display:"flex",gap:8,alignItems:"center",justifyContent:"center",flexWrap:"wrap"}}>
+                  <strong style={{fontSize:13}}>⚽ Empate no agregado — pênaltis:</strong>
+                  {button(clubName(m.home)+(m.penaltyWinner===m.home?" ✓":""),()=>setPenaltyWinner(m.id,m.home))}
+                  {button(clubName(m.away)+(m.penaltyWinner===m.away?" ✓":""),()=>setPenaltyWinner(m.id,m.away))}
+                </div>}
+              </div>
+            })}</div>
           </>)}
 
           {selectedClub && panel("Histórico do clube",<>
