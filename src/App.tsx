@@ -690,12 +690,33 @@ D → C: ${promotedD.length} promovidos`
           <button onClick={()=>setSelectedId(championships.find((c)=>c.division==="Série A"&&c.season===String(Math.max(...championships.map((x)=>Number(x.season)))))?.id??1)} style={{width:"100%",textAlign:"left",background:"transparent",border:0,color:"#fff",padding:"10px",cursor:"pointer"}}>🇧🇷 Brasil</button>
           <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>CAMPEONATOS</div>
           {(["Série A","Série B","Série C","Série D"] as Division[]).map((d)=>(
-            <div key={d} style={{marginBottom:8}}>
-              <div style={{fontWeight:800,padding:"7px 10px"}}>{d}</div>
-              {championships.filter((c)=>c.division===d).sort((a,b)=>Number(b.season)-Number(a.season)).map((c)=>(
-                <button key={c.id} onClick={()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}} style={{display:"block",width:"100%",textAlign:"left",border:0,borderRadius:8,padding:"7px 14px",background:selectedId===c.id?"#111c2a":"transparent",color:"#fff",cursor:"pointer"}}>{c.season}</button>
-              ))}
-            </div>
+            <button
+              key={d}
+              onClick={()=>{
+                const latest = championships
+                  .filter((c)=>c.division===d)
+                  .sort((a,b)=>Number(b.season)-Number(a.season))[0];
+                if (latest) {
+                  setSelectedId(latest.id);
+                  setSection("Visão geral");
+                  setSelectedClub(null);
+                }
+              }}
+              style={{
+                display:"block",
+                width:"100%",
+                textAlign:"left",
+                border:0,
+                borderRadius:8,
+                padding:"9px 10px",
+                marginBottom:4,
+                background:championship?.division===d ? "#111c2a" : "transparent",
+                color:"#fff",
+                cursor:"pointer",
+                fontWeight:800,
+                fontSize:16,
+              }}
+            >{d}</button>
           ))}
         </aside>
 
