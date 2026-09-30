@@ -1361,7 +1361,7 @@ function App() {
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
 
-      if(regular.length===20 && regular.every(m=>m.played) && semis.length===0){
+      if(regular.length===40 && regular.every(m=>m.played) && semis.length===0){
         const tableA=tableFor(championship,myClubs.map(c=>c.id).filter(id=>next.some(m=>m.championshipId===championship.id&&m.group==="A"&&(m.home===id||m.away===id))),next,"regular","A");
         const tableB=tableFor(championship,myClubs.map(c=>c.id).filter(id=>next.some(m=>m.championshipId===championship.id&&m.group==="B"&&(m.home===id||m.away===id))),next,"regular","B");
         if(tableA.length<2||tableB.length<2){alert("Não foi possível identificar os 2 classificados de cada grupo do Capixaba.");return;}
