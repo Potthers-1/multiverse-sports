@@ -391,7 +391,7 @@ function buildAmazonasChampionship(championshipId:number, startClubId:number, st
     "2026",
     "Campeonato Amazonense",
     "Dois turnos + playoffs de cada turno + final",
-    "Primeiro turno: Grupo A enfrenta Grupo B. Segundo turno: os confrontos acontecem dentro de cada grupo. Em cada turno, os 4 melhores de cada grupo avançam aos playoffs em cruzamento 1º x 4º e 2º x 3º. Semifinais e finais dos turnos são em jogo único; nas semifinais, empate vai aos pênaltis. Na final de cada turno, o time de melhor campanha tem vantagem do empate. A grande final reúne os campeões dos dois turnos; se o mesmo clube vencer os dois turnos, é campeão direto.",
+    "Primeiro turno: Os clubes do Grupo A enfrentam os do Grupo B. Segundo turno: os confrontos acontecem dentro de cada grupo. Em cada turno, os quatro melhores de cada grupo avançam aos playoffs, que serão disputadas em sistema de cruzamento olímpico (1º x 4º e 2º x 3º). Nas playoffs de final, o time de melhor campanha terá a vantagem do empate. Já em semifinais e finais, a vantagem será apenas de mando de campo. Em caso de igualdade, a classificação será definida nos pênaltis. A grande final será disputada entre os campeões dos dois turnos. Caso um mesmo clube conquiste os dois, será declarado campeão amazonense direto, sem necessidade de decisão. O pior time da classificação geral será rebaixado",
     "O campeão é o vencedor da grande final entre os campeões dos turnos, salvo se o mesmo clube conquistar os dois turnos, quando será campeão direto.",
     "O pior time da classificação geral é rebaixado para a 2ª Divisão do Campeonato Amazonense.",
     8,
@@ -448,7 +448,7 @@ function buildAmazonasSecondDivision(championshipId:number, startClubId:number, 
     "2026",
     "Campeonato Amazonense - 2ª Divisão",
     "Turno único + semifinais + final",
-    "As 7 equipes jogam entre si em turno único. As 4 melhores avançam diretamente às semifinais. As semifinais e a final são disputadas em jogo único. Em caso de empate nas semifinais, a decisão ocorre nos pênaltis.",
+    "Na primeira fase, as equipes participantes jogarão apenas um turno entre si. As (4) quatro equipes melhores colocadas avançarão direto para a segunda fase. Na fase seguinte, as disputas dos dois jogos serão realizadas em confrontos de jogo único. As semifinais serão da seguinte maneira: 1º lugar x 4ª lugar e 2º lugar x 3º lugar. Ao final do tempo regulamentar dos jogos das semifinais, o placar estando empatado, a decisão ocorrerá em cobranças de penalidades. Na final, os clubes vencedores dos confrontos das semifinais se enfrentarão em jogo único. O campeão garante o acesso.",
     "Somente o campeão garante acesso à 1ª Divisão do Campeonato Amazonense.",
     "Não há rebaixamento informado para a 2ª Divisão.",
     7,
@@ -769,6 +769,50 @@ function App() {
         cs.push(amazonas2.championship);
         cl.push(...amazonas2.clubs);
         ms.push(...amazonas2.matches);
+      }
+
+      // Corrige instalações anteriores do Amazonas 2026 sem apagar os demais campeonatos.
+      const amazonas2026 = cs.find((c)=>c.name==="Campeonato Amazonense" && c.season==="2026");
+      const amazonas2_2026 = cs.find((c)=>c.name==="Campeonato Amazonense - 2ª Divisão" && c.season==="2026");
+      const expectedAmazonas1 = new Set(AMAZONAS_1_CLUBS);
+      const expectedAmazonas2 = new Set(AMAZONAS_2_CLUBS);
+
+      if (amazonas2026) {
+        const existing = cl.filter((c)=>c.championshipId===amazonas2026.id);
+        const played = ms.some((m)=>m.championshipId===amazonas2026.id && m.played);
+        const names = new Set(existing.map((c)=>c.name));
+        if (!played && (existing.length!==AMAZONAS_1_CLUBS.length || names.size!==expectedAmazonas1.size || [...expectedAmazonas1].some(n=>!names.has(n)))) {
+          for (let i=cl.length-1;i>=0;i--) if (cl[i].championshipId===amazonas2026.id) cl.splice(i,1);
+          for (let i=ms.length-1;i>=0;i--) if (ms[i].championshipId===amazonas2026.id) ms.splice(i,1);
+          const rebuilt=buildAmazonasChampionship(amazonas2026.id,Math.max(...cl.map(c=>c.id),0)+1,Math.max(...ms.map(m=>m.id),0)+1);
+          const idx=cs.findIndex((c)=>c.id===amazonas2026.id);
+          if(idx>=0) cs[idx]=rebuilt.championship;
+          cl.push(...rebuilt.clubs);
+          ms.push(...rebuilt.matches);
+        } else {
+          amazonas2026.regulation = "Primeiro turno: Os clubes do Grupo A enfrentam os do Grupo B. Segundo turno: os confrontos acontecem dentro de cada grupo. Em cada turno, os quatro melhores de cada grupo avançam aos playoffs, que serão disputadas em sistema de cruzamento olímpico (1º x 4º e 2º x 3º). Nas playoffs de final, o time de melhor campanha terá a vantagem do empate. Já em semifinais e finais, a vantagem será apenas de mando de campo. Em caso de igualdade, a classificação será definida nos pênaltis. A grande final será disputada entre os campeões dos dois turnos. Caso um mesmo clube conquiste os dois, será declarado campeão amazonense direto, sem necessidade de decisão. O pior time da classificação geral será rebaixado";
+          amazonas2026.promotion = "O campeão é o vencedor da grande final entre os campeões dos turnos, salvo se o mesmo clube conquistar os dois turnos, quando será campeão direto.";
+          amazonas2026.relegation = "O pior time da classificação geral será rebaixado para a 2ª Divisão do Campeonato Amazonense.";
+        }
+      }
+
+      if (amazonas2_2026) {
+        const existing = cl.filter((c)=>c.championshipId===amazonas2_2026.id);
+        const played = ms.some((m)=>m.championshipId===amazonas2_2026.id && m.played);
+        const names = new Set(existing.map((c)=>c.name));
+        if (!played && (existing.length!==AMAZONAS_2_CLUBS.length || names.size!==expectedAmazonas2.size || [...expectedAmazonas2].some(n=>!names.has(n)))) {
+          for (let i=cl.length-1;i>=0;i--) if (cl[i].championshipId===amazonas2_2026.id) cl.splice(i,1);
+          for (let i=ms.length-1;i>=0;i--) if (ms[i].championshipId===amazonas2_2026.id) ms.splice(i,1);
+          const rebuilt=buildAmazonasSecondDivision(amazonas2_2026.id,Math.max(...cl.map(c=>c.id),0)+1,Math.max(...ms.map(m=>m.id),0)+1);
+          const idx=cs.findIndex((c)=>c.id===amazonas2_2026.id);
+          if(idx>=0) cs[idx]=rebuilt.championship;
+          cl.push(...rebuilt.clubs);
+          ms.push(...rebuilt.matches);
+        } else {
+          amazonas2_2026.regulation = "Na primeira fase, as equipes participantes jogarão apenas um turno entre si. As (4) quatro equipes melhores colocadas avançarão direto para a segunda fase. Na fase seguinte, as disputas dos dois jogos serão realizadas em confrontos de jogo único. As semifinais serão da seguinte maneira: 1º lugar x 4ª lugar e 2º lugar x 3º lugar. Ao final do tempo regulamentar dos jogos das semifinais, o placar estando empatado, a decisão ocorrerá em cobranças de penalidades. Na final, os clubes vencedores dos confrontos das semifinais se enfrentarão em jogo único. O campeão garante o acesso.";
+          amazonas2_2026.promotion = "O campeão garante o acesso para a 1ª Divisão do Campeonato Amazonense.";
+          amazonas2_2026.relegation = "Não há rebaixamento informado para a 2ª Divisão.";
+        }
       }
 
       const alagoas2026 = cs.find((c)=>c.name==="Campeonato Alagoano" && c.season==="2026");
