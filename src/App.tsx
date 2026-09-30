@@ -680,7 +680,7 @@ function App() {
 
   const prepareNextPhase = () => {
     if (!championship) return;
-    let next = [...matches];
+    let next = resolveAutomaticPenalties(matches);
     let id = nextId(next);
 
     if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && regularComplete(championship) &&
