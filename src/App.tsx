@@ -229,7 +229,7 @@ function buildAcreChampionship(championshipId:number, startClubId:number, startM
     "Turno único + semifinais + final",
     "8 clubes jogam entre si em turno único. Os 4 primeiros se classificam para as semifinais. As semifinais são disputadas em dois jogos. A final é disputada em jogo único.",
     "O campeão acreano é o vencedor da final.",
-    "Não há rebaixamento no Campeonato Acreano, pois não existe 2ª divisão estadual.",
+    "Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão do Campeonato Acreano.",
     8,
     7,
     1,
@@ -904,7 +904,7 @@ D → C: ${promotedD.length} promovidos`
   const currentDPhase=section.startsWith("Série D ·")?Number(section.replace("Série D · ","")):null;
   const phaseLabel=currentDPhase?({64:"1ª fase do mata-mata",32:"2ª fase do mata-mata",16:"Oitavas de final",8:"Quartas de final",4:"Semifinais",2:"Final"} as Record<number,string>)[currentDPhase]:"";
 
-  const tableZone = (division:Division, position:number) => {
+  const tableZone = (division:Division, position:number, state?:string, name?:string) => {
     if (division==="Série A") return position >= 17 ? "relegation" : "";
     if (division==="Série B") {
       if (position <= 2) return "promotion";
@@ -919,10 +919,10 @@ D → C: ${promotedD.length} promovidos`
     }
     if (division==="Série D") return position <= 4 ? "qualification" : "";
     if (division==="Estadual") {
+      if (state==="Acre" && name==="Campeonato Acreano" && position >= 7) return "relegation";
       if (position <= 4) return "qualification";
       return "";
     }
-
     return "";
   };
 
@@ -1204,7 +1204,7 @@ D → C: ${promotedD.length} promovidos`
                         <table style={{width:"100%",borderCollapse:"collapse"}}>
                           <thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:8,borderBottom:"2px solid #1e2b3b",fontSize:11}}>{x}</th>)}</tr></thead>
                           <tbody>
-                            {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1))}>
+                            {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1,championship.state,championship.name))}>
                               <td style={{padding:8,fontWeight:700}}>{i+1}</td>
                               <td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",textAlign:"left",display:"flex",alignItems:"center",gap:9}}><span>{clubName(r.clubId)}</span></button></td>
                               <td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td>
@@ -1221,7 +1221,7 @@ D → C: ${promotedD.length} promovidos`
                 <div style={{marginBottom:18}}>
                   <h3 style={{margin:"0 0 10px"}}>{championship.division==="Série C" ? "1ª fase" : "Classificação geral"}</h3>
                   <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:10,borderBottom:"2px solid #1e2b3b"}}>{x}</th>)}</tr></thead><tbody>
-                    {currentTable.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1))}><td style={{padding:10,fontWeight:700}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",display:"flex",alignItems:"center",gap:9}}><span>{clubName(r.clubId)}</span></button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
+                    {currentTable.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1,championship.state,championship.name))}><td style={{padding:10,fontWeight:700}}>{i+1}</td><td style={{padding:10}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",display:"flex",alignItems:"center",gap:9}}><span>{clubName(r.clubId)}</span></button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
                   </tbody></table></div>
                 </div>
 
