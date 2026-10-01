@@ -63,6 +63,7 @@ const LS = {
   clubs: "sports-clubs",
   matches: "sports-matches",
   cariocaV3: "sports-carioca-1d-v3",
+  cariocaV4: "sports-carioca-1d-v4",
 };
 
 const A_CLUBS = [
@@ -1164,6 +1165,29 @@ function App() {
           ms.splice(0,ms.length,...other,...rebuilt.matches);
           cariocaClubs.forEach(c=>delete c.stateGroup);
           localStorage.setItem(LS.cariocaV3,"1");
+        }
+      }
+
+      // MIGRAÇÃO V4 DO CARIOCA: garante que o mata-mata da 1ª Divisão
+      // sempre comece nas quartas de final. Preserva a fase regular e
+      // remove somente fases eliminatórias antigas/incompatíveis.
+      if (localStorage.getItem(LS.cariocaV4) !== "1") {
+        const carioca2026 = cs.find((c)=>c.name==="Campeonato Carioca" && c.season==="2026");
+        if (carioca2026) {
+          const cariocaMatches=ms.filter(m=>m.championshipId===carioca2026.id);
+          const regular=cariocaMatches.filter(m=>m.stage==="regular");
+          const nonRegular=cariocaMatches.filter(m=>m.stage!=="regular");
+          if (nonRegular.length) {
+            ms.splice(
+              0,
+              ms.length,
+              ...ms.filter(m=>m.championshipId!==carioca2026.id),
+              ...regular
+            );
+          }
+          carioca2026.format="Turno único + quartas + semifinais + final";
+          carioca2026.regulation="Os 12 clubes disputam uma fase única em turno único, todos contra todos, em 11 rodadas. Os 8 primeiros colocados avançam às quartas de final, disputadas em jogo único. As semifinais são disputadas em ida e volta e a final em jogo único. Em qualquer mata-mata, empate no confronto é decidido automaticamente nos pênaltis pelo sistema.";
+          localStorage.setItem(LS.cariocaV4,"1");
         }
       }
 
