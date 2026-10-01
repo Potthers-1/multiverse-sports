@@ -62,7 +62,7 @@ const LS = {
   championships: "sports-championships",
   clubs: "sports-clubs",
   matches: "sports-matches",
-  cariocaV2: "sports-carioca-1d-v2",
+  cariocaV3: "sports-carioca-1d-v3",
 };
 
 const A_CLUBS = [
@@ -540,56 +540,41 @@ function buildEspiritoSantoSecondDivision(championshipId:number, startClubId:num
 
 function buildCariocaFirstDivision(championshipId:number, startClubId:number, startMatchId:number) {
   const championship=makeChampionship(
-    championshipId,"Estadual","2026","Campeonato Carioca",
-    "Taça Guanabara + fase final + Taça Rio + Grupo X",
-    "A Taça Guanabara é disputada por 12 clubes em dois grupos de 6, com confrontos entre grupos em seis rodadas. O líder de cada grupo é considerado campeão da Taça Guanabara de acordo com a melhor pontuação. Os 4 primeiros de cada grupo avançam às quartas, em jogo único, no cruzamento A1 x A4, A2 x A3, B1 x B4 e B2 x B3. As semifinais são em ida e volta após sorteio e a final do Campeonato em jogo único. A Taça Rio é disputada pelos derrotados das quartas, com semifinais em ida e volta após sorteio e final em jogo único. O Grupo X reúne os dois últimos de cada grupo em turno e returno: o último é rebaixado diretamente e o penúltimo disputa repescagem contra o vice-campeão da 2ª Divisão.",
-    "O campeão é o vencedor da final do Campeonato Carioca. O campeão da 2ª Divisão sobe diretamente. O vice-campeão da 2ª Divisão disputa um play-off de acesso contra o 3º colocado do Grupo X; o vencedor jogará a 1ª Divisão na temporada seguinte e o perdedor jogará a 2ª Divisão.",
-    "O último do Grupo X é rebaixado diretamente. O 3º colocado do Grupo X disputa o play-off de acesso/permanência contra o vice-campeão da 2ª Divisão.",
-    12,6,1,"Rio de Janeiro"
+    championshipId,
+    "Estadual",
+    "2026",
+    "Campeonato Carioca",
+    "Turno único + quartas + semifinais + final",
+    "Os 12 clubes disputam uma fase única em turno único, todos contra todos, em 11 rodadas. Os 8 primeiros colocados avançam às quartas de final, disputadas em jogo único. As semifinais são disputadas em ida e volta e a final em jogo único. Em qualquer mata-mata, empate no confronto é decidido automaticamente nos pênaltis pelo sistema.",
+    "O campeão é o vencedor da final do Campeonato Carioca.",
+    "O 12º colocado é rebaixado diretamente para a 2ª Divisão. O 11º colocado disputa um play-off de permanência contra o vice-campeão da 2ª Divisão. O vencedor joga a 1ª Divisão na temporada seguinte e o perdedor joga a 2ª Divisão.",
+    12,
+    11,
+    1,
+    "Rio de Janeiro"
   );
-  const groupA=[
-    "Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ"
-  ];
-  const groupB=[
+  const clubs:Club[]=[
+    "Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ",
     "Botafogo","Madureira","Boavista - RJ","Flamengo","Nova Iguaçu","Maricá"
-  ];
-  const groupedNames=[...groupA,...groupB];
-  const clubs:Club[]=groupedNames.map((name,i)=>({
+  ].map((name,i)=>({
     id:startClubId+i,
     name,
     championshipId,
-    clubKey:makeClubKey(name),
-    stateGroup:i<6?"A":"B"
+    clubKey:makeClubKey(name)
   }));
-  const result:Match[]=[];
-  let id=startMatchId;
-  const aIds=groupA.map(name=>clubs.find(c=>c.name===name)!.id);
-  const bIds=groupB.map(name=>clubs.find(c=>c.name===name)!.id);
-  // Seis rodadas: cada clube enfrenta uma vez cada um dos 6 clubes do outro grupo.
-  // Cada equipe faz 3 jogos como mandante e 3 como visitante.
-  for(let r=0;r<6;r++){
-    for(let a=0;a<6;a++){
-      const b=(a+r)%6;
-      const aId=aIds[a], bId=bIds[b];
-      const home=r<3?aId:bId;
-      const away=r<3?bId:aId;
-      result.push({
-        id:id++,championshipId,round:r+1,home,away,
-        homeScore:null,awayScore:null,played:false,stage:"regular",
-        group:clubs.find(c=>c.id===home)?.stateGroup
-      });
-    }
-  }
-  return {championship,clubs,matches:result};
+  return {
+    championship,
+    clubs,
+    matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)
+  };
 }
-
 function buildCariocaSecondDivision(championshipId:number,startClubId:number,startMatchId:number,relegatedClub:string){
   const names=[...CARIOCA_2_FIXED_CLUBS,relegatedClub];
   const championship=makeChampionship(
     championshipId,"Estadual","2026","Campeonato Carioca - 2ª Divisão",
-    "Taça Santos Dumont + semifinais + final + repescagem",
-    "A Taça Santos Dumont é disputada por 12 clubes em grupo único, em turno único de 11 rodadas. Os 4 melhores avançam às semifinais. Os vencedores disputam a final. O campeão sobe diretamente e o vice disputa um play-off de acesso contra o 3º colocado do Grupo X da 1ª Divisão. O vencedor do play-off jogará a 1ª Divisão na temporada seguinte e o perdedor jogará a 2ª Divisão. Os dois últimos da Taça Santos Dumont são rebaixados.",
-    "O campeão é promovido diretamente. O vice-campeão disputa um play-off de acesso contra o 3º colocado do Grupo X da 1ª Divisão; o vencedor disputará a 1ª Divisão na temporada seguinte e o perdedor disputará a 2ª Divisão.",
+    "Taça Santos Dumont + semifinais + final + play-off de permanência",
+    "A Taça Santos Dumont é disputada por 12 clubes em grupo único, em turno único de 11 rodadas. Os 4 melhores avançam às semifinais. Os vencedores disputam a final. O campeão sobe diretamente. Depois da final, o vice disputa um play-off de permanência contra o 11º colocado da 1ª Divisão. O vencedor joga a 1ª Divisão na temporada seguinte e o perdedor joga a 2ª Divisão. Os dois últimos da Taça Santos Dumont são rebaixados.",
+    "O campeão é promovido diretamente. O vice-campeão disputa, após a final, um play-off de permanência contra o 11º colocado da 1ª Divisão; o vencedor disputará a 1ª Divisão na temporada seguinte e o perdedor disputará a 2ª Divisão.",
     "Os dois últimos colocados da Taça Santos Dumont são rebaixados.",
     12,11,1,"Rio de Janeiro"
   );
@@ -1145,90 +1130,45 @@ function App() {
         alagoas2026.relegation = "O último colocado da 1ª fase é rebaixado para a 2ª Divisão do Campeonato Alagoano.";
       }
 
-      // RECONSTRUÇÃO DEFINITIVA DA 1ª DIVISÃO DO CARIOCA.
-      // Executa uma única vez por instalação e separa completamente a Taça Guanabara
-      // do Grupo X e das fases eliminatórias. Isso evita que uma fase bloqueie a outra.
-      if (localStorage.getItem(LS.cariocaV2) !== "1") {
+      // MIGRAÇÃO V3 DO CARIOCA: novo formato em grupo único.
+      // Remove a estrutura antiga (grupos, Taça Rio e Grupo de rebaixamento) e cria 66 jogos
+      // de turno único. Resultados da antiga fase regular são preservados quando
+      // o mesmo confronto e rodada continuam existindo.
+      if (localStorage.getItem(LS.cariocaV3) !== "1") {
         const carioca2026 = cs.find((c)=>c.name==="Campeonato Carioca" && c.season==="2026");
-        ms.forEach(m=>{
-          if(m.championshipId===carioca2026?.id && m.group==="X" && m.stage==="regular") m.stage="playoff" as Stage;
-        });
         if (carioca2026) {
-          const groupA=["Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ"];
-          const groupB=["Botafogo","Madureira","Boavista - RJ","Flamengo","Nova Iguaçu","Maricá"];
           const cariocaClubs=cl.filter(c=>c.championshipId===carioca2026.id);
-          cariocaClubs.forEach(c=>{
-            if(groupA.includes(c.name)) c.stateGroup="A";
-            if(groupB.includes(c.name)) c.stateGroup="B";
+          const rebuilt=buildCariocaFirstDivision(
+            carioca2026.id,
+            Math.min(...cariocaClubs.map(c=>c.id)),
+            Math.max(...ms.map(m=>m.id),0)+1
+          );
+
+          const oldCarioca=ms.filter(m=>m.championshipId===carioca2026.id);
+          const oldByPair=new Map<string,Match>();
+          oldCarioca.filter(m=>m.stage==="regular").forEach(m=>{
+            const key=[Math.min(m.home,m.away),Math.max(m.home,m.away)].join("-");
+            if(!oldByPair.has(key)) oldByPair.set(key,m);
           });
-          const aIds=groupA.map(name=>cariocaClubs.find(c=>c.name===name)?.id).filter((x):x is number=>x!==undefined);
-          const bIds=groupB.map(name=>cariocaClubs.find(c=>c.name===name)?.id).filter((x):x is number=>x!==undefined);
-          const rebuilt:Match[]=[];
-          let mid=Math.max(...ms.map(m=>m.id),0)+1;
-          for(let r=0;r<6;r++){
-            for(let a=0;a<6;a++){
-              const b=(a+r)%6;
-              const aId=aIds[a], bId=bIds[b];
-              const home=r<3?aId:bId;
-              const away=r<3?bId:aId;
-              rebuilt.push({id:mid++,championshipId:carioca2026.id,round:r+1,home,away,homeScore:null,awayScore:null,played:false,stage:"regular",group:(r<3?"A":"B")});
-            }
-          }
-          // Remove toda a 1ª divisão antiga e mantém as outras competições intactas.
-          const remaining=ms.filter(m=>m.championshipId!==carioca2026.id);
-          ms.splice(0,ms.length,...remaining,...rebuilt);
-          localStorage.setItem(LS.cariocaV2,"1");
-        }
-      }
 
-      // Correção estrutural do Carioca 2026: os grupos são fixos e exclusivos.
-      const carioca2026 = cs.find((c)=>c.name==="Campeonato Carioca" && c.season==="2026");
-      if (carioca2026) {
-        const groupA=new Set([
-          "Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ"
-        ]);
-        const groupB=new Set([
-          "Botafogo","Madureira","Boavista - RJ","Flamengo","Nova Iguaçu","Maricá"
-        ]);
-        const cariocaClubs=cl.filter(c=>c.championshipId===carioca2026.id);
-        cariocaClubs.forEach(c=>{
-          if(groupA.has(c.name)) c.stateGroup="A";
-          else if(groupB.has(c.name)) c.stateGroup="B";
-        });
-
-        const regular=ms.filter(m=>m.championshipId===carioca2026.id&&m.stage==="regular"&&(m.group==="A"||m.group==="B"));
-        const hasWrongPairing=regular.some(m=>{
-          const home=cl.find(c=>c.id===m.home)?.stateGroup;
-          const away=cl.find(c=>c.id===m.away)?.stateGroup;
-          return !home || !away || home===away;
-        });
-        if(regular.length!==36 || hasWrongPairing) {
-          const oldRegular=regular.filter(m=>m.group==="A"||m.group==="B");
-          const rebuilt=buildCariocaFirstDivision(carioca2026.id,cariocaClubs[0]?.id??0,Math.max(...ms.map(m=>m.id),0)+1);
-
-          // Ao corrigir a estrutura dos grupos, preserva os resultados já lançados.
-          const oldByPairRound=new Map<string,Match>();
-          oldRegular.forEach(m=>{
-            const key=[Math.min(m.home,m.away),Math.max(m.home,m.away),m.round].join("-");
-            oldByPairRound.set(key,m);
-          });
           rebuilt.matches=rebuilt.matches.map(m=>{
-            const key=[Math.min(m.home,m.away),Math.max(m.home,m.away),m.round].join("-");
-            const old=oldByPairRound.get(key);
+            const old=oldByPair.get([Math.min(m.home,m.away),Math.max(m.home,m.away)].join("-"));
             return old ? {
               ...m,
-              homeScore: old.homeScore,
-              awayScore: old.awayScore,
-              played: old.played,
-              penaltyWinner: old.penaltyWinner,
-              penaltyHomeScore: old.penaltyHomeScore,
-              penaltyAwayScore: old.penaltyAwayScore,
-              tieAdvantageClubId: old.tieAdvantageClubId
+              homeScore:old.homeScore,
+              awayScore:old.awayScore,
+              played:old.played,
+              penaltyWinner:old.penaltyWinner,
+              penaltyHomeScore:old.penaltyHomeScore,
+              penaltyAwayScore:old.penaltyAwayScore,
+              tieAdvantageClubId:old.tieAdvantageClubId
             } : m;
           });
 
-          const other=ms.filter(m=>!(m.championshipId===carioca2026.id&&m.stage==="regular"&&(m.group==="A"||m.group==="B")));
+          const other=ms.filter(m=>m.championshipId!==carioca2026.id);
           ms.splice(0,ms.length,...other,...rebuilt.matches);
+          cariocaClubs.forEach(c=>delete c.stateGroup);
+          localStorage.setItem(LS.cariocaV3,"1");
         }
       }
 
@@ -1550,28 +1490,59 @@ function App() {
 
     if (championship.division === "Estadual" && championship.name==="Campeonato Carioca") {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
-      const tg=regular.filter(m=>m.group==="A"||m.group==="B");
       const quarters=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
-      const rioSemis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===40);
-      const rioFinal=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===41);
-      const groupX=next.filter(m=>m.championshipId===championship.id&&m.stage==="playoff"&&m.group==="X");
 
-      if(tg.length===36 && tg.every(m=>m.played) && quarters.length===0){
-        const idsA=myClubs.filter(c=>c.stateGroup==="A").map(c=>c.id);
-        const idsB=myClubs.filter(c=>c.stateGroup==="B").map(c=>c.id);
-        const a=tableFor(championship,idsA,next,"regular");
-        const b=tableFor(championship,idsB,next,"regular");
-        const pairs=[[a[0]?.clubId,a[3]?.clubId],[a[1]?.clubId,a[2]?.clubId],[b[0]?.clubId,b[3]?.clubId],[b[1]?.clubId,b[2]?.clubId]];
-        if(a.length!==6||b.length!==6||pairs.some(p=>p.some(x=>x===undefined))){alert("Não foi possível montar as quartas da Taça Guanabara.");return;}
-        pairs.forEach(([home,away])=>next.push({id:id++,championshipId:championship.id,round:7,home:home!,away:away!,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8}));
-        const relegated=[a[4].clubId,a[5].clubId,b[4].clubId,b[5].clubId];
-        const gx=roundRobin(relegated,championship.id,id,2,7,"X");
-        gx.forEach(m=>{m.group="X";m.stage="playoff" as Stage;});
-        next.push(...gx);
-        setMatches(next);setSection("Quartas de final");
-        alert("Taça Guanabara concluída. Quartas de final e Grupo X criados.");
+      if(regular.length===66 && regular.every(m=>m.played) && quarters.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        if(table.length!==12){
+          alert("Não foi possível montar a classificação da 1ª Divisão do Carioca.");
+          return;
+        }
+
+        // Quartas em jogo único: 1º x 8º, 4º x 5º, 2º x 7º e 3º x 6º.
+        const pairs=[
+          [table[0].clubId,table[7].clubId],
+          [table[3].clubId,table[4].clubId],
+          [table[1].clubId,table[6].clubId],
+          [table[2].clubId,table[5].clubId]
+        ];
+        pairs.forEach(([home,away],idx)=>{
+          next.push({
+            id:id++,
+            championshipId:championship.id,
+            round:12+idx,
+            home,
+            away,
+            homeScore:null,
+            awayScore:null,
+            played:false,
+            stage:"knockout",
+            knockoutRound:8
+          });
+        });
+
+        // A 2ª Divisão passa a existir assim que a classificação da 1ª fase
+        // define o rebaixado direto (12º). O play-off de permanência só será
+        // criado depois da final da 2ª Divisão.
+        const alreadySecond=championships.some(c=>c.name==="Campeonato Carioca - 2ª Divisão"&&c.season==="2026");
+        if(!alreadySecond){
+          const relegated=table[11]?.clubId;
+          if(relegated){
+            const newChampId=Math.max(...championships.map(c=>c.id),0)+1;
+            const newClubId=Math.max(...clubs.map(c=>c.id),0)+1;
+            const newMatchId=Math.max(...next.map(m=>m.id),...matches.map(m=>m.id),0)+1;
+            const x=buildCariocaSecondDivision(newChampId,newClubId,newMatchId,clubName(relegated));
+            setChampionships([...championships,x.championship]);
+            setClubs([...clubs,...x.clubs]);
+            next.push(...x.matches);
+          }
+        }
+
+        setMatches(next);
+        setSection("Quartas de final");
+        alert("1ª fase do Campeonato Carioca concluída. Quartas de final criadas e 2ª Divisão liberada.");
         return;
       }
 
@@ -1581,57 +1552,47 @@ function App() {
           if((m.awayScore??0)>(m.homeScore??0)) return m.away;
           return m.penaltyWinner ?? null;
         };
-        const loser=(m:Match)=>{
-          const w=winner(m);
-          return w===m.home?m.away:w===m.away?m.home:null;
-        };
-        const winners=quarters.map(winner).filter((x):x is number=>x!==null);
-        const losers=quarters.map(loser).filter((x):x is number=>x!==null);
-        if(winners.length!==4||losers.length!==4){alert("Não foi possível identificar os classificados das quartas.");return;}
-        const shuffledW=shuffle(winners), shuffledL=shuffle(losers);
-        for(let k=0;k<2;k++){
-          const h=shuffledW[k*2], a=shuffledW[k*2+1];
-          next.push({id:id++,championshipId:championship.id,round:8,home:h,away:a,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:9,home:a,away:h,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
-          const rh=shuffledL[k*2], ra=shuffledL[k*2+1];
-          next.push({id:id++,championshipId:championship.id,round:8,home:rh,away:ra,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:40,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:9,home:ra,away:rh,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:40,group:"volta"});
+        const winners=quarters.map(winner);
+        if(winners.some(w=>w===null)){
+          alert("Não foi possível identificar os classificados das quartas do Carioca.");
+          return;
         }
-        setMatches(next);setSection("Semifinais");
-        alert("Semifinais do Campeonato Carioca e da Taça Rio criadas.");
+        const shuffled=shuffle(winners as number[]);
+        next.push(
+          {id:id++,championshipId:championship.id,round:17,home:shuffled[0],away:shuffled[1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"},
+          {id:id++,championshipId:championship.id,round:18,home:shuffled[1],away:shuffled[0],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"},
+          {id:id++,championshipId:championship.id,round:17,home:shuffled[2],away:shuffled[3],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"},
+          {id:id++,championshipId:championship.id,round:18,home:shuffled[3],away:shuffled[2],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"}
+        );
+        setMatches(next);
+        setSection("Semifinais");
+        alert("Semifinais do Campeonato Carioca criadas em ida e volta.");
         return;
       }
 
       if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
         const winners=knockoutWinner(next,4,championship.id);
-        if(winners.length!==2){alert("Não foi possível identificar os finalistas do Carioca.");return;}
-        next.push({id:id++,championshipId:championship.id,round:10,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
-        setMatches(next);setSection("Final");alert("Final do Campeonato Carioca criada em jogo único.");return;
-      }
-
-      if(rioSemis.length===4 && rioSemis.every(m=>m.played) && rioFinal.length===0){
-        const winners=knockoutWinner(next,40,championship.id);
-        if(winners.length!==2){alert("Não foi possível identificar os finalistas da Taça Rio.");return;}
-        next.push({id:id++,championshipId:championship.id,round:10,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:41});
-        setMatches(next);setSection("Taça Rio");alert("Final da Taça Rio criada em jogo único.");return;
-      }
-
-      if(groupX.length===12 && groupX.every(m=>m.played) && final.length===1 && final[0].played && !championships.some(c=>c.name==="Campeonato Carioca - 2ª Divisão"&&c.season==="2026")){
-        const gxIds=[...new Set(groupX.flatMap(m=>[m.home,m.away]))];
-        const gxTable=tableFor(championship,gxIds,next,"regular","X");
-        const direct=gxTable[gxTable.length-1]?.clubId;
-        if(direct){
-          const newChampId=Math.max(...championships.map(c=>c.id),0)+1;
-          const newClubId=Math.max(...clubs.map(c=>c.id),0)+1;
-          const newMatchId=Math.max(...next.map(m=>m.id),...matches.map(m=>m.id),0)+1;
-          const x=buildCariocaSecondDivision(newChampId,newClubId,newMatchId,clubName(direct));
-          setChampionships([...championships,x.championship]);
-          setClubs([...clubs,...x.clubs]);
-          setMatches([...next,...x.matches]);
-          alert("2ª Divisão do Carioca criada com o rebaixado da 1ª Divisão incluído.");
+        if(winners.length!==2){
+          alert("Não foi possível identificar os finalistas do Carioca.");
+          return;
         }
+        next.push({
+          id:id++,
+          championshipId:championship.id,
+          round:20,
+          home:winners[0],
+          away:winners[1],
+          homeScore:null,
+          awayScore:null,
+          played:false,
+          stage:"final"
+        });
+        setMatches(next);
+        setSection("Final");
+        alert("Final do Campeonato Carioca criada em jogo único.");
         return;
       }
+
       return;
     }
 
@@ -1639,33 +1600,83 @@ function App() {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      const playoff=next.filter(m=>m.championshipId===championship.id&&m.stage==="playoff");
+
       if(regular.length===66 && regular.every(m=>m.played) && semis.length===0){
         const table=tableFor(championship,myClubs.map(c=>c.id),next);
-        [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([home,away])=>next.push({id:id++,championshipId:championship.id,round:12,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4}));
-        setMatches(next);setSection("Semifinais");alert("Semifinais da 2ª Divisão do Carioca criadas.");return;
+        const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:12,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
+        });
+        setMatches(next);
+        setSection("Semifinais");
+        alert("Semifinais da 2ª Divisão do Carioca criadas.");
+        return;
       }
+
       if(semis.length===2 && semis.every(m=>m.played) && final.length===0){
-        const winners=semis.map(m=>((m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner)).filter((x):x is number=>x!==undefined);
-        if(winners.length!==2)return;
-        next.push({id:id++,championshipId:championship.id,round:13,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
-        setMatches(next);setSection("Final");alert("Final da 2ª Divisão do Carioca criada.");return;
-      }
-      if(final.length===1 && final[0].played){
-        const a1=championships.find(c=>c.name==="Campeonato Carioca"&&c.season==="2026");
-        if(a1 && !matches.some(m=>m.championshipId===a1.id&&m.stage==="playoff")){
-          const f=final[0], winner=(f.homeScore??0)>(f.awayScore??0)?f.home:(f.awayScore??0)>(f.homeScore??0)?f.away:f.penaltyWinner;
-          const vice=winner===f.home?f.away:f.home;
-          const gx=matches.filter(m=>m.championshipId===a1.id&&m.stage==="playoff"&&m.group==="X");
-          const gxIds=[...new Set(gx.flatMap(m=>[m.home,m.away]))];
-          const gxTable=tableFor(a1,gxIds,matches.filter(m=>m.stage==="playoff"&&m.group==="X"),"playoff","X");
-          const thirdGroupX=gxTable[2]?.clubId;
-          if(vice && thirdGroupX){
-            const nm={id:nextId(matches),championshipId:a1.id,round:50,home:thirdGroupX,away:vice,homeScore:null,awayScore:null,played:false,stage:"playoff" as Stage};
-            setMatches([...matches,nm]);
-            alert("Play-off de acesso criado: 3º colocado do Grupo X x vice-campeão da 2ª Divisão.");
-            return;
-          }
+        const winners=semis.map((m)=>(
+          (m.homeScore??0)>(m.awayScore??0)
+            ?m.home
+            :(m.awayScore??0)>(m.homeScore??0)
+              ?m.away
+              :m.penaltyWinner
+        )).filter((x):x is number=>x!==undefined);
+        if(winners.length!==2){
+          alert("Não foi possível identificar os finalistas da 2ª Divisão do Carioca.");
+          return;
         }
+        next.push({
+          id:id++,
+          championshipId:championship.id,
+          round:13,
+          home:winners[0],
+          away:winners[1],
+          homeScore:null,
+          awayScore:null,
+          played:false,
+          stage:"final"
+        });
+        setMatches(next);
+        setSection("Final");
+        alert("Final da 2ª Divisão do Carioca criada.");
+        return;
+      }
+
+      // O play-off só nasce depois da final da 2ª Divisão.
+      if(final.length===1 && final[0].played && playoff.length===0){
+        const a1=championships.find(c=>c.name==="Campeonato Carioca"&&c.season==="2026");
+        if(!a1){
+          alert("A 1ª Divisão do Carioca não foi encontrada.");
+          return;
+        }
+        const f=final[0];
+        const vice=(f.homeScore??0)>(f.awayScore??0)?f.away:(f.awayScore??0)>(f.homeScore??0)?f.home:f.penaltyWinner===f.home?f.away:f.home;
+        const a1Clubs=clubs.filter(c=>c.championshipId===a1.id);
+        const a1Regular=matches.filter(m=>m.championshipId===a1.id&&m.stage==="regular");
+        const a1Table=tableFor(a1,a1Clubs.map(c=>c.id),a1Regular,"regular");
+        const penultimate=a1Table[10]?.clubId;
+
+        if(vice===undefined || penultimate===undefined){
+          alert("Não foi possível identificar o 11º colocado da 1ª Divisão e o vice da 2ª Divisão.");
+          return;
+        }
+
+        next.push({
+          id:id++,
+          championshipId:championship.id,
+          round:14,
+          home:penultimate,
+          away:vice,
+          homeScore:null,
+          awayScore:null,
+          played:false,
+          stage:"playoff"
+        });
+        setMatches(next);
+        setSection("Play-off de acesso");
+        alert("Play-off de permanência criado: 11º da 1ª Divisão x vice da 2ª Divisão.");
+        return;
       }
       return;
     }
@@ -1954,20 +1965,15 @@ function App() {
 
   const simulateCariocaFirstPhase = () => {
     if (!championship || championship.name !== "Campeonato Carioca") return;
-    const tg = matches.filter(m =>
-      m.championshipId===championship.id &&
-      m.stage==="regular" &&
-      (m.group==="A" || m.group==="B")
-    );
-    if(tg.length!==36){
-      alert("A Taça Guanabara precisa ter exatamente 36 jogos.");
+    const regular = matches.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+    if(regular.length!==66){
+      alert("A 1ª Divisão do Carioca precisa ter exatamente 66 jogos.");
       return;
     }
     setMatches(all=>{
       const updated=all.map(m=>{
-        if(m.championshipId!==championship.id || m.stage!=="regular" || (m.group!=="A"&&m.group!=="B") || m.played) return m;
-        const hs=score(), as=score();
-        return {...m,homeScore:hs,awayScore:as,played:true};
+        if(m.championshipId!==championship.id || m.stage!=="regular" || m.played) return m;
+        return {...m,homeScore:score(),awayScore:score(),played:true};
       });
       return resolveAutomaticPenalties(updated);
     });
@@ -2010,10 +2016,8 @@ function App() {
   useEffect(() => {
     if (!championship || championship.division !== "Estadual" || championship.name==="Campeonato Acreano - 2ª Divisão") return;
     if (championship.name==="Campeonato Carioca") {
-      // A 1ª Divisão possui duas fases regulares independentes: Taça Guanabara e Grupo X.
-      // A progressão da Taça Guanabara não pode depender da conclusão do Grupo X.
-      const tg=matches.filter(m=>m.championshipId===championship.id&&m.stage==="regular"&&(m.group==="A"||m.group==="B"));
-      if(tg.length===36 && tg.every(m=>m.played)) prepareNextPhase();
+      const regular=matches.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      if(regular.length===66 && regular.every(m=>m.played)) prepareNextPhase();
       return;
     }
     if (!regularComplete(championship)) return;
@@ -2023,20 +2027,21 @@ function App() {
       const hasMainKnockout=matches.some(m=>m.championshipId===championship.id&&m.stage==="knockout");
       const finals=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
       if(championship.name==="Campeonato Carioca"){
-        const main=regular.filter(m=>m.group==="A"||m.group==="B");
+        const main=regular;
         const q=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
         const s=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
-        const rs=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===40);
-        const rf=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===41);
-        const gx=matches.filter(m=>m.championshipId===championship.id&&m.stage==="playoff"&&m.group==="X");
-        if(main.length===36 && main.every(m=>m.played) && q.length===0) prepareNextPhase();
+        const finals=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+        if(main.length===66 && main.every(m=>m.played) && q.length===0) prepareNextPhase();
         else if(q.length===4 && q.every(m=>m.played) && s.length===0) prepareNextPhase();
-        else if((s.length===4 && s.every(m=>m.played) && finals.length===0) || (rs.length===4 && rs.every(m=>m.played) && rf.length===0) || (gx.length===12 && gx.every(m=>m.played) && finals.length===1 && finals[0].played && !championships.some(c=>c.name==="Campeonato Carioca - 2ª Divisão"&&c.season==="2026"))) prepareNextPhase();
+        else if(s.length===4 && s.every(m=>m.played) && finals.length===0) prepareNextPhase();
         return;
       }
-      if(regular.length===66 && regular.every(m=>m.played) && !hasMainKnockout) prepareNextPhase();
-      else if(matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4).length===2 && matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4).every(m=>m.played) && finals.length===0) prepareNextPhase();
-      else if(championship.name==="Campeonato Carioca - 2ª Divisão" && finals.length===1 && finals[0].played && !matches.some(m=>m.championshipId===championships.find(c=>c.name==="Campeonato Carioca"&&c.season==="2026")?.id && m.stage==="playoff")) prepareNextPhase();
+            if(regular.length===66 && regular.every(m=>m.played) && !hasMainKnockout) prepareNextPhase();
+      else if(matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4).length===2 &&
+              matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4).every(m=>m.played) &&
+              finals.length===0) prepareNextPhase();
+      else if(championship.name==="Campeonato Carioca - 2ª Divisão" && finals.length===1 && finals[0].played &&
+              !matches.some(m=>m.championshipId===championship.id&&m.stage==="playoff")) prepareNextPhase();
       return;
     }
 
@@ -2259,7 +2264,7 @@ D → C: ${promotedD.length} promovidos`
       return "";
     }
     if (division==="Série D") return position <= 4 ? "qualification" : "";
-    if (division==="Estadual" && name==="Campeonato Carioca") return position<=4 ? "qualification" : "";
+    if (division==="Estadual" && name==="Campeonato Carioca") { if(position<=8) return "qualification"; if(position===11) return "playoff"; if(position===12) return "relegation"; return ""; }
     if (division==="Estadual" && name==="Campeonato Capixaba") {
       if(position<=8) return "qualification";
       if(position>=9) return "relegation";
@@ -2455,8 +2460,7 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série B"&&button("Play-offs",()=>setSection("Play-offs"))}
               {championship.division==="Série C"&&button("Segunda fase",()=>setSection("Segunda fase"))}
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
-              {championship.division==="Estadual"&&championship.name==="Campeonato Carioca"&&myMatches.some((m)=>m.stage==="knockout"&&(m.knockoutRound===40||m.knockoutRound===41))&&button("Taça Rio",()=>setSection("Taça Rio"))}
-              {championship.division==="Estadual"&&championship.name==="Campeonato Carioca"&&myMatches.some((m)=>m.stage==="playoff")&&button("Play-off de acesso",()=>setSection("Play-off de acesso"))}
+              {championship.division==="Estadual"&&championship.name==="Campeonato Carioca - 2ª Divisão"&&myMatches.some((m)=>m.stage==="playoff")&&button("Play-off de permanência",()=>setSection("Play-off de permanência"))}
               {championship.division==="Estadual"&&championship.name==="Campeonato Capixaba"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===8)&&button("Quartas de final",()=>setSection("Quartas de final"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===4)&&button("Semifinais",()=>setSection("Semifinais"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
@@ -2640,7 +2644,7 @@ D → C: ${promotedD.length} promovidos`
           {section==="Classificação" && panel("Classificação",<>
             {championship.name==="Campeonato Carioca" && myMatches.filter(m=>m.stage==="regular"&&(m.group==="A"||m.group==="B")).some(m=>!m.played) && (
               <div style={{marginBottom:14}}>
-                {button("⚡ Simular 1ª fase da Taça Guanabara",simulateCariocaFirstPhase,true)}
+                {button("⚡ Simular 1ª fase da 1ª fase",simulateCariocaFirstPhase,true)}
               </div>
             )}
             {zoneLegend(championship.division)}
@@ -2673,26 +2677,29 @@ D → C: ${promotedD.length} promovidos`
               </div>
             ) : championship.name==="Campeonato Carioca" ? (
               <div>
-                <p style={{color:"#8291a5",marginTop:0}}>Taça Guanabara — dois grupos de 6, com confrontos entre grupos. O Grupo X é um play-off de rebaixamento disputado somente após o fim da 1ª fase e reúne os dois últimos de cada grupo.</p>
-                {["A","B","X"].map((group) => {
-                  const ids=group==="X"
-                    ? [...new Set(myMatches.filter(m=>m.stage==="playoff"&&m.group==="X").flatMap(m=>[m.home,m.away]))]
-                    : myClubs.filter(c=>c.stateGroup===group).map(c=>c.id);
-                  const phaseMatches=group==="X"
-                    ? myMatches.filter(m=>m.stage==="playoff"&&m.group==="X")
-                    : myMatches.filter(m=>m.stage==="regular"&&(m.group==="A"||m.group==="B"));
-                  const rows=tableFor(championship,ids,phaseMatches,"regular");
-                  return <div key={group} style={{marginBottom:18,border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
-                    <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>{group==="X"?"Grupo X — Play-off de rebaixamento":"Grupo "+group}</div>
-                    <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(h=><th key={h} style={{padding:8,textAlign:"left",fontSize:11,borderBottom:"2px solid #1e2b3b"}}>{h}</th>)}</tr></thead><tbody>
-                      {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(group==="X"?(i===rows.length-1?"relegation":i===rows.length-2?"playoff":""):(i<4?"qualification":""))}><td style={{padding:8,fontWeight:800}}>{i+1}</td><td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb"}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
-                    </tbody></table></div>
-                  </div>;
-                })}
+                <p style={{color:"#8291a5",marginTop:0}}>
+                  1ª Divisão — 12 clubes em grupo único, turno único. Os 8 primeiros avançam às quartas de final. O 12º é rebaixado diretamente e o 11º disputa o play-off de permanência contra o vice da 2ª Divisão.
+                </p>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse"}}>
+                    <thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(h=><th key={h} style={{padding:9,textAlign:"left",borderBottom:"2px solid #1e2b3b"}}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {currentTable.map((r,i)=>
+                        <tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1,championship.state,championship.name))}>
+                          <td style={{padding:9,fontWeight:800}}>{i+1}</td>
+                          <td style={{padding:9}}>
+                            <button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb"}}>{clubName(r.clubId)}</button>
+                          </td>
+                          <td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : championship.name==="Campeonato Carioca - 2ª Divisão" ? (
               <div>
-                <p style={{color:"#8291a5",marginTop:0}}>Taça Santos Dumont — 12 clubes em turno único. Os 4 primeiros avançam às semifinais.</p>
+                <p style={{color:"#8291a5",marginTop:0}}>Taça Santos Dumont — 12 clubes em turno único. Os 4 primeiros avançam às semifinais. O play-off de permanência só é criado após a final.</p>
                 <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(h=><th key={h} style={{padding:9,textAlign:"left",borderBottom:"2px solid #1e2b3b"}}>{h}</th>)}</tr></thead><tbody>
                   {currentTable.map((r,i)=><tr key={r.clubId} style={zoneStyle(i<4?"qualification":i>=10?"relegation":"")}><td style={{padding:9}}>{i+1}</td><td style={{padding:9}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",fontWeight:800,color:"#f4f7fb"}}>{clubName(r.clubId)}</button></td><td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td></tr>)}
                 </tbody></table></div>
@@ -2806,14 +2813,16 @@ D → C: ${promotedD.length} promovidos`
 
           {section==="Clubes" && panel("Clubes",<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>{myClubs.map(c=><button key={c.id} onClick={()=>setSelectedClub(c.name)} style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f",textAlign:"left",cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:10}}><span>{c.name}</span></button>)}</div>)}
 
-          {section==="Play-off de acesso" && championship.name==="Campeonato Carioca" && panel("Play-off de acesso",<>
+          {section==="Play-off de permanência" && championship.name==="Campeonato Carioca - 2ª Divisão" && panel("Play-off de permanência",<>
             {(() => {
               const p=myMatches.find(m=>m.stage==="playoff");
-              if(!p) return <p style={{color:"#65758a"}}>O play-off ainda não foi criado.</p>;
+              if(!p) return <p style={{color:"#65758a"}}>O play-off ainda não foi criado. Ele será criado automaticamente após a final da 2ª Divisão.</p>;
               const winner=p.played ? ((p.homeScore??0)>(p.awayScore??0)?p.home:(p.awayScore??0)>(p.homeScore??0)?p.away:p.penaltyWinner??null) : null;
               const loser=winner===p.home?p.away:winner===p.away?p.home:null;
               return <>
-                <p style={{color:"#8291a5",marginTop:0}}>3º colocado do Grupo X da 1ª Divisão × vice-campeão da 2ª Divisão. Jogo único; empate é decidido automaticamente nos pênaltis.</p>
+                <p style={{color:"#8291a5",marginTop:0}}>
+                  11º colocado da 1ª Divisão × vice-campeão da 2ª Divisão. Jogo único; empate é decidido automaticamente nos pênaltis.
+                </p>
                 <div style={{padding:16,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 55px 20px 55px 1fr",alignItems:"center",gap:10}}>
                     <strong style={{textAlign:"right"}}>{clubName(p.home)}</strong>
