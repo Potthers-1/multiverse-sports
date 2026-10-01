@@ -170,6 +170,16 @@ const ESPIRITO_SANTO_2_CLUBS = [
   "Estrela do Norte","Rive","Tupy","Sport ES","Pinheiros",
 ];
 
+const SANTA_CATARINA_1_CLUBS = [
+  "Brusque","Avaí","Camboriú","Concórdia","Marcílio Dias","Joinville","Santa Catarina","Chapecoense",
+  "Criciúma","Barra - SC","Figueirense","Carlos Renaux",
+];
+const SANTA_CATARINA_2_CLUBS = [
+  "Hercílio Luz","Metropolitano","Caravaggio","Blumenau","Tubarão","Guarani de Palhoça","Fluminense - SC","Nação Esportes","Juventus de Jaraguá","Jaraguá",
+];
+const SANTA_CATARINA_3_CLUBS = [
+  "Inter de Lages","Manchester Catarinense","Porto - SC","Caçador",
+];
 const CARIOCA_1_CLUBS = [
   "Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ",
   "Botafogo","Madureira","Boavista - RJ","Flamengo","Nova Iguaçu","Maricá",
@@ -539,6 +549,21 @@ function buildEspiritoSantoSecondDivision(championshipId:number, startClubId:num
   return {championship,clubs,matches:result};
 }
 
+function buildSantaCatarinaFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Catarinense","Turno único + quartas + semifinais + final","12 clubes disputam turno único em 11 rodadas. Os 8 primeiros avançam ao mata-mata. Quartas, semifinais e final são disputadas em ida e volta. Os 2 últimos são rebaixados.","O campeão é o vencedor da final.","Os 2 últimos da primeira fase são rebaixados para a 2ª Divisão.",12,11,1,"Santa Catarina");
+  const clubs:Club[]=SANTA_CATARINA_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+function buildSantaCatarinaSecondDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Catarinense - 2ª Divisão","Turno e returno","10 clubes disputam turno e returno. Os 2 primeiros garantem acesso à 1ª Divisão. O último é rebaixado à 3ª Divisão. Não há mata-mata.","Os 2 primeiros garantem acesso à 1ª Divisão.","O último é rebaixado para a 3ª Divisão.",10,18,2,"Santa Catarina");
+  const clubs:Club[]=SANTA_CATARINA_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,2)};
+}
+function buildSantaCatarinaThirdDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Catarinense - 3ª Divisão","Turno e returno + final","4 clubes disputam uma fase única em dois turnos. Os 2 primeiros avançam à final. Apenas o campeão garante o acesso à 2ª Divisão.","Apenas o campeão garante acesso à 2ª Divisão.","Não há rebaixamento informado.",4,6,2,"Santa Catarina");
+  const clubs:Club[]=SANTA_CATARINA_3_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,2)};
+}
 function buildCariocaFirstDivision(championshipId:number, startClubId:number, startMatchId:number) {
   const championship=makeChampionship(
     championshipId,
@@ -1050,6 +1075,19 @@ function App() {
         cs.push(espirito2.championship); cl.push(...espirito2.clubs); ms.push(...espirito2.matches);
       }
 
+      if (!cs.some((c)=>c.name==="Campeonato Catarinense" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1, newClubId=Math.max(...cl.map(c=>c.id),0)+1, newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const x=buildSantaCatarinaFirstDivision(newChampId,newClubId,newMatchId); cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
+      }
+      if (!cs.some((c)=>c.name==="Campeonato Catarinense - 2ª Divisão" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1, newClubId=Math.max(...cl.map(c=>c.id),0)+1, newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const x=buildSantaCatarinaSecondDivision(newChampId,newClubId,newMatchId); cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
+      }
+      if (!cs.some((c)=>c.name==="Campeonato Catarinense - 3ª Divisão" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1, newClubId=Math.max(...cl.map(c=>c.id),0)+1, newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const x=buildSantaCatarinaThirdDivision(newChampId,newClubId,newMatchId); cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
+      }
+
       if (!cs.some((c)=>c.name==="Campeonato Amapaense" && c.season==="2026")) {
         const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
         const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
@@ -1279,6 +1317,17 @@ function App() {
       return tableFor(champ, clubs.filter(c=>c.championshipId===champ.id).map(c=>c.id), regular)[0]?.clubId ?? null;
     }
 
+    if (champ.division === "Estadual" && champ.name==="Campeonato Catarinense - 2ª Divisão") {
+      const regular=games.filter(m=>m.stage==="regular");
+      if(!regular.length || !regular.every(m=>m.played)) return null;
+      return tableFor(champ,clubs.filter(c=>c.championshipId===champ.id).map(c=>c.id),games,"regular")[0]?.clubId ?? null;
+    }
+    if (champ.division === "Estadual" && champ.name==="Campeonato Catarinense - 3ª Divisão") {
+      const final=games.filter(m=>m.stage==="final");
+      if(final.length!==1 || !final[0].played) return null;
+      const m=final[0];
+      return (m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner??null;
+    }
     if (champ.division === "Estadual") {
       const final=games.filter(m=>m.stage==="final");
       if(final.length===1) {
@@ -1340,6 +1389,41 @@ function App() {
     if (!championship) return;
     let next = resolveAutomaticPenalties(matches);
     let id = nextId(next);
+
+    if (championship.division === "Estadual" && championship.name==="Campeonato Catarinense") {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const q=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(regular.length===66 && regular.every(m=>m.played) && q.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        const pairs=[[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]];
+        pairs.forEach(([a,b])=>{ next.push({id:id++,championshipId:championship.id,round:12,home:a,away:b,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8}); next.push({id:id++,championshipId:championship.id,round:13,home:b,away:a,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8}); });
+        setMatches(next);setSection("Quartas de final");phaseAlert("Quartas de final do Campeonato Catarinense criadas em ida e volta.");return;
+      }
+      if(q.length===8 && q.every(m=>m.played) && semis.length===0){
+        const winners=knockoutWinner(next,8,championship.id); if(winners.length!==4){phaseAlert("Não foi possível identificar os vencedores das quartas do Catarinense.");return;}
+        [[winners[0],winners[3]],[winners[1],winners[2]]].forEach(([a,b])=>{ next.push({id:id++,championshipId:championship.id,round:14,home:a,away:b,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4}); next.push({id:id++,championshipId:championship.id,round:15,home:b,away:a,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4}); });
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Catarinense criadas em ida e volta.");return;
+      }
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id); if(winners.length!==2){phaseAlert("Não foi possível identificar os finalistas do Catarinense.");return;}
+        next.push({id:id++,championshipId:championship.id,round:16,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
+        setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Catarinense criada em jogo único.");return;
+      }
+      return;
+    }
+    if (championship.division === "Estadual" && championship.name==="Campeonato Catarinense - 3ª Divisão") {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(regular.length===12 && regular.every(m=>m.played) && final.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        if(table.length>=2) next.push({id:id++,championshipId:championship.id,round:7,home:table[0].clubId,away:table[1].clubId,homeScore:null,awayScore:null,played:false,stage:"final"});
+        setMatches(next);setSection("Final");phaseAlert("Final da 3ª Divisão do Campeonato Catarinense criada.");return;
+      }
+      return;
+    }
+    if (championship.division === "Estadual" && championship.name==="Campeonato Catarinense - 2ª Divisão") return;
 
     if (championship.division === "Estadual" && championship.name==="Campeonato Brasiliense") {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
@@ -1784,7 +1868,7 @@ function App() {
       return;
     }
 
-    if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && championship.name!=="Campeonato Brasiliense - 2ª Divisão" && championship.name!=="Campeonato Amazonense" && championship.name!=="Campeonato Amazonense - 2ª Divisão" && regularComplete(championship) &&
+    if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && championship.name!=="Campeonato Brasiliense - 2ª Divisão" && championship.name!=="Campeonato Amazonense" && championship.name!=="Campeonato Amazonense - 2ª Divisão" && championship.name!=="Campeonato Catarinense" && championship.name!=="Campeonato Catarinense - 2ª Divisão" && championship.name!=="Campeonato Catarinense - 3ª Divisão" && regularComplete(championship) &&
         !next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout")) {
       const table=tableFor(championship,myClubs.map(c=>c.id),next);
       const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
@@ -2156,6 +2240,21 @@ function App() {
       return;
     }
 
+    if (championship.name==="Campeonato Catarinense") {
+      const q=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(q.length===0 || (q.length===8 && q.every(m=>m.played) && semis.length===0) || (semis.length===4 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
+      return;
+    }
+    if (championship.name==="Campeonato Catarinense - 3ª Divisão") {
+      const regular=matches.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(regular.length===12 && regular.every(m=>m.played) && final.length===0) prepareNextPhase();
+      return;
+    }
+    if (championship.name==="Campeonato Catarinense - 2ª Divisão") return;
+
     if (championship.name==="Campeonato Capixaba") {
       const quarters=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
       const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
@@ -2381,6 +2480,9 @@ D → C: ${promotedD.length} promovidos`
       return "";
     }
     if (division==="Estadual" && name==="Campeonato Capixaba - 2ª Divisão") return position<=2 ? "qualification" : "";
+    if (division==="Estadual" && name==="Campeonato Catarinense") { if(position<=8) return "qualification"; if(position>=11) return "relegation"; return ""; }
+    if (division==="Estadual" && name==="Campeonato Catarinense - 2ª Divisão") { if(position<=2) return "promotion"; if(position===10) return "relegation"; return ""; }
+    if (division==="Estadual" && name==="Campeonato Catarinense - 3ª Divisão") return position<=2 ? "qualification" : "";
     if (division==="Estadual") {
       if (state==="Acre" && name==="Campeonato Acreano") {
         if (position >= 7) return "relegation";
