@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 type Division = "Série A" | "Série B" | "Série C" | "Série D" | "Estadual";
 type Stage = "regular" | "playoff" | "secondPhase" | "knockout" | "final";
@@ -826,6 +826,9 @@ function App() {
   const [selectedClub, setSelectedClub] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [statesOpen, setStatesOpen] = useState(false);
+  const [autoSeasonCountry, setAutoSeasonCountry] = useState<string | null>(null);
+  const autoSimulationRef = useRef(false);
+  const autoLastStepRef = useRef<string>("");
   const [newResult, setNewResult] = useState<Record<number, [string, string]>>({});
   const [newChamp, setNewChamp] = useState({
     name: "", season: "2026", division: "Série A" as Division, teams: 20,
@@ -1331,6 +1334,8 @@ function App() {
     }
   }, [championship?.id, matches]);
 
+  const phaseAlert = (message: string) => { if (!autoSimulationRef.current) alert(message); };
+
   const prepareNextPhase = () => {
     if (!championship) return;
     let next = resolveAutomaticPenalties(matches);
@@ -1346,7 +1351,7 @@ function App() {
           next.push({id:id++,championshipId:championship.id,round:10,home:a,away:b,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
           next.push({id:id++,championshipId:championship.id,round:11,home:b,away:a,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
         });
-        setMatches(next);setSection("Semifinais");alert("Semifinais do Campeonato Brasiliense criadas em ida e volta.");return;
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Brasiliense criadas em ida e volta.");return;
       }
       if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
         const winners=Array.from(new Set(semis.map(m=>m.group==="ida"?null:null))).filter(Boolean);
@@ -1355,9 +1360,9 @@ function App() {
           const aggA=(a.homeScore??0)+(b.awayScore??0), aggB=(a.awayScore??0)+(b.homeScore??0);
           return aggA>aggB?a.home:aggB>aggA?a.away:(b.penaltyWinner??null);
         });
-        if(pairings.some(w=>w===null)){alert("Não foi possível identificar os vencedores das semifinais.");return;}
+        if(pairings.some(w=>w===null)){phaseAlert("Não foi possível identificar os vencedores das semifinais.");return;}
         next.push({id:id++,championshipId:championship.id,round:12,home:pairings[0]!,away:pairings[1]!,homeScore:null,awayScore:null,played:false,stage:"final"});
-        setMatches(next);setSection("Final");alert("Final do Campeonato Brasiliense criada em jogo único.");return;
+        setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Brasiliense criada em jogo único.");return;
       }
       return;
     }
@@ -1374,7 +1379,7 @@ function App() {
           next.push({id:id++,championshipId:championship.id,round:10,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
         });
         setMatches(next);setSection("Semifinais");
-        alert("Semifinais do Campeonato Baiano criadas em jogo único.");
+        phaseAlert("Semifinais do Campeonato Baiano criadas em jogo único.");
         return;
       }
 
@@ -1386,12 +1391,12 @@ function App() {
         };
         const winners=semis.map(winner);
         if(winners.some(w=>w===null)){
-          alert("Não foi possível identificar os vencedores das semifinais do Campeonato Baiano.");
+          phaseAlert("Não foi possível identificar os vencedores das semifinais do Campeonato Baiano.");
           return;
         }
         next.push({id:id++,championshipId:championship.id,round:11,home:winners[0]!,away:winners[1]!,homeScore:null,awayScore:null,played:false,stage:"final"});
         setMatches(next);setSection("Final");
-        alert("Final do Campeonato Baiano criada em jogo único.");
+        phaseAlert("Final do Campeonato Baiano criada em jogo único.");
         return;
       }
       return;
@@ -1412,7 +1417,7 @@ function App() {
         }));
         next.push(...created);
         setMatches(next);setSection("Semifinais");
-        alert("Semifinais do Campeonato Amazonense criadas.");
+        phaseAlert("Semifinais do Campeonato Amazonense criadas.");
         return;
       }
 
@@ -1424,7 +1429,7 @@ function App() {
         };
         const winners=semis.map(winner);
         if(winners.some(w=>w===null)){
-          alert("Não foi possível identificar os vencedores das semifinais do Campeonato Amazonense.");
+          phaseAlert("Não foi possível identificar os vencedores das semifinais do Campeonato Amazonense.");
           return;
         }
         next.push({
@@ -1433,7 +1438,7 @@ function App() {
           played:false,stage:"final"
         });
         setMatches(next);setSection("Final");
-        alert("Final do Campeonato Amazonense criada.");
+        phaseAlert("Final do Campeonato Amazonense criada.");
         return;
       }
 
@@ -1450,13 +1455,13 @@ function App() {
         pairs.forEach(([home,away])=>{
           next.push({id:id++,championshipId:championship.id,round:7,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
         });
-        setMatches(next);setSection("Semifinais");alert("Semifinais da 2ª Divisão do Amazonas criadas em jogo único.");return;
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais da 2ª Divisão do Amazonas criadas em jogo único.");return;
       }
       if(semis.length===2 && semis.every(m=>m.played) && final.length===0){
         const winners=semis.map((m)=>((m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner)).filter((x):x is number=>x!==undefined);
-        if(winners.length!==2){alert("Não foi possível identificar os finalistas da 2ª Divisão do Amazonas.");return;}
+        if(winners.length!==2){phaseAlert("Não foi possível identificar os finalistas da 2ª Divisão do Amazonas.");return;}
         next.push({id:id++,championshipId:championship.id,round:8,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
-        setMatches(next);setSection("Final");alert("Final da 2ª Divisão do Amazonas criada em jogo único. O campeão garante o acesso.");return;
+        setMatches(next);setSection("Final");phaseAlert("Final da 2ª Divisão do Amazonas criada em jogo único. O campeão garante o acesso.");return;
       }
       return;
     }
@@ -1471,7 +1476,7 @@ function App() {
         const idsB=[...new Set(regular.filter(m=>m.group==="B").flatMap(m=>[m.home,m.away]))];
         const a=tableFor(championship,idsA,next,"regular","A");
         const b=tableFor(championship,idsB,next,"regular","B");
-        if(a.length!==6 || b.length!==6){alert("Não foi possível montar os grupos do Amapá.");return;}
+        if(a.length!==6 || b.length!==6){phaseAlert("Não foi possível montar os grupos do Amapá.");return;}
         const pairs=[[a[0].clubId,b[1].clubId],[b[0].clubId,a[1].clubId]];
         pairs.forEach(([home,away])=>{
           next.push({id:id++,championshipId:championship.id,round:6,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4});
@@ -1479,30 +1484,30 @@ function App() {
         });
         setMatches(next);
         setSection("Semifinais");
-        alert("Semifinais da 2ª Divisão do Amapá criadas: 1º do Grupo A x 2º do Grupo B e 1º do Grupo B x 2º do Grupo A.");
+        phaseAlert("Semifinais da 2ª Divisão do Amapá criadas: 1º do Grupo A x 2º do Grupo B e 1º do Grupo B x 2º do Grupo A.");
         return;
       }
 
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       if(semis.length===4 && semis.every(m=>m.played) && !finalExists){
         const winners=knockoutWinner(next,4,championship.id);
-        if(winners.length!==2){alert("Não foi possível identificar os dois finalistas do Amapá.");return;}
+        if(winners.length!==2){phaseAlert("Não foi possível identificar os dois finalistas do Amapá.");return;}
         const finalMatches=[
           {id:id++,championshipId:championship.id,round:8,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final" as Stage},
           {id:id++,championshipId:championship.id,round:9,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final" as Stage},
         ];
         setMatches([...next,...finalMatches]);
         setSection("Final");
-        alert("Final da 2ª Divisão do Amapá criada em dois jogos. Os dois finalistas garantem acesso.");
+        phaseAlert("Final da 2ª Divisão do Amapá criada em dois jogos. Os dois finalistas garantem acesso.");
         return;
       }
 
       if(semis.length===4 && !semis.every(m=>m.played)){
-        alert("Finalize os 4 jogos das semifinais do Amapá.");
+        phaseAlert("Finalize os 4 jogos das semifinais do Amapá.");
         return;
       }
       if(finalExists && !next.filter(m=>m.championshipId===championship.id&&m.stage==="final").every(m=>m.played)){
-        alert("Finalize os 2 jogos da final do Amapá.");
+        phaseAlert("Finalize os 2 jogos da final do Amapá.");
         return;
       }
     }
@@ -1516,7 +1521,7 @@ function App() {
       if(regular.length===66 && regular.every(m=>m.played) && quarters.length===0){
         const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
         if(table.length!==12){
-          alert("Não foi possível montar a classificação da 1ª Divisão do Carioca.");
+          phaseAlert("Não foi possível montar a classificação da 1ª Divisão do Carioca.");
           return;
         }
 
@@ -1561,7 +1566,7 @@ function App() {
 
         setMatches(next);
         setSection("Quartas de final");
-        alert("1ª fase do Campeonato Carioca concluída. Quartas de final criadas e 2ª Divisão liberada.");
+        phaseAlert("1ª fase do Campeonato Carioca concluída. Quartas de final criadas e 2ª Divisão liberada.");
         return;
       }
 
@@ -1573,7 +1578,7 @@ function App() {
         };
         const winners=quarters.map(winner);
         if(winners.some(w=>w===null)){
-          alert("Não foi possível identificar os classificados das quartas do Carioca.");
+          phaseAlert("Não foi possível identificar os classificados das quartas do Carioca.");
           return;
         }
         const shuffled=shuffle(winners as number[]);
@@ -1585,14 +1590,14 @@ function App() {
         );
         setMatches(next);
         setSection("Semifinais");
-        alert("Semifinais do Campeonato Carioca criadas em ida e volta.");
+        phaseAlert("Semifinais do Campeonato Carioca criadas em ida e volta.");
         return;
       }
 
       if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
         const winners=knockoutWinner(next,4,championship.id);
         if(winners.length!==2){
-          alert("Não foi possível identificar os finalistas do Carioca.");
+          phaseAlert("Não foi possível identificar os finalistas do Carioca.");
           return;
         }
         next.push({
@@ -1608,7 +1613,7 @@ function App() {
         });
         setMatches(next);
         setSection("Final");
-        alert("Final do Campeonato Carioca criada em jogo único.");
+        phaseAlert("Final do Campeonato Carioca criada em jogo único.");
         return;
       }
 
@@ -1629,7 +1634,7 @@ function App() {
         });
         setMatches(next);
         setSection("Semifinais");
-        alert("Semifinais da 2ª Divisão do Carioca criadas.");
+        phaseAlert("Semifinais da 2ª Divisão do Carioca criadas.");
         return;
       }
 
@@ -1642,7 +1647,7 @@ function App() {
               :m.penaltyWinner
         )).filter((x):x is number=>x!==undefined);
         if(winners.length!==2){
-          alert("Não foi possível identificar os finalistas da 2ª Divisão do Carioca.");
+          phaseAlert("Não foi possível identificar os finalistas da 2ª Divisão do Carioca.");
           return;
         }
         next.push({
@@ -1658,7 +1663,7 @@ function App() {
         });
         setMatches(next);
         setSection("Final");
-        alert("Final da 2ª Divisão do Carioca criada.");
+        phaseAlert("Final da 2ª Divisão do Carioca criada.");
         return;
       }
 
@@ -1666,7 +1671,7 @@ function App() {
       if(final.length===1 && final[0].played && playoff.length===0){
         const a1=championships.find(c=>c.name==="Campeonato Carioca"&&c.season==="2026");
         if(!a1){
-          alert("A 1ª Divisão do Carioca não foi encontrada.");
+          phaseAlert("A 1ª Divisão do Carioca não foi encontrada.");
           return;
         }
         const f=final[0];
@@ -1677,7 +1682,7 @@ function App() {
         const penultimate=a1Table[10]?.clubId;
 
         if(vice===undefined || penultimate===undefined){
-          alert("Não foi possível identificar o 11º colocado da 1ª Divisão e o vice da 2ª Divisão.");
+          phaseAlert("Não foi possível identificar o 11º colocado da 1ª Divisão e o vice da 2ª Divisão.");
           return;
         }
 
@@ -1694,7 +1699,7 @@ function App() {
         });
         setMatches(next);
         setSection("Play-off de acesso");
-        alert("Play-off de permanência criado: 11º da 1ª Divisão x vice da 2ª Divisão.");
+        phaseAlert("Play-off de permanência criado: 11º da 1ª Divisão x vice da 2ª Divisão.");
         return;
       }
       return;
@@ -1707,13 +1712,13 @@ function App() {
       if(regular.length===66 && regular.every(m=>m.played) && semis.length===0){
         const table=tableFor(championship,myClubs.map(c=>c.id),next);
         [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([home,away])=>next.push({id:id++,championshipId:championship.id,round:12,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4}));
-        setMatches(next);setSection("Semifinais");alert("Semifinais do Campeonato Carioca criadas em jogo único.");return;
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Carioca criadas em jogo único.");return;
       }
       if(semis.length===2 && semis.every(m=>m.played) && final.length===0){
         const winners=semis.map(m=>((m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner)).filter((x):x is number=>x!==undefined);
         if(winners.length!==2)return;
         next.push({id:id++,championshipId:championship.id,round:13,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
-        setMatches(next);setSection("Final");alert("Final do Campeonato Carioca criada em jogo único.");return;
+        setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Carioca criada em jogo único.");return;
       }
       return;
     }
@@ -1731,24 +1736,24 @@ function App() {
           next.push({id:id++,championshipId:championship.id,round:10,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
           next.push({id:id++,championshipId:championship.id,round:11,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
         });
-        setMatches(next);setSection("Quartas de final");alert("Quartas de final do Campeonato Capixaba criadas em ida e volta.");return;
+        setMatches(next);setSection("Quartas de final");phaseAlert("Quartas de final do Campeonato Capixaba criadas em ida e volta.");return;
       }
 
       if(quarters.length===8 && quarters.every(m=>m.played) && semis.length===0){
         const winners=knockoutWinner(next,8,championship.id);
-        if(winners.length!==4){alert("Não foi possível identificar os 4 vencedores das quartas de final do Campeonato Capixaba.");return;}
+        if(winners.length!==4){phaseAlert("Não foi possível identificar os 4 vencedores das quartas de final do Campeonato Capixaba.");return;}
         [[winners[0],winners[3]],[winners[1],winners[2]]].forEach(([home,away])=>{
           next.push({id:id++,championshipId:championship.id,round:12,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
           next.push({id:id++,championshipId:championship.id,round:13,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
         });
-        setMatches(next);setSection("Semifinais");alert("Semifinais do Campeonato Capixaba criadas em ida e volta.");return;
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Capixaba criadas em ida e volta.");return;
       }
 
       if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
         const winners=knockoutWinner(next,4,championship.id);
-        if(winners.length!==2){alert("Não foi possível identificar os 2 finalistas do Campeonato Capixaba.");return;}
+        if(winners.length!==2){phaseAlert("Não foi possível identificar os 2 finalistas do Campeonato Capixaba.");return;}
         next.push({id:id++,championshipId:championship.id,round:14,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
-        setMatches(next);setSection("Final");alert("Final do Campeonato Capixaba criada em jogo único.");return;
+        setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Capixaba criada em jogo único.");return;
       }
       return;
     }
@@ -1761,20 +1766,20 @@ function App() {
       if(regular.length===40 && regular.every(m=>m.played) && semis.length===0){
         const tableA=tableFor(championship,myClubs.map(c=>c.id).filter(id=>next.some(m=>m.championshipId===championship.id&&m.group==="A"&&(m.home===id||m.away===id))),next,"regular","A");
         const tableB=tableFor(championship,myClubs.map(c=>c.id).filter(id=>next.some(m=>m.championshipId===championship.id&&m.group==="B"&&(m.home===id||m.away===id))),next,"regular","B");
-        if(tableA.length<2||tableB.length<2){alert("Não foi possível identificar os 2 classificados de cada grupo do Capixaba.");return;}
+        if(tableA.length<2||tableB.length<2){phaseAlert("Não foi possível identificar os 2 classificados de cada grupo do Capixaba.");return;}
         const pairs=[[tableA[0].clubId,tableB[1].clubId],[tableB[0].clubId,tableA[1].clubId]];
         pairs.forEach(([home,away])=>{
           next.push({id:id++,championshipId:championship.id,round:9,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
           next.push({id:id++,championshipId:championship.id,round:10,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
         });
-        setMatches(next);setSection("Semifinais");alert("Semifinais do Campeonato Capixaba - 2ª Divisão criadas em ida e volta.");return;
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Capixaba - 2ª Divisão criadas em ida e volta.");return;
       }
 
       if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
         const winners=knockoutWinner(next,4,championship.id);
-        if(winners.length!==2){alert("Não foi possível identificar os 2 finalistas do Capixaba.");return;}
+        if(winners.length!==2){phaseAlert("Não foi possível identificar os 2 finalistas do Capixaba.");return;}
         next.push({id:id++,championshipId:championship.id,round:11,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
-        setMatches(next);setSection("Final");alert("Final do Campeonato Capixaba - 2ª Divisão criada em jogo único.");return;
+        setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Capixaba - 2ª Divisão criada em jogo único.");return;
       }
       return;
     }
@@ -1789,7 +1794,7 @@ function App() {
       });
       setMatches(next);
       setSection("Semifinais");
-      alert(`Semifinais do ${championship.name} criadas: 1º x 4º e 2º x 3º, em dois jogos.`);
+      phaseAlert(`Semifinais do ${championship.name} criadas: 1º x 4º e 2º x 3º, em dois jogos.`);
       return;
     }
 
@@ -1798,22 +1803,22 @@ function App() {
       const finalExists=next.some(m=>m.championshipId===championship.id&&m.stage==="final");
       if (semis.length===4 && semis.every(m=>m.played) && !finalExists) {
         const winners=knockoutWinner(next,4,championship.id);
-        if(winners.length!==2){alert(`Não foi possível identificar os dois finalistas do ${championship.name}.`);return;}
+        if(winners.length!==2){phaseAlert(`Não foi possível identificar os dois finalistas do ${championship.name}.`);return;}
         const finalMatches = [
           {id:id++,championshipId:championship.id,round:10,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final" as Stage},
           {id:id++,championshipId:championship.id,round:11,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final" as Stage},
         ];
         setMatches([...next,...finalMatches]);
         setSection("Final");
-        alert(`Final do ${championship.name} criada em dois jogos.`);
+        phaseAlert(`Final do ${championship.name} criada em dois jogos.`);
         return;
       }
       if(semis.length===4 && !semis.every(m=>m.played)) {
-        alert(`Finalize os 4 jogos das semifinais do ${championship.name}.`);
+        phaseAlert(`Finalize os 4 jogos das semifinais do ${championship.name}.`);
         return;
       }
       if(finalExists && !next.filter(m=>m.championshipId===championship.id&&m.stage==="final").every(m=>m.played)) {
-        alert(`Finalize os 2 jogos da final do ${championship.name} para encerrar a competição.`);
+        phaseAlert(`Finalize os 2 jogos da final do ${championship.name} para encerrar a competição.`);
         return;
       }
     }
@@ -1827,7 +1832,7 @@ function App() {
         next.push({id:id++,championshipId:championship.id,round:40,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"playoff"});
       });
       setMatches(next);
-      alert("Play-offs da Série B criados: 6º x 3º e 5º x 4º.");
+      phaseAlert("Play-offs da Série B criados: 6º x 3º e 5º x 4º.");
       return;
     }
 
@@ -1843,7 +1848,7 @@ function App() {
         id = nextId(next);
       }
       setMatches(next);
-      alert("Segunda fase da Série C criada automaticamente.");
+      phaseAlert("Segunda fase da Série C criada automaticamente.");
       return;
     }
 
@@ -1856,14 +1861,14 @@ function App() {
         const tableA = tableFor(championship, groupAIds, next, "secondPhase", "A");
         const tableB = tableFor(championship, groupBIds, next, "secondPhase", "B");
         if (tableA.length !== 4 || tableB.length !== 4) {
-          alert("Não foi possível identificar os líderes dos grupos da Série C.");
+          phaseAlert("Não foi possível identificar os líderes dos grupos da Série C.");
           return;
         }
         const finalTeams = [tableA[0].clubId, tableB[0].clubId];
         const finalMatches = roundRobin(finalTeams, championship.id, id, 2, 6)
           .map((m) => ({...m, stage:"final" as Stage}));
         setMatches([...next, ...finalMatches]);
-        alert("Final da Série C criada: os líderes dos grupos A e B disputarão o título em ida e volta.");
+        phaseAlert("Final da Série C criada: os líderes dos grupos A e B disputarão o título em ida e volta.");
         return;
       }
     }
@@ -1888,7 +1893,7 @@ function App() {
       }
       if (created.length===64) {
         setMatches([...next,...created]);
-        alert("1ª fase do mata-mata da Série D criada: 64 clubes.");
+        phaseAlert("1ª fase do mata-mata da Série D criada: 64 clubes.");
       }
       return;
     }
@@ -1916,7 +1921,7 @@ function App() {
 
           const winners=knockoutWinner(next,completed,championship.id);
           if (winners.length!==nextPhase) {
-            alert("Não foi possível identificar todos os vencedores da fase.");
+            phaseAlert("Não foi possível identificar todos os vencedores da fase.");
             return;
           }
 
@@ -1938,7 +1943,7 @@ function App() {
           }
 
           setMatches([...next,...created]);
-          alert(`Série D: próxima fase criada — ${nextPhase} clubes.`);
+          phaseAlert(`Série D: próxima fase criada — ${nextPhase} clubes.`);
           return;
         }
       }
@@ -1948,17 +1953,104 @@ function App() {
         m.knockoutRound===p && !m.played
       ));
       if (pending) {
-        alert(`Finalize os ${pending} jogos da fase Série D · ${pending} antes de avançar.`);
+        phaseAlert(`Finalize os ${pending} jogos da fase Série D · ${pending} antes de avançar.`);
         return;
       }
       if (existing.includes(2)) {
-        alert("A Final da Série D já foi criada. Finalize os dois jogos para concluir o campeonato.");
+        phaseAlert("A Final da Série D já foi criada. Finalize os dois jogos para concluir o campeonato.");
         return;
       }
     }
 
-    alert("Não há uma nova fase pronta para ser criada.");
+    phaseAlert("Não há uma nova fase pronta para ser criada.");
   };
+
+  const simulateCountrySeason = (country: string) => {
+    if (autoSimulationRef.current) return;
+    const countryChamps=championships.filter(c=>c.country===country);
+    if (!countryChamps.length) {
+      alert("Não há campeonatos registrados neste país.");
+      return;
+    }
+    autoSimulationRef.current=true;
+    autoLastStepRef.current="";
+    setAutoSeasonCountry(country);
+    setSection("Visão geral");
+  };
+
+  const isCountryChampComplete = (champ: Championship) => {
+    const games=matches.filter(m=>m.championshipId===champ.id);
+    if (champ.name==="Campeonato Carioca - 2ª Divisão") {
+      const playoff=games.filter(m=>m.stage==="playoff");
+      const final=games.filter(m=>m.stage==="final");
+      if (final.length===1 && final[0].played) {
+        return playoff.length===1 && playoff[0].played;
+      }
+    }
+    return competitionComplete(champ,matches);
+  };
+
+  useEffect(() => {
+    if (!autoSeasonCountry) return;
+
+    const season=Math.max(
+      ...championships
+        .filter(c=>c.country===autoSeasonCountry)
+        .map(c=>Number(c.season))
+    );
+
+    const countryChamps=championships
+      .filter(c=>c.country===autoSeasonCountry && Number(c.season)===season)
+      .sort((a,b)=>a.id-b.id);
+
+    const pending=countryChamps.find(c=>!isCountryChampComplete(c));
+
+    if (!pending) {
+      autoSimulationRef.current=false;
+      autoLastStepRef.current="";
+      setAutoSeasonCountry(null);
+      setSection("Visão geral");
+      alert(`Temporada ${season} de ${autoSeasonCountry} simulada por completo. Todos os campeonatos registrados foram concluídos.`);
+      return;
+    }
+
+    if (selectedId!==pending.id) {
+      setSelectedId(pending.id);
+      setSection("Visão geral");
+      return;
+    }
+
+    const pendingMatches=matches.filter(m=>m.championshipId===pending.id);
+    const unplayed=pendingMatches.filter(m=>!m.played);
+
+    if (unplayed.length) {
+      setMatches(all=>{
+        const updated=all.map(m=>{
+          if(!unplayed.some(x=>x.id===m.id)) return m;
+          return {...m,homeScore:score(),awayScore:score(),played:true};
+        });
+        return resolveAutomaticPenalties(updated);
+      });
+      return;
+    }
+
+    const phaseSignature=[
+      pending.id,
+      pendingMatches.length,
+      pendingMatches.map(m=>`${m.id}:${m.stage}:${m.knockoutRound??""}:${m.played?"1":"0"}`).join(",")
+    ].join("|");
+
+    if (autoLastStepRef.current===phaseSignature) {
+      autoSimulationRef.current=false;
+      autoLastStepRef.current="";
+      setAutoSeasonCountry(null);
+      alert(`A simulação automática foi interrompida porque o campeonato "${pending.name}" não conseguiu criar a próxima fase automaticamente.`);
+      return;
+    }
+
+    autoLastStepRef.current=phaseSignature;
+    prepareNextPhase();
+  }, [autoSeasonCountry, championships, matches, selectedId]);
 
   const generateResults = (scope: "round"|"remaining"|"phase") => {
     if (!championship) return;
@@ -2371,7 +2463,17 @@ D → C: ${promotedD.length} promovidos`
       <div style={{display:"grid",gridTemplateColumns:"250px 1fr",minHeight:"calc(100vh - 70px)"}}>
         <aside style={{background:"#0a1019",color:"#fff",padding:18}}>
           <div style={{fontSize:12,opacity:.6,marginBottom:12}}>PAÍSES</div>
-          <button onClick={()=>setSelectedId(championships.find((c)=>c.division==="Série A"&&c.season===String(Math.max(...championships.map((x)=>Number(x.season)))))?.id??1)} style={{width:"100%",textAlign:"left",background:"transparent",border:0,color:"#fff",padding:"10px",cursor:"pointer"}}>🇧🇷 Brasil</button>
+          <div style={{display:"flex",gap:6,alignItems:"stretch"}}>
+            <button
+              onClick={()=>setSelectedId(championships.find((c)=>c.division==="Série A"&&c.season===String(Math.max(...championships.map((x)=>Number(x.season)))))?.id??1)}
+              style={{flex:1,minWidth:0,textAlign:"left",background:"transparent",border:0,color:"#fff",padding:"10px",cursor:"pointer",borderRadius:8}}
+            >🇧🇷 Brasil</button>
+            <button
+              onClick={()=>simulateCountrySeason("Brasil")}
+              title="Simular temporada completa de todos os campeonatos do Brasil"
+              style={{border:"1px solid #1e4050",borderRadius:8,background:"#0d1b25",color:"#26d9ff",padding:"0 9px",cursor:"pointer",fontWeight:900,fontSize:16}}
+            >⚡</button>
+          </div>
           <div style={{fontSize:12,opacity:.6,margin:"20px 0 8px"}}>CAMPEONATOS</div>
           {(["Série A","Série B","Série C","Série D"] as Division[]).map((d)=>(
             <button
