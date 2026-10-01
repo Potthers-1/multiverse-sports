@@ -1150,7 +1150,9 @@ function App() {
       // do Grupo X e das fases eliminatórias. Isso evita que uma fase bloqueie a outra.
       if (localStorage.getItem(LS.cariocaV2) !== "1") {
         const carioca2026 = cs.find((c)=>c.name==="Campeonato Carioca" && c.season==="2026");
-        ms.forEach(m=>{\n          if(m.championshipId===carioca2026?.id && m.group==="X" && m.stage==="regular") m.stage="playoff" as Stage;\n        });
+        ms.forEach(m=>{
+          if(m.championshipId===carioca2026?.id && m.group==="X" && m.stage==="regular") m.stage="playoff" as Stage;
+        });
         if (carioca2026) {
           const groupA=["Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ"];
           const groupB=["Botafogo","Madureira","Boavista - RJ","Flamengo","Nova Iguaçu","Maricá"];
