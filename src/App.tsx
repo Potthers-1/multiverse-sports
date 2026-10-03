@@ -1305,20 +1305,10 @@ function App() {
   const championClubId = (champ: Championship, allMatches: Match[]) => {
     const games = allMatches.filter((m) => m.championshipId === champ.id);
 
-    if (champ.division === "Estadual" && champ.name==="Campeonato Cearense") {
-      const final=games.filter(m=>m.stage==="final");
-      if(final.length!==1 || !final[0].played) return null;
-      const m=final[0]; return (m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner??null;
-    }
-    if (champ.division === "Estadual" && champ.name==="Campeonato Cearense - 2ª Divisão") {
-      const final=games.filter(m=>m.stage==="final");
-      if(final.length!==1 || !final[0].played) return null;
-      const m=final[0]; return (m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner??null;
-    }
-    if (champ.division === "Estadual" && champ.name==="Campeonato Cearense - 3ª Divisão") {
-      const final=games.filter(m=>m.stage==="final");
-      if(final.length!==1 || !final[0].played) return null;
-      const m=final[0]; return (m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner??null;
+    if (champ.division === "Estadual" && (champ.name==="Campeonato Cearense" || champ.name==="Campeonato Cearense - 2ª Divisão" || champ.name==="Campeonato Cearense - 3ª Divisão")) {
+      const final=games.filter(m=>m.stage==="knockout"&&m.knockoutRound===2);
+      if(final.length!==2 || !final.every(m=>m.played)) return null;
+      return knockoutWinner(games,2,champ.id)[0] ?? null;
     }
     if (champ.division === "Estadual" && champ.name==="Campeonato Amazonense") {
       const semis=games.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
@@ -1459,7 +1449,8 @@ function App() {
       if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
         const winners=knockoutWinner(next,4,championship.id);
         if(winners.length!==2){phaseAlert("Não foi possível identificar os finalistas do Campeonato Cearense.");return;}
-        next.push({id:id++,championshipId:championship.id,round:12,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
+        next.push({id:id++,championshipId:championship.id,round:12,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:2,group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:13,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:2,group:"volta"});
         setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Cearense criada em ida e volta.");return;
       }
       return;
@@ -1481,8 +1472,9 @@ function App() {
       if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
         const winners=knockoutWinner(next,4,championship.id);
         if(winners.length!==2){phaseAlert("Não foi possível identificar os finalistas do Campeonato Cearense.");return;}
-        next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
-        setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Cearense criada em jogo único.");return;
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:2,group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:2,group:"volta"});
+        setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Cearense criada em ida e volta.");return;
       }
       return;
     }
