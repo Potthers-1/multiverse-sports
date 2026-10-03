@@ -190,6 +190,19 @@ const CEARA_2_CLUBS = [
 const CEARA_3_CLUBS = [
   "Vila Real","Acopiara","Esporte Limoeiro","Pacatuba","Calouros do Ar","Tiangua EC","Palmacia",
 ];
+const RIO_GRANDE_DO_SUL_1_CLUBS = [
+  "Avenida","Caxias","Guarany de Bagé","Grêmio","Internacional","Juventude",
+  "Monsoon","São José","Novo Hamburgo","São Luiz","Ypiranga",
+];
+const RIO_GRANDE_DO_SUL_2_CLUBS = [
+  "Aimoré","APA FUT","Bagé","Brasil de Pelotas","Brasil de Farroupilha","Esportivo",
+  "Gaucho","Glória","Gramadense","Guarani de VN","Lajeadense","Passo Fundo",
+  "Pelotas","Santa Cruz","União Frederiquense","Veranópolis",
+];
+const RIO_GRANDE_DO_SUL_3_CLUBS = [
+  "Panambi","Real SC","SC São Paulo","Cruz A.","Futvida","Riograndense",
+  "GA Farroupilha","Clube 1992","EC Novo Horizonte","SC Rio Grande",
+];
 
 const CARIOCA_1_CLUBS = [
   "Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ",
@@ -657,6 +670,46 @@ function buildCearaThirdDivision(championshipId:number,startClubId:number,startM
     clubs,
     matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)
   };
+}
+
+
+function buildRioGrandeDoSulFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Gaúcho",
+    "Turno único + quartas + semifinais + final",
+    "Os 11 clubes informados disputam uma fase única em turno único, todos contra todos, em 10 rodadas. Os 8 primeiros avançam ao mata-mata. Quartas de final, semifinais e final são disputadas em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.",
+    "O campeão é o vencedor da final do Campeonato Gaúcho.",
+    "Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",
+    11,10,1,"Rio Grande do Sul"
+  );
+  const clubs:Club[]=RIO_GRANDE_DO_SUL_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildRioGrandeDoSulSecondDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Gaúcho - 2ª Divisão",
+    "Turno único + quartas + semifinais + final",
+    "Os 16 clubes disputam uma primeira fase em turno único, em 15 rodadas. Os 8 primeiros avançam ao mata-mata. Quartas de final, semifinais e final são disputadas em ida e volta.",
+    "Os dois finalistas garantem acesso à 1ª Divisão.",
+    "Os 2 últimos colocados da primeira fase são rebaixados para a 3ª Divisão.",
+    16,15,1,"Rio Grande do Sul"
+  );
+  const clubs:Club[]=RIO_GRANDE_DO_SUL_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildRioGrandeDoSulThirdDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Gaúcho - 3ª Divisão",
+    "Turno único + semifinais + final",
+    "Os 10 clubes disputam uma primeira fase em turno único, em 9 rodadas. Os 4 primeiros avançam ao mata-mata. As semifinais e a final são disputadas em ida e volta.",
+    "Os dois finalistas garantem acesso à 2ª Divisão.",
+    "Não há rebaixamento informado para a 3ª Divisão.",
+    10,9,1,"Rio Grande do Sul"
+  );
+  const clubs:Club[]=RIO_GRANDE_DO_SUL_3_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
 }
 
 function buildCariocaFirstDivision(championshipId:number, startClubId:number, startMatchId:number) {
@@ -1381,6 +1434,23 @@ function App() {
         const x=buildCearaThirdDivision(newChampId,newClubId,newMatchId); cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
       }
 
+
+      if (!cs.some((c)=>c.name==="Campeonato Gaúcho" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1, newClubId=Math.max(...cl.map(c=>c.id),0)+1, newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const x=buildRioGrandeDoSulFirstDivision(newChampId,newClubId,newMatchId);
+        cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
+      }
+      if (!cs.some((c)=>c.name==="Campeonato Gaúcho - 2ª Divisão" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1, newClubId=Math.max(...cl.map(c=>c.id),0)+1, newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const x=buildRioGrandeDoSulSecondDivision(newChampId,newClubId,newMatchId);
+        cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
+      }
+      if (!cs.some((c)=>c.name==="Campeonato Gaúcho - 3ª Divisão" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1, newClubId=Math.max(...cl.map(c=>c.id),0)+1, newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const x=buildRioGrandeDoSulThirdDivision(newChampId,newClubId,newMatchId);
+        cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
+      }
+
       if (!cs.some((c)=>c.name==="Campeonato Amapaense" && c.season==="2026")) {
         const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
         const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
@@ -1712,6 +1782,68 @@ function App() {
     if (!championship) return;
     let next = resolveAutomaticPenalties(matches);
     let id = nextId(next);
+
+
+    if (championship.division === "Estadual" && (
+      championship.name==="Campeonato Gaúcho" ||
+      championship.name==="Campeonato Gaúcho - 2ª Divisão" ||
+      championship.name==="Campeonato Gaúcho - 3ª Divisão"
+    )) {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const quarters=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      const expectedRegular=
+        championship.name==="Campeonato Gaúcho" ? 55 :
+        championship.name==="Campeonato Gaúcho - 2ª Divisão" ? 120 : 45;
+
+      if(regular.length===expectedRegular && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0) {
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        const pairs=championship.name==="Campeonato Gaúcho"
+          ? [[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]]
+          : championship.name==="Campeonato Gaúcho - 2ª Divisão"
+          ? [[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]]
+          : [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
+
+        const baseRound=championship.rounds+1;
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:baseRound,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:baseRound+1,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
+        });
+        setMatches(next);setSection("Quartas de final");
+        phaseAlert(`Quartas de final do ${championship.name} criadas em ida e volta.`);
+        return;
+      }
+
+      if(quarters.length>0 && quarters.every(m=>m.played) && semis.length===0 && final.length===0) {
+        const winners=knockoutWinner(next,8,championship.id);
+        if(winners.length!==4) {
+          phaseAlert(`Não foi possível identificar os vencedores das quartas do ${championship.name}.`);
+          return;
+        }
+        [[winners[0],winners[3]],[winners[1],winners[2]]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");
+        phaseAlert(`Semifinais do ${championship.name} criadas em ida e volta.`);
+        return;
+      }
+
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0) {
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2) {
+          phaseAlert(`Não foi possível identificar os finalistas do ${championship.name}.`);
+          return;
+        }
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+5,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+6,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        setMatches(next);setSection("Final");
+        phaseAlert(`Final do ${championship.name} criada em ida e volta.`);
+        return;
+      }
+      return;
+    }
 
     if (championship.division === "Estadual" && isCearaChampionship(championship.name)) {
       const resolved=resolveAutomaticPenalties(matches);
@@ -2574,6 +2706,26 @@ function App() {
       return;
     }
 
+
+    if (championship.name==="Campeonato Gaúcho" ||
+        championship.name==="Campeonato Gaúcho - 2ª Divisão" ||
+        championship.name==="Campeonato Gaúcho - 3ª Divisão") {
+      const own=matches.filter(m=>m.championshipId===championship.id);
+      const regular=own.filter(m=>m.stage==="regular");
+      const quarters=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
+      const final=own.filter(m=>m.stage==="final");
+      const expected=championship.name==="Campeonato Gaúcho" ? 55 :
+        championship.name==="Campeonato Gaúcho - 2ª Divisão" ? 120 : 45;
+
+      if(
+        (regular.length===expected && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0) ||
+        (quarters.length>0 && quarters.every(m=>m.played) && semis.length===0 && final.length===0) ||
+        (semis.length===4 && semis.every(m=>m.played) && final.length===0)
+      ) prepareNextPhase();
+      return;
+    }
+
     if (isCearaChampionship(championship.name)) {
       const own=matches.filter(m=>m.championshipId===championship.id);
       const regular=own.filter(m=>m.stage==="regular");
@@ -2868,6 +3020,19 @@ D → C: ${promotedD.length} promovidos`
         return "";
       }
       if (state==="Amazonas" && name==="Campeonato Amazonense - 2ª Divisão") return position <= 4 ? "qualification" : "";
+      if (state==="Rio Grande do Sul" && name==="Campeonato Gaúcho") {
+        if(position>=10) return "relegation";
+        if(position<=8) return "qualification";
+        return "";
+      }
+      if (state==="Rio Grande do Sul" && name==="Campeonato Gaúcho - 2ª Divisão") {
+        if(position>=15) return "relegation";
+        if(position<=8) return "qualification";
+        return "";
+      }
+      if (state==="Rio Grande do Sul" && name==="Campeonato Gaúcho - 3ª Divisão") {
+        return position<=4 ? "qualification" : "";
+      }
       if (state==="Ceará" && name==="Campeonato Cearense") {
         if (position >= 9) return "relegation";
         if (position <= 4) return "qualification";
