@@ -2644,6 +2644,19 @@ D → C: ${promotedD.length} promovidos`
         return "";
       }
       if (state==="Amazonas" && name==="Campeonato Amazonense - 2ª Divisão") return position <= 4 ? "qualification" : "";
+      if (state==="Ceará" && name==="Campeonato Cearense") {
+        if (position >= 9) return "relegation";
+        if (position <= 4) return "qualification";
+        return "";
+      }
+      if (state==="Ceará" && name==="Campeonato Cearense - 2ª Divisão") {
+        if (position >= 10) return "relegation";
+        if (position <= 4) return "qualification";
+        return "";
+      }
+      if (state==="Ceará" && name==="Campeonato Cearense - 3ª Divisão") {
+        return position <= 4 ? "qualification" : "";
+      }
       if (position <= 4) return "qualification";
       return "";
     }
