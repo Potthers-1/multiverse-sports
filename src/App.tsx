@@ -1168,15 +1168,18 @@ function App() {
       // Recria somente o Ceará após a troca completa do motor da competição.
       // As demais competições e simulações do navegador são preservadas.
       if (localStorage.getItem(LS.cearaV7) !== "1") {
-        for (let i=cs.length-1;i>=0;i--) {
-          if (cs[i].state==="Ceará" || isCearaChampionship(cs[i].name)) cs.splice(i,1);
+        const oldCearaIds=new Set(
+          cs.filter(c=>c.state==="Ceará" || isCearaChampionship(c.name)).map(c=>c.id)
+        );
+
+        for (let i=ms.length-1;i>=0;i--) {
+          if (oldCearaIds.has(ms[i].championshipId)) ms.splice(i,1);
         }
         for (let i=cl.length-1;i>=0;i--) {
-          if (cl[i].state==="Ceará" || isCearaChampionship(cs.find(c=>c.id===cl[i].championshipId)?.name ?? "")) cl.splice(i,1);
+          if (oldCearaIds.has(cl[i].championshipId)) cl.splice(i,1);
         }
-        const cearaIds=new Set(cs.filter(c=>c.state==="Ceará" || isCearaChampionship(c.name)).map(c=>c.id));
-        for (let i=ms.length-1;i>=0;i--) {
-          if (cearaIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for (let i=cs.length-1;i>=0;i--) {
+          if (oldCearaIds.has(cs[i].id)) cs.splice(i,1);
         }
 
         const addCeara=(builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]})=>{
