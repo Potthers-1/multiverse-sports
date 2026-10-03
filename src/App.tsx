@@ -191,8 +191,8 @@ const CEARA_3_CLUBS = [
   "Vila Real","Acopiara","Esporte Limoeiro","Pacatuba","Calouros do Ar","Tiangua EC","Palmacia",
 ];
 const RIO_GRANDE_DO_SUL_1_CLUBS = [
-  "Avenida","Caxias","Guarany de Bagé","Grêmio","Internacional","Juventude",
-  "Monsoon","São José","Novo Hamburgo","São Luiz","Ypiranga",
+  "Avenida","Caxias","Guarany de Bagé","Grêmio","Internacional","Inter de Santa Maria",
+  "Juventude","Monsoon","São José","Novo Hamburgo","São Luiz","Ypiranga",
 ];
 const RIO_GRANDE_DO_SUL_2_CLUBS = [
   "Aimoré","APA FUT","Bagé","Brasil de Pelotas","Brasil de Farroupilha","Esportivo",
@@ -680,7 +680,7 @@ function buildRioGrandeDoSulFirstDivision(championshipId:number,startClubId:numb
     "Os 11 clubes informados disputam uma fase única em turno único, todos contra todos, em 10 rodadas. Os 8 primeiros avançam ao mata-mata. Quartas de final, semifinais e final são disputadas em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.",
     "O campeão é o vencedor da final do Campeonato Gaúcho.",
     "Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",
-    11,10,1,"Rio Grande do Sul"
+    12,11,1,"Rio Grande do Sul"
   );
   const clubs:Club[]=RIO_GRANDE_DO_SUL_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
   return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
@@ -1794,7 +1794,7 @@ function App() {
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
       const expectedRegular=
-        championship.name==="Campeonato Gaúcho" ? 55 :
+        championship.name==="Campeonato Gaúcho" ? 66 :
         championship.name==="Campeonato Gaúcho - 2ª Divisão" ? 120 : 45;
 
       if(regular.length===expectedRegular && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0) {
