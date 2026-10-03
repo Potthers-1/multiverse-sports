@@ -1275,6 +1275,33 @@ function App() {
     } catch { seed(); }
   }, []);
 
+  // Garantia de instalação do Cearense: se o navegador já tinha dados antigos ou
+  // uma migração anterior falhou, instala as três divisões sem apagar nenhuma simulação.
+  useEffect(() => {
+    if (!championships.length) return;
+    const missing = [
+      "Campeonato Cearense",
+      "Campeonato Cearense - 2ª Divisão",
+      "Campeonato Cearense - 3ª Divisão",
+    ].some(name => !championships.some(c => c.name === name && c.season === "2026"));
+    if (!missing) return;
+
+    const cs = [...championships];
+    const cl = [...clubs];
+    const ms = [...matches];
+    const add = (builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
+      const newChampId = Math.max(...cs.map(c=>c.id),0)+1;
+      const newClubId = Math.max(...cl.map(c=>c.id),0)+1;
+      const newMatchId = Math.max(...ms.map(m=>m.id),0)+1;
+      const x = builder(newChampId,newClubId,newMatchId);
+      cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
+    };
+    if (!cs.some(c=>c.name === "Campeonato Cearense" && c.season === "2026")) add(buildCearaFirstDivision);
+    if (!cs.some(c=>c.name === "Campeonato Cearense - 2ª Divisão" && c.season === "2026")) add(buildCearaSecondDivision);
+    if (!cs.some(c=>c.name === "Campeonato Cearense - 3ª Divisão" && c.season === "2026")) add(buildCearaThirdDivision);
+    setChampionships(cs); setClubs(cl); setMatches(ms);
+  }, [championships.length, clubs.length, matches.length]);
+
   useEffect(() => {
     if (championships.length) localStorage.setItem(LS.championships, JSON.stringify(championships));
   }, [championships]);
