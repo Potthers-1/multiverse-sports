@@ -180,6 +180,16 @@ const SANTA_CATARINA_2_CLUBS = [
 const SANTA_CATARINA_3_CLUBS = [
   "Inter de Lages","Manchester Catarinense","Porto - SC","Caçador",
 ];
+const CEARA_1_CLUBS = [
+  "Ceará","Ferroviário","Floresta","Fortaleza","Horizonte","Iguatu","Maracanã","Maranguape","Quixadá","Tirol",
+];
+const CEARA_2_CLUBS = [
+  "Icasa","Crato","Cariri FC","Barbalha","Guarani de Juazeiro","Itapipoca","Crateus","Guarany SC","Caucaia","Atlético CE","Ceará",
+];
+const CEARA_3_CLUBS = [
+  "Vila Real","Acopiara","Esporte Limoeiro","Pacatuba","Calouros do Ar","Tiangua EC","Palmacia",
+];
+
 const CARIOCA_1_CLUBS = [
   "Fluminense","Vasco da Gama","Volta Redonda","Bangu","Portuguesa - RJ","Sampaio Corrêa - RJ",
   "Botafogo","Madureira","Boavista - RJ","Flamengo","Nova Iguaçu","Maricá",
@@ -564,6 +574,22 @@ function buildSantaCatarinaThirdDivision(championshipId:number,startClubId:numbe
   const clubs:Club[]=SANTA_CATARINA_3_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
   return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,2)};
 }
+function buildCearaFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Cearense","Turno único + semifinais + final","10 clubes disputam turno único em 9 rodadas. Os 4 primeiros avançam ao mata-mata. Semifinais e final são disputadas em ida e volta. Os 2 últimos são rebaixados para a 2ª Divisão.","O campeão é o vencedor da final.","Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",10,9,1,"Ceará");
+  const clubs:Club[]=CEARA_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+function buildCearaSecondDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Cearense - 2ª Divisão","Turno único + semifinais + final","A lista fornecida contém 11 clubes, embora a descrição mencione 10. Para não eliminar nenhum clube informado, esta edição será criada com os 11 clubes em turno único. Os 4 primeiros avançam ao mata-mata, disputado em ida e volta. Os 2 últimos são rebaixados para a 3ª Divisão. Os dois finalistas garantem acesso à 1ª Divisão.","Os dois finalistas garantem acesso à 1ª Divisão.","Os 2 últimos colocados da primeira fase são rebaixados para a 3ª Divisão.",11,10,1,"Ceará");
+  const clubs:Club[]=CEARA_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+function buildCearaThirdDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Cearense - 3ª Divisão","Turno único + semifinais + final","7 clubes disputam turno único em 7 rodadas. Os 4 primeiros avançam ao mata-mata, disputado em ida e volta. Os dois finalistas garantem acesso à 2ª Divisão.","Os dois finalistas garantem acesso à 2ª Divisão.","Não há rebaixamento informado para a 3ª Divisão.",7,6,1,"Ceará");
+  const clubs:Club[]=CEARA_3_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
 function buildCariocaFirstDivision(championshipId:number, startClubId:number, startMatchId:number) {
   const championship=makeChampionship(
     championshipId,
@@ -1088,6 +1114,19 @@ function App() {
         const x=buildSantaCatarinaThirdDivision(newChampId,newClubId,newMatchId); cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
       }
 
+      if (!cs.some((c)=>c.name==="Campeonato Cearense" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1, newClubId=Math.max(...cl.map(c=>c.id),0)+1, newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const x=buildCearaFirstDivision(newChampId,newClubId,newMatchId); cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
+      }
+      if (!cs.some((c)=>c.name==="Campeonato Cearense - 2ª Divisão" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1, newClubId=Math.max(...cl.map(c=>c.id),0)+1, newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const x=buildCearaSecondDivision(newChampId,newClubId,newMatchId); cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
+      }
+      if (!cs.some((c)=>c.name==="Campeonato Cearense - 3ª Divisão" && c.season==="2026")) {
+        const newChampId=Math.max(...cs.map(c=>c.id),0)+1, newClubId=Math.max(...cl.map(c=>c.id),0)+1, newMatchId=Math.max(...ms.map(m=>m.id),0)+1;
+        const x=buildCearaThirdDivision(newChampId,newClubId,newMatchId); cs.push(x.championship); cl.push(...x.clubs); ms.push(...x.matches);
+      }
+
       if (!cs.some((c)=>c.name==="Campeonato Amapaense" && c.season==="2026")) {
         const newChampId = Math.max(...cs.map((c)=>c.id),0)+1;
         const newClubId = Math.max(...cl.map((c)=>c.id),0)+1;
@@ -1266,6 +1305,21 @@ function App() {
   const championClubId = (champ: Championship, allMatches: Match[]) => {
     const games = allMatches.filter((m) => m.championshipId === champ.id);
 
+    if (champ.division === "Estadual" && champ.name==="Campeonato Cearense") {
+      const final=games.filter(m=>m.stage==="final");
+      if(final.length!==1 || !final[0].played) return null;
+      const m=final[0]; return (m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner??null;
+    }
+    if (champ.division === "Estadual" && champ.name==="Campeonato Cearense - 2ª Divisão") {
+      const final=games.filter(m=>m.stage==="final");
+      if(final.length!==1 || !final[0].played) return null;
+      const m=final[0]; return (m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner??null;
+    }
+    if (champ.division === "Estadual" && champ.name==="Campeonato Cearense - 3ª Divisão") {
+      const final=games.filter(m=>m.stage==="final");
+      if(final.length!==1 || !final[0].played) return null;
+      const m=final[0]; return (m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner??null;
+    }
     if (champ.division === "Estadual" && champ.name==="Campeonato Amazonense") {
       const semis=games.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
       const final=games.filter(m=>m.stage==="final");
@@ -1389,6 +1443,49 @@ function App() {
     if (!championship) return;
     let next = resolveAutomaticPenalties(matches);
     let id = nextId(next);
+
+    if (championship.division === "Estadual" && championship.name==="Campeonato Cearense") {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(regular.length===45 && regular.every(m=>m.played) && semis.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([a,b])=>{
+          next.push({id:id++,championshipId:championship.id,round:10,home:a,away:b,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:11,home:b,away:a,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Cearense criadas em ida e volta.");return;
+      }
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){phaseAlert("Não foi possível identificar os finalistas do Campeonato Cearense.");return;}
+        next.push({id:id++,championshipId:championship.id,round:12,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
+        setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Cearense criada em ida e volta.");return;
+      }
+      return;
+    }
+
+    if (championship.division === "Estadual" && (championship.name==="Campeonato Cearense - 2ª Divisão" || championship.name==="Campeonato Cearense - 3ª Divisão")) {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      const expectedRegular=championship.name==="Campeonato Cearense - 2ª Divisão" ? 55 : 21;
+      if(regular.length===expectedRegular && regular.every(m=>m.played) && semis.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([a,b])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home:a,away:b,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:b,away:a,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Cearense criadas em ida e volta.");return;
+      }
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){phaseAlert("Não foi possível identificar os finalistas do Campeonato Cearense.");return;}
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final"});
+        setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Cearense criada em jogo único.");return;
+      }
+      return;
+    }
 
     if (championship.division === "Estadual" && championship.name==="Campeonato Catarinense") {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
@@ -1868,7 +1965,7 @@ function App() {
       return;
     }
 
-    if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && championship.name!=="Campeonato Brasiliense - 2ª Divisão" && championship.name!=="Campeonato Amazonense" && championship.name!=="Campeonato Amazonense - 2ª Divisão" && championship.name!=="Campeonato Catarinense" && championship.name!=="Campeonato Catarinense - 2ª Divisão" && championship.name!=="Campeonato Catarinense - 3ª Divisão" && regularComplete(championship) &&
+    if (championship.division === "Estadual" && championship.name!=="Campeonato Acreano - 2ª Divisão" && championship.name!=="Campeonato Brasiliense - 2ª Divisão" && championship.name!=="Campeonato Amazonense" && championship.name!=="Campeonato Amazonense - 2ª Divisão" && championship.name!=="Campeonato Catarinense" && championship.name!=="Campeonato Catarinense - 2ª Divisão" && championship.name!=="Campeonato Catarinense - 3ª Divisão" && championship.name!=="Campeonato Cearense" && championship.name!=="Campeonato Cearense - 2ª Divisão" && championship.name!=="Campeonato Cearense - 3ª Divisão" && regularComplete(championship) &&
         !next.some((m)=>m.championshipId===championship.id&&m.stage==="knockout")) {
       const table=tableFor(championship,myClubs.map(c=>c.id),next);
       const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
@@ -2237,6 +2334,22 @@ function App() {
               finals.length===0) prepareNextPhase();
       else if(championship.name==="Campeonato Carioca - 2ª Divisão" && finals.length===1 && finals[0].played &&
               !matches.some(m=>m.championshipId===championship.id&&m.stage==="playoff")) prepareNextPhase();
+      return;
+    }
+
+    if (championship.name==="Campeonato Cearense") {
+      const regular=matches.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(regular.length===45 && regular.every(m=>m.played) && semis.length===0 || (semis.length===4 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
+      return;
+    }
+    if (championship.name==="Campeonato Cearense - 2ª Divisão" || championship.name==="Campeonato Cearense - 3ª Divisão") {
+      const regular=matches.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      const expectedRegular=championship.name==="Campeonato Cearense - 2ª Divisão" ? 55 : 21;
+      if(regular.length===expectedRegular && regular.every(m=>m.played) && semis.length===0 || (semis.length===4 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
       return;
     }
 
