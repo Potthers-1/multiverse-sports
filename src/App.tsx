@@ -585,7 +585,7 @@ function buildCearaSecondDivision(championshipId:number,startClubId:number,start
   return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
 }
 function buildCearaThirdDivision(championshipId:number,startClubId:number,startMatchId:number){
-  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Cearense - 3ª Divisão","Turno único + semifinais + final","7 clubes disputam turno único em 7 rodadas. Os 4 primeiros avançam ao mata-mata, disputado em ida e volta. Os dois finalistas garantem acesso à 2ª Divisão.","Os dois finalistas garantem acesso à 2ª Divisão.","Não há rebaixamento informado para a 3ª Divisão.",7,6,1,"Ceará");
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Cearense - 3ª Divisão","Turno único + semifinais + final","7 clubes disputam turno único em 7 rodadas, totalizando 21 jogos. Os 4 primeiros avançam ao mata-mata, disputado em ida e volta. Os dois finalistas garantem acesso à 2ª Divisão.","Os dois finalistas garantem acesso à 2ª Divisão.","Não há rebaixamento informado para a 3ª Divisão.",7,7,1,"Ceará");
   const clubs:Club[]=CEARA_3_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
   return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
 }
@@ -2363,12 +2363,20 @@ function App() {
       if(regular.length===45 && regular.every(m=>m.played) && semis.length===0 || (semis.length===4 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
       return;
     }
-    if (championship.name==="Campeonato Cearense - 2ª Divisão" || championship.name==="Campeonato Cearense - 3ª Divisão") {
+    if (championship.name==="Campeonato Cearense - 2ª Divisão") {
       const regular=matches.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
       const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
-      const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="final");
-      const expectedRegular=championship.name==="Campeonato Cearense - 2ª Divisão" ? 55 : 21;
-      if(regular.length===expectedRegular && regular.every(m=>m.played) && semis.length===0 || (semis.length===4 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
+      const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===2);
+      if ((regular.length===55 && regular.every(m=>m.played) && semis.length===0) ||
+          (semis.length===4 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
+      return;
+    }
+    if (championship.name==="Campeonato Cearense - 3ª Divisão") {
+      const regular=matches.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=matches.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===2);
+      if ((regular.length===21 && regular.every(m=>m.played) && semis.length===0) ||
+          (semis.length===4 && semis.every(m=>m.played) && final.length===0)) prepareNextPhase();
       return;
     }
 
