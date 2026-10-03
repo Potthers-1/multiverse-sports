@@ -677,7 +677,7 @@ function buildRioGrandeDoSulFirstDivision(championshipId:number,startClubId:numb
   const championship=makeChampionship(
     championshipId,"Estadual","2026","Campeonato Gaúcho",
     "Turno único + quartas + semifinais + final",
-    "Os 11 clubes informados disputam uma fase única em turno único, todos contra todos, em 10 rodadas. Os 8 primeiros avançam ao mata-mata. Quartas de final, semifinais e final são disputadas em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.",
+    "Os 12 clubes informados disputam uma fase única em turno único, todos contra todos, em 11 rodadas. Os 8 primeiros avançam ao mata-mata. Quartas de final, semifinais e final são disputadas em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.",
     "O campeão é o vencedor da final do Campeonato Gaúcho.",
     "Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",
     12,11,1,"Rio Grande do Sul"
