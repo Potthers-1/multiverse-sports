@@ -67,6 +67,7 @@ const LS = {
   cearaV7: "sports-ceara-v7",
   gauchoV2: "sports-gaucho-v2",
   goiasV1: "sports-goias-v1",
+  maranhaoV1: "sports-maranhao-v1",
 };
 
 const A_CLUBS = [
@@ -215,6 +216,13 @@ const GOIAS_2_CLUBS = [
 ];
 const GOIAS_3_CLUBS = [
   "Itumbiara","Novo Horizonte","Rioverdense","America GO","Royal","Atletico Itumbiara","Real Clube",
+];
+const MARANHAO_1_CLUBS = [
+  "Moto Club","Maranhão","Sampaio Correa","IAPE","Luminense","Tuntum","Imperatriz","ITZ Sport",
+];
+const MARANHAO_2_CLUBS = [
+  "Araioses","São Luis","Tupan","Expressinho","Americano Bacabal","São José MA","Lago Verde",
+  "Pinheiro","Viana","Timon EC","Cordino EC","Balsas",
 ];
 
 const CARIOCA_1_CLUBS = [
@@ -763,6 +771,32 @@ function buildGoiasThirdDivision(championshipId:number,startClubId:number,startM
   );
   const clubs:Club[]=GOIAS_3_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
   return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,2)};
+}
+
+function buildMaranhaoFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Maranhense",
+    "Turno único + semifinais + final",
+    "Os 8 clubes disputam uma fase única em turno único, em 7 rodadas. Os 4 primeiros avançam ao mata-mata. Semifinais e final são disputadas em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.",
+    "O campeão é o vencedor da final do Campeonato Maranhense.",
+    "Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",
+    8,7,1,"Maranhão"
+  );
+  const clubs:Club[]=MARANHAO_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildMaranhaoSecondDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Maranhense - 2ª Divisão",
+    "Turno único + quartas + semifinais + final",
+    "Os 12 clubes disputam uma fase única em turno único, em 11 rodadas. Os 8 primeiros avançam ao mata-mata. Quartas de final, semifinais e final são disputadas em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.",
+    "Os dois finalistas garantem acesso à 1ª Divisão.",
+    "Não há rebaixamento informado para a 2ª Divisão.",
+    12,11,1,"Maranhão"
+  );
+  const clubs:Club[]=MARANHAO_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
 }
 
 function buildCariocaFirstDivision(championshipId:number, startClubId:number, startMatchId:number) {
@@ -1344,7 +1378,24 @@ function App() {
         localStorage.setItem(LS.goiasV1,"1");
       }
 
-      if (!cs.length || !cl.length) { seed(); return; }
+      if (localStorage.getItem(LS.maranhaoV1) !== "1") {
+        const oldIds=new Set(cs.filter(c=>c.state==="Maranhão" || c.name==="Campeonato Maranhense" || c.name==="Campeonato Maranhense - 2ª Divisão").map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+        const addMaranhao=(builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]})=>{
+          const cid=Math.max(...cs.map(c=>c.id),0)+1;
+          const uid=Math.max(...cl.map(c=>c.id),0)+1;
+          const mid=Math.max(...ms.map(m=>m.id),0)+1;
+          const built=builder(cid,uid,mid);
+          cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+        };
+        addMaranhao(buildMaranhaoFirstDivision);
+        addMaranhao(buildMaranhaoSecondDivision);
+        localStorage.setItem(LS.maranhaoV1,"1");
+      }
+
+      if (!cs.length || !cl.length)      if (!cs.length || !cl.length) { seed(); return; }
 
       // Migração incremental: adiciona o primeiro estadual sem apagar
       // qualquer simulação nacional já existente no navegador.
@@ -1815,6 +1866,14 @@ function App() {
       return (m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner??null;
     }
     if (champ.division === "Estadual" && (
+      champ.name==="Campeonato Maranhense" ||
+      champ.name==="Campeonato Maranhense - 2ª Divisão"
+    )) {
+      const final=games.filter(m=>m.stage==="final");
+      if(final.length!==2 || !final.every(m=>m.played)) return null;
+      return knockoutWinner(games,2,champ.id)[0] ?? null;
+    }
+    if (champ.division === "Estadual" && (
       champ.name==="Campeonato Goiano - 2ª Divisão" ||
       champ.name==="Campeonato Goiano - 3ª Divisão"
     )) {
@@ -1884,6 +1943,57 @@ function App() {
     let next = resolveAutomaticPenalties(matches);
     let id = nextId(next);
 
+
+    if (championship.division === "Estadual" && (
+      championship.name==="Campeonato Maranhense" ||
+      championship.name==="Campeonato Maranhense - 2ª Divisão"
+    )) {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const quarters=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      const isFirst=championship.name==="Campeonato Maranhense";
+      const expected=isFirst?28:66;
+
+      if(isFirst && regular.length===expected && regular.every(m=>m.played) && semis.length===0 && final.length===0) {
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        if(table.length<4) return;
+        [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Maranhense criadas em ida e volta.");return;
+      }
+
+      if(!isFirst && regular.length===expected && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0) {
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        if(table.length<8) return;
+        [[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
+        });
+        setMatches(next);setSection("Quartas de final");phaseAlert("Quartas de final do Campeonato Maranhense - 2ª Divisão criadas em ida e volta.");return;
+      }
+
+      if(!isFirst && quarters.length===8 && quarters.every(m=>m.played) && semis.length===0 && final.length===0) {
+        const winners=knockoutWinner(next,8,championship.id);
+        if(winners.length!==4){phaseAlert("Não foi possível identificar os vencedores das quartas do Campeonato Maranhense.");return;}
+        [[winners[0],winners[3]],[winners[1],winners[2]]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Maranhense - 2ª Divisão criadas em ida e volta.");return;
+      }
+
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0) {
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){phaseAlert("Não foi possível identificar os finalistas do Campeonato Maranhense.");return;}
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+(isFirst?3:5),home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+(isFirst?4:6),home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
+      }
+      return;
+    }
 
     if (championship.division === "Estadual" && (
       championship.name==="Campeonato Goiano" ||
@@ -2859,6 +2969,23 @@ function App() {
     }
 
 
+    if (championship.name==="Campeonato Maranhense" || championship.name==="Campeonato Maranhense - 2ª Divisão") {
+      const own=matches.filter(m=>m.championshipId===championship.id);
+      const regular=own.filter(m=>m.stage==="regular");
+      const quarters=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
+      const final=own.filter(m=>m.stage==="final");
+      const isFirst=championship.name==="Campeonato Maranhense";
+      const expected=isFirst?28:66;
+      const ready=
+        (isFirst && regular.length===expected && regular.every(m=>m.played) && semis.length===0 && final.length===0) ||
+        (!isFirst && regular.length===expected && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0) ||
+        (!isFirst && quarters.length===8 && quarters.every(m=>m.played) && semis.length===0 && final.length===0) ||
+        (semis.length===4 && semis.every(m=>m.played) && final.length===0);
+      if(ready) prepareNextPhase();
+      return;
+    }
+
     if (championship.name==="Campeonato Goiano") {
       const own=matches.filter(m=>m.championshipId===championship.id);
       const regular=own.filter(m=>m.stage==="regular");
@@ -3211,6 +3338,15 @@ D → C: ${promotedD.length} promovidos`
       }
       if (state==="Goiás" && name==="Campeonato Goiano - 3ª Divisão") {
         return position<=2 ? "promotion" : "";
+      }
+      if (state==="Maranhão" && name==="Campeonato Maranhense") {
+        if(position>=7) return "relegation";
+        if(position<=4) return "qualification";
+        return "";
+      }
+      if (state==="Maranhão" && name==="Campeonato Maranhense - 2ª Divisão") {
+        if(position<=8) return "qualification";
+        return "";
       }
       if (state==="Rio Grande do Sul" && name==="Campeonato Gaúcho") {
         if(position>=11) return "relegation";
