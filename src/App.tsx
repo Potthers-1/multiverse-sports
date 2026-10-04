@@ -3836,13 +3836,17 @@ function App() {
   // Isso evita que a competição fique parada apenas porque o usuário não abriu "Preparar próxima fase".
   useEffect(() => {
     if (!championship || championship.division !== "Estadual" || championship.name==="Campeonato Acreano - 2ª Divisão") return;
-    if (championship.name==="Campeonato Paulista" || /^Campeonato Paulista - [234]ª Divisão$/.test(championship.name)) {
+    if (championship.name==="Campeonato Paulista" || /^Campeonato Paulista - [234]ª Divisão$/.test(championship.name) || championship.name==="Campeonato Paulista - 5ª Divisão") {
       const own=matches.filter(m=>m.championshipId===championship.id);
       const regular=own.filter(m=>m.stage==="regular");
+      const r16=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===16);
       const q=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===8);
       const s=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
       const f=own.filter(m=>m.stage==="final");
-      if(regular.length===120 && regular.every(m=>m.played) && q.length===0) prepareNextPhase();
+      const fifth=championship.name==="Campeonato Paulista - 5ª Divisão";
+      const expected=fifth?60:120;
+      if(regular.length===expected && regular.every(m=>m.played) && r16.length===0 && q.length===0) prepareNextPhase();
+      else if(fifth && r16.length===16 && r16.every(m=>m.played) && q.length===0) prepareNextPhase();
       else if(q.length===8 && q.every(m=>m.played) && s.length===0) prepareNextPhase();
       else if(s.length===4 && s.every(m=>m.played) && f.length===0) prepareNextPhase();
       return;
