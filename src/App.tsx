@@ -61,7 +61,7 @@ const ACRE_CHAMPIONSHIPS: Championship[] = [
       "Primeira fase em turno único, com 7 rodadas.",
       "Os 4 primeiros colocados avançam ao mata-mata.",
       "Semifinais em jogos de ida e volta.",
-      "Os 2 últimos colocados são rebaixados.",
+      "O 7º e o 8º colocados são rebaixados.",
     ],
   },
   {
@@ -603,126 +603,209 @@ export default function App() {
 
   function goToNextSeason() {
     const country = "Brasil";
-    const countryChampionships = championships.filter((c) => c.country === country);
+    const acreFirstId = 1001;
+    const acreSecondId = 1002;
 
-    if (!countryChampionships.length) {
-      window.alert("Não há campeonatos cadastrados para avançar de temporada.");
+    const acreFirst = championships.find((c) => c.id === acreFirstId);
+    const acreSecond = championships.find((c) => c.id === acreSecondId);
+
+    if (!acreFirst || !acreSecond) {
+      window.alert("As duas divisões do Acre precisam estar cadastradas para avançar a temporada.");
       return;
     }
 
-    const currentYear = Math.max(...countryChampionships.map((c) => Number(c.season) || 2026));
+    const firstTable =
+      acreFirst.phaseStandings?.["Primeira fase"] ??
+      acreFirst.standings;
+
+    const secondGeneral =
+      acreSecond.phaseStandings?.["Classificação geral"] ??
+      acreSecond.standings;
+
+    const firstTeams = [...(acreFirst.teams ?? [])];
+    const secondTeams = [...(acreSecond.teams ?? [])];
+
+    if (
+      firstTeams.length !== 8 ||
+      secondTeams.length !== 4 ||
+      !firstTable ||
+      Object.keys(firstTable).length !== 8 ||
+      !secondGeneral ||
+      Object.keys(secondGeneral).length !== 4
+    ) {
+      window.alert("Finalize a simulação completa das duas divisões do Acre antes de avançar.");
+      return;
+    }
+
+    // 1) Ordena a 1ª divisão e pega EXATAMENTE o 7º e o 8º.
+    const firstOrder = [...firstTeams].sort((a, b) => {
+      const A = firstTable[a] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
+      const B = firstTable[b] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
+      return (
+        B.pts - A.pts ||
+        B.v - A.v ||
+        B.sg - A.sg ||
+        B.gp - A.gp ||
+        a.localeCompare(b)
+      );
+    });
+
+    const relegated = [firstOrder[6], firstOrder[7]].filter(Boolean);
+
+    // 2) Descobre o campeão da 2ª divisão.
+    //    Se um time ganhou os dois turnos, ele é campeão sem final.
+    //    Caso contrário, usa o resultado da final e os pênaltis automáticos.
+    const firstWinner = acreSecond.firstTurnWinner;
+    const secondWinner = acreSecond.secondTurnWinner;
+
+    let champion: string | undefined;
+
+    if (firstWinner && secondWinner && firstWinner === secondWinner) {
+      champion = firstWinner;
+    } else if (firstWinner && secondWinner) {
+      const final = acreSecond.phaseMatches?.["Final"]?.[0];
+
+      if (final?.penaltyWinner) {
+        champion = final.penaltyWinner;
+      } else if (
+        final &&
+        final.homeScore !== undefined &&
+        final.awayScore !== undefined &&
+        final.homeScore !== final.awayScore
+      ) {
+        champion =
+          final.homeScore > final.awayScore
+            ? final.home
+            : final.away;
+      }
+    }
+
+    if (!champion || !secondTeams.includes(champion)) {
+      window.alert("Não foi possível identificar o campeão da 2ª Divisão do Acre. Simule a temporada completa novamente.");
+      return;
+    }
+
+    // 3) Ordena a classificação geral e pega o melhor clube
+    //    que NÃO seja o campeão. Esse é o segundo promovido.
+    const secondOrder = [...secondTeams].sort((a, b) => {
+      const A = secondGeneral[a] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
+      const B = secondGeneral[b] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
+      return (
+        B.pts - A.pts ||
+        B.v - A.v ||
+        B.sg - A.sg ||
+        B.gp - A.gp ||
+        a.localeCompare(b)
+      );
+    });
+
+    const secondPromoted = secondOrder.find((team) => team !== champion);
+
+    if (!secondPromoted || secondPromoted === champion) {
+      window.alert("Não foi possível identificar o segundo promovido da 2ª Divisão do Acre.");
+      return;
+    }
+
+    const promoted = [champion, secondPromoted];
+
+    // 4) Validação final: os quatro clubes precisam ser distintos
+    //    e cada promovido precisa realmente estar na 2ª divisão.
+    if (
+      new Set(relegated).size !== 2 ||
+      new Set(promoted).size !== 2 ||
+      relegated.some((team) => !firstTeams.includes(team)) ||
+      promoted.some((team) => !secondTeams.includes(team))
+    ) {
+      window.alert("A troca de clubes do Acre falhou na validação. Nenhuma temporada foi alterada.");
+      return;
+    }
+
+    // 5) TROCA REAL:
+    //    1ª divisão = seus 6 sobreviventes + os 2 promovidos.
+    //    2ª divisão = seus 2 sobreviventes + os 2 rebaixados.
+    const nextFirstTeams = [
+      ...firstTeams.filter((team) => !relegated.includes(team)),
+      ...promoted,
+    ];
+
+    const nextSecondTeams = [
+      ...secondTeams.filter((team) => !promoted.includes(team)),
+      ...relegated,
+    ];
+
+    if (nextFirstTeams.length !== 8 || nextSecondTeams.length !== 4) {
+      window.alert("A troca não produziu a quantidade correta de clubes. Nenhuma temporada foi alterada.");
+      return;
+    }
+
+    const currentYear = Math.max(
+      ...championships
+        .filter((c) => c.country === country)
+        .map((c) => Number(c.season) || 2026)
+    );
     const nextYear = String(currentYear + 1);
 
-    const acreFirst = countryChampionships.find(
-      (c) => c.state === "Acre" && c.division === "1ª Divisão"
-    );
-    const acreSecond = countryChampionships.find(
-      (c) => c.state === "Acre" && c.division === "2ª Divisão"
-    );
-
-    if (acreFirst && acreSecond) {
-      // A classificação usada para o acesso/rebaixamento é a da Primeira fase.
-      const firstTable = acreFirst.phaseStandings?.["Primeira fase"];
-      if (!firstTable || Object.keys(firstTable).length !== 8) {
-        window.alert("Finalize a temporada da 1ª Divisão do Acre antes de avançar.");
-        return;
-      }
-
-      // Acesso: campeão da 2ª + melhor colocado da classificação geral que não seja o campeão.
-      const access = getAcreAccessTeams(acreSecond);
-      if (access.size !== 2) {
-        window.alert("Finalize a temporada da 2ª Divisão do Acre antes de avançar.");
-        return;
-      }
-
-      const orderedFirst = Object.keys(firstTable).sort((a, b) => {
-        const A = firstTable[a];
-        const B = firstTable[b];
-        return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
-      });
-
-      // Regra oficial: 7º e 8º são rebaixados.
-      const relegatedTeams = orderedFirst.slice(6, 8);
-
-      const firstTeams = acreFirst.teams ?? [];
-      const secondTeams = acreSecond.teams ?? [];
-
-      // Os nomes dos promovidos são retirados diretamente da 2ª divisão.
-      const promotedTeams = secondTeams.filter((team) => access.has(team));
-
-      if (relegatedTeams.length !== 2 || promotedTeams.length !== 2) {
-        window.alert("A troca não pôde ser concluída: são necessários exatamente 2 rebaixados e 2 promovidos.");
-        return;
-      }
-
-      // Troca direta entre as divisões.
-      const nextFirstTeams = [
-        ...firstTeams.filter((team) => !relegatedTeams.includes(team)),
-        ...promotedTeams,
-      ];
-
-      const nextSecondTeams = [
-        ...secondTeams.filter((team) => !promotedTeams.includes(team)),
-        ...relegatedTeams,
-      ];
-
-      // O mesmo registro de cada campeonato avança de ano.
-      // Não é criada uma nova aba/temporada.
-      const updated = championships.map((championship) => {
-        const base = {
+    // 6) Atualiza os DOIS registros existentes. Não cria campeonato novo.
+    //    A função usa o estado atual inteiro para evitar qualquer objeto antigo.
+    const updated = championships.map((championship) => {
+      if (championship.id === acreFirstId) {
+        return {
           ...championship,
-          season: championship.country === country ? nextYear : championship.season,
+          season: nextYear,
+          teams: nextFirstTeams,
           standings: undefined,
           phaseStandings: undefined,
           phaseMatches: undefined,
           firstTurnWinner: undefined,
           secondTurnWinner: undefined,
         };
+      }
 
-        if (championship.id === acreFirst.id) {
-          return {
-            ...base,
-            teams: nextFirstTeams,
-          };
-        }
+      if (championship.id === acreSecondId) {
+        return {
+          ...championship,
+          season: nextYear,
+          teams: nextSecondTeams,
+          standings: undefined,
+          phaseStandings: undefined,
+          phaseMatches: undefined,
+          firstTurnWinner: undefined,
+          secondTurnWinner: undefined,
+        };
+      }
 
-        if (championship.id === acreSecond.id) {
-          return {
-            ...base,
-            teams: nextSecondTeams,
-          };
-        }
+      if (championship.country === country) {
+        return {
+          ...championship,
+          season: nextYear,
+          standings: undefined,
+          phaseStandings: undefined,
+          phaseMatches: undefined,
+          firstTurnWinner: undefined,
+          secondTurnWinner: undefined,
+        };
+      }
 
-        return base;
-      });
-
-      setChampionships(updated);
-      setSelectedId(acreFirst.id);
-      setSelectedPhase({
-        [acreFirst.id]: acreFirst.phases?.[0] ?? "Primeira fase",
-        [acreSecond.id]: acreSecond.phases?.[0] ?? "Primeiro turno",
-      });
-      setSelectedSection({});
-      return;
-    }
-
-    // Campeonatos que ainda não possuem uma mecânica de acesso/rebaixamento
-    // apenas avançam o ano no mesmo registro.
-    const updated = championships.map((championship) => ({
-      ...championship,
-      season: championship.country === country ? nextYear : championship.season,
-      standings: championship.country === country ? undefined : championship.standings,
-      phaseStandings: championship.country === country ? undefined : championship.phaseStandings,
-      phaseMatches: championship.country === country ? undefined : championship.phaseMatches,
-      firstTurnWinner: championship.country === country ? undefined : championship.firstTurnWinner,
-      secondTurnWinner: championship.country === country ? undefined : championship.secondTurnWinner,
-    }));
+      return championship;
+    });
 
     setChampionships(updated);
-    setSelectedId(countryChampionships[0]?.id ?? null);
-    setSelectedSection({});
-  }
+    setSelectedId(acreFirstId);
+    setSelectedPhase((current) => ({
+      ...current,
+      [acreFirstId]: "Primeira fase",
+      [acreSecondId]: "Primeiro turno",
+    }));
+    setSelectedSection((current) => ({
+      ...current,
+      [acreFirstId]: "competition",
+      [acreSecondId]: "competition",
+    }));
 
+    window.alert(
+      `Temporada ${nextYear} criada!\\n\\n1ª Divisão — rebaixados: ${relegated.join(", ")}.\\n2ª Divisão — promovidos: ${promoted.join(", ")}.`
+    );
+  }
 
   function resetSeasonTo2026() {
     if (!window.confirm("Zerar todas as simulações e voltar todos os campeonatos para a temporada 2026?")) return;
