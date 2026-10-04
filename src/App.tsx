@@ -129,6 +129,18 @@ export default function App() {
     if (selectedId === id) setSelectedId(null);
   }
 
+  function getRowClass(championship: Championship, phase: string, index: number) {
+    if (championship.state !== "Acre") return "";
+    if (championship.division === "1ª Divisão" && phase === "1ª Fase") {
+      if (index < 4) return "zone-next";
+      if (index >= (championship.teams?.length ?? 0) - 2) return "zone-relegation";
+    }
+    if (championship.division === "2ª Divisão" && (phase === "1º Turno" || phase === "2º Turno")) {
+      if (index === 0) return "zone-next";
+    }
+    return "";
+  }
+
   function resetEverything() {
     if (!window.confirm("Apagar todos os campeonatos e começar novamente do zero?")) return;
     localStorage.removeItem(STORAGE_KEY);
@@ -365,22 +377,31 @@ export default function App() {
                             </tr>
                           </thead>
                           <tbody>
-                            {(selected.teams ?? []).map((team, index) => (
-                              <tr key={team}>
-                                <td>{index + 1}</td>
-                                <td className="standing-team">{team}</td>
-                                <td>0</td>
-                                <td>0</td>
-                                <td>0</td>
-                                <td>0</td>
-                                <td>0</td>
-                                <td>0</td>
-                                <td>0</td>
-                                <td className="standing-points">0</td>
-                              </tr>
-                            ))}
+                            {(selected.teams ?? []).map((team, index) => {
+                              const phase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
+                              return (
+                                <tr key={team} className={getRowClass(selected, phase, index)}>
+                                  <td>{index + 1}</td>
+                                  <td className="standing-team">{team}</td>
+                                  <td>0</td>
+                                  <td>0</td>
+                                  <td>0</td>
+                                  <td>0</td>
+                                  <td>0</td>
+                                  <td>0</td>
+                                  <td>0</td>
+                                  <td className="standing-points">0</td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
+                        <div className="standings-legend">
+                          <span><i className="legend-next" /> Classificado para a próxima fase</span>
+                          {selected.division === "1ª Divisão" && (selectedPhase[selected.id] ?? selected.phases?.[0]) === "1ª Fase" && (
+                            <span><i className="legend-relegation" /> Rebaixado</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
