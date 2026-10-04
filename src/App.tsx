@@ -72,6 +72,7 @@ const LS = {
   minasGeraisV1: "sports-minas-gerais-v1",
   paraV1: "sports-para-v1",
   paraibaV1: "sports-paraiba-v1",
+  paranaV1: "sports-parana-v1",
 };
 
 const A_CLUBS = [
@@ -849,6 +850,37 @@ const PARA_3_CLUBS = [
   "Sport Belem","Belenense","CA Vila Rica","Gavião","Paraupebas","Altamira",
 ];
 
+const PARANA_1_CLUBS = [
+  "Londrina","Foz do Iguaçu","Athletico-PR","São Joseense","Maringá FC","Cascavel",
+  "Azuriz","Coritiba","Cianorte","Operário-PR","Andraus","Galo Maringá",
+];
+const PARANA_2_CLUBS = [
+  "Paraná","Patriotas","Laranja Mecânica","Arauacaria","Rio Branco-PR","Paranavaí-PR",
+  "Nacional-PR","Toledo","Batel","Prudentópolis",
+];
+const PARANA_3_CLUBS = [
+  "AA Iguaçu","Hope Internacional","Iraty","Samas","Parana STC","CA Cambé",
+  "City London","Londrinense","Oeste Brasil","União PR","Campo Mourão",
+];
+
+function buildParanaFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Paranaense","Turno único + semifinais + final","12 clubes disputam turno único em 11 rodadas. Os 4 primeiros avançam ao mata-mata, com semifinais e final em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.","O campeão é o vencedor da final do Campeonato Paranaense.","Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",12,11,1,"Paraná");
+  const clubs:Club[]=PARANA_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildParanaSecondDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Paranaense - 2ª Divisão","Turno único + quartas + semifinais + final","10 clubes disputam turno único em 9 rodadas. Os 8 primeiros avançam ao mata-mata. Quartas de final, semifinais e final são disputadas em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.","Os dois finalistas garantem acesso à 1ª Divisão.","Os 2 últimos colocados da primeira fase são rebaixados para a 3ª Divisão.",10,9,1,"Paraná");
+  const clubs:Club[]=PARANA_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildParanaThirdDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Paranaense - 3ª Divisão","Turno único + semifinais + final","11 clubes disputam turno único em 11 rodadas. Os 4 primeiros avançam ao mata-mata, com semifinais e final em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.","Os dois finalistas garantem acesso à 2ª Divisão.","Não há rebaixamento informado para a 3ª Divisão.",11,11,1,"Paraná");
+  const clubs:Club[]=PARANA_3_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
 const PARAIBA_1_CLUBS = [
   "Atlético PB","Botafogo PB","Campinense","Confiança-PB","Esporte",
   "Nacional de Patos","Pombal","Serra Branca","Sousa","Treze",
@@ -1620,6 +1652,36 @@ function App() {
       ensureParaiba("Campeonato Paraibano", buildParaibaFirstDivision);
       ensureParaiba("Campeonato Paraibano - 2ª Divisão", buildParaibaSecondDivision);
 
+      if (localStorage.getItem(LS.paranaV1) !== "1") {
+        const oldIds=new Set(cs.filter(c=>c.state==="Paraná" || c.name==="Campeonato Paranaense" || c.name==="Campeonato Paranaense - 2ª Divisão" || c.name==="Campeonato Paranaense - 3ª Divisão").map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+        const addParana=(builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]})=>{
+          const cid=Math.max(...cs.map(c=>c.id),0)+1;
+          const uid=Math.max(...cl.map(c=>c.id),0)+1;
+          const mid=Math.max(...ms.map(m=>m.id),0)+1;
+          const built=builder(cid,uid,mid);
+          cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+        };
+        addParana(buildParanaFirstDivision);
+        addParana(buildParanaSecondDivision);
+        addParana(buildParanaThirdDivision);
+        localStorage.setItem(LS.paranaV1,"1");
+      }
+
+      const ensureParana = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
+        if (cs.some(c=>c.name===name && c.season==="2026")) return;
+        const cid=Math.max(...cs.map(c=>c.id),0)+1;
+        const uid=Math.max(...cl.map(c=>c.id),0)+1;
+        const mid=Math.max(...ms.map(m=>m.id),0)+1;
+        const built=builder(cid,uid,mid);
+        cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+      };
+      ensureParana("Campeonato Paranaense", buildParanaFirstDivision);
+      ensureParana("Campeonato Paranaense - 2ª Divisão", buildParanaSecondDivision);
+      ensureParana("Campeonato Paranaense - 3ª Divisão", buildParanaThirdDivision);
+
       if (!cs.length || !cl.length)      if (!cs.length || !cl.length) { seed(); return; }
 
       // Migração incremental: adiciona o primeiro estadual sem apagar
@@ -2289,6 +2351,60 @@ function App() {
         next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
         next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
         setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
+      }
+      return;
+    }
+
+    if (championship.division === "Estadual" && (
+      championship.name==="Campeonato Paranaense" ||
+      championship.name==="Campeonato Paranaense - 2ª Divisão" ||
+      championship.name==="Campeonato Paranaense - 3ª Divisão"
+    )) {
+      const own=next.filter(m=>m.championshipId===championship.id);
+      const regular=own.filter(m=>m.stage==="regular");
+      const quarters=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
+      const final=own.filter(m=>m.stage==="final");
+      const isSecond=championship.name==="Campeonato Paranaense - 2ª Divisão";
+      const expected=championship.name==="Campeonato Paranaense - 3ª Divisão" ? 55 : isSecond ? 45 : 66;
+
+      if(!isSecond && regular.length===expected && regular.every(m=>m.played) && semis.length===0 && final.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        if(table.length<4) return;
+        [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Paranaense criadas em ida e volta.");return;
+      }
+
+      if(isSecond && regular.length===expected && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        if(table.length<8) return;
+        [[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
+        });
+        setMatches(next);setSection("Quartas de final");phaseAlert("Quartas de final do Campeonato Paranaense - 2ª Divisão criadas em ida e volta.");return;
+      }
+
+      if(quarters.length===8 && quarters.every(m=>m.played) && semis.length===0 && final.length===0){
+        const winners=knockoutWinner(next,8,championship.id);
+        if(winners.length!==4) return;
+        for(let i=0;i<4;i+=2){
+          const home=winners[i],away=winners[i+1];
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        }
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Paranaense - 2ª Divisão criadas em ida e volta.");return;
+      }
+
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2) return;
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+5,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+6,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        setMatches(next);setSection("Final");phaseAlert("Final de "+championship.name+" criada em ida e volta.");return;
       }
       return;
     }
@@ -3694,6 +3810,20 @@ D → C: ${promotedD.length} promovidos`
         return "";
       }
       if (state==="Paraíba" && name==="Campeonato Paraibano - 2ª Divisão") {
+        if(position<=4) return "qualification";
+        return "";
+      }
+      if (state==="Paraná" && name==="Campeonato Paranaense") {
+        if(position>=11) return "relegation";
+        if(position<=4) return "qualification";
+        return "";
+      }
+      if (state==="Paraná" && name==="Campeonato Paranaense - 2ª Divisão") {
+        if(position>=9) return "relegation";
+        if(position<=8) return "qualification";
+        return "";
+      }
+      if (state==="Paraná" && name==="Campeonato Paranaense - 3ª Divisão") {
         if(position<=4) return "qualification";
         return "";
       }
