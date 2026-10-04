@@ -2499,10 +2499,13 @@ function App() {
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
 
       if(regular.length===60 && regular.every(m=>m.played) && r16.length===0 && quarters.length===0 && semis.length===0 && final.length===0){
-        const groups=["A","B","C","D"];
-        const ranked=groups.map(g=>{
-          const ids=[...new Set(regular.filter(m=>m.group===g).flatMap(m=>[m.home,m.away]))];
-          return tableFor(championship,ids,next,"regular",g).slice(0,4);
+        const allClubs=clubs
+          .filter(c=>c.championshipId===championship.id)
+          .sort((a,b)=>a.id-b.id);
+        if(allClubs.length!==24) return;
+        const ranked=[0,1,2,3].map(g=>{
+          const ids=allClubs.slice(g*6,g*6+6).map(c=>c.id);
+          return tableFor(championship,ids,next,"regular").slice(0,4);
         });
         if(ranked.some(t=>t.length!==4)) return;
         const pairings=[
