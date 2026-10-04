@@ -67,6 +67,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [estaduaisOpen, setEstaduaisOpen] = useState(false);
+  const [openStates, setOpenStates] = useState<Record<string, boolean>>({});
   const [name, setName] = useState("");
   const [season, setSeason] = useState("2026");
   const [division, setDivision] = useState("Estadual");
@@ -180,23 +181,61 @@ export default function App() {
               {stateNames.length === 0 ? (
                 <div className="state-empty">Nenhum estadual criado.</div>
               ) : (
-                stateNames.map((stateName) => (
-                  <div key={stateName} className="state-group">
-                    <div className="state-name">🇧🇷 {stateName}</div>
-                    {estadualChampionships
+                stateNames.map((stateName) => {
+                  const stateDivisions = [...new Set(
+                    estadualChampionships
                       .filter((champ) => champ.state === stateName)
-                      .map((champ) => (
-                        <button
-                          key={champ.id}
-                          className={`state-link ${selectedId === champ.id ? "selected" : ""}`}
-                          onClick={() => setSelectedId(champ.id)}
-                        >
-                          <span>{champ.division}</span>
-                          <small>{champ.season}</small>
-                        </button>
-                      ))}
-                  </div>
-                ))
+                      .map((champ) => champ.division)
+                  )];
+
+                  return (
+                    <div key={stateName} className="state-group">
+                      <button
+                        className={`state-name-toggle ${openStates[stateName] ? "open" : ""}`}
+                        onClick={() =>
+                          setOpenStates((current) => ({
+                            ...current,
+                            [stateName]: !current[stateName],
+                          }))
+                        }
+                        aria-expanded={!!openStates[stateName]}
+                      >
+                        <span>🇧🇷 {stateName}</span>
+                        <span className="state-chevron">{openStates[stateName] ? "▾" : "▸"}</span>
+                      </button>
+
+                      {openStates[stateName] && (
+                        <div className="division-menu">
+                          {stateDivisions.map((divisionName) => {
+                            const divisionSeasons = estadualChampionships
+                              .filter(
+                                (champ) =>
+                                  champ.state === stateName &&
+                                  champ.division === divisionName
+                              )
+                              .sort(
+                                (a, b) =>
+                                  Number(b.season) - Number(a.season) ||
+                                  b.id - a.id
+                              );
+                            const latest = divisionSeasons[0];
+
+                            return (
+                              <button
+                                key={`${stateName}-${divisionName}`}
+                                className={`state-link ${selectedId === latest.id ? "selected" : ""}`}
+                                onClick={() => setSelectedId(latest.id)}
+                              >
+                                <span>{divisionName}</span>
+                                <small>{latest.season}</small>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           )}
@@ -351,7 +390,9 @@ export default function App() {
         .state-chevron { color: #71809f; font-size: 12px; }
         .state-menu { margin: 2px 0 0 9px; padding-left: 8px; border-left: 1px solid #26314a; }
         .state-group { margin-bottom: 5px; }
-        .state-name { color: #d5dcf0; font-size: 12px; font-weight: 800; padding: 8px 10px 4px; }
+        .state-name-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0; background: transparent; color: #d5dcf0; font-size: 12px; font-weight: 800; text-align: left; border-radius: 7px; padding: 8px 10px 5px; }
+        .state-name-toggle:hover, .state-name-toggle.open { background: #111a2e; color: #fff; }
+        .division-menu { margin-left: 9px; padding-left: 8px; border-left: 1px solid #26314a; }
         .competition-content { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding-top: 22px; }
         .competition-block { background: #0c1323; border: 1px solid #202a40; border-radius: 12px; padding: 17px; }
         .block-title { color: #71809f; font-size: 10px; font-weight: 800; letter-spacing: .14em; margin-bottom: 12px; }
