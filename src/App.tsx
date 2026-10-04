@@ -2489,7 +2489,7 @@ function App() {
     let id = nextId(next);
 
 
-    // Paulista 5ª Divisão: 4 grupos de 6 -> 16 classificados -> oitavas -> quartas -> semifinais -> final.
+    // Paulista 5ª Divisão: 4 grupos de 6, turno e returno (120 jogos) -> 16 classificados -> oitavas -> quartas -> semifinais -> final.
     // Todas as fases eliminatórias são em ida e volta.
     if (championship.division === "Estadual" && championship.name === "Campeonato Paulista - 5ª Divisão") {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
@@ -2498,7 +2498,7 @@ function App() {
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
 
-      if(regular.length===60 && regular.every(m=>m.played) && r16.length===0 && quarters.length===0 && semis.length===0 && final.length===0){
+      if(regular.length===120 && regular.every(m=>m.played) && r16.length===0 && quarters.length===0 && semis.length===0 && final.length===0){
         const allClubs=clubs
           .filter(c=>c.championshipId===championship.id)
           .sort((a,b)=>a.id-b.id);
@@ -3847,7 +3847,7 @@ function App() {
       const s=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
       const f=own.filter(m=>m.stage==="final");
       const fifth=championship.name==="Campeonato Paulista - 5ª Divisão";
-      const expected=fifth?60:120;
+      const expected=fifth?120:120;
       if(regular.length===expected && regular.every(m=>m.played) && r16.length===0 && q.length===0) prepareNextPhase();
       else if(fifth && r16.length===16 && r16.every(m=>m.played) && q.length===0) prepareNextPhase();
       else if(q.length===8 && q.every(m=>m.played) && s.length===0) prepareNextPhase();
