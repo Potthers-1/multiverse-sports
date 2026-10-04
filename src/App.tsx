@@ -1866,14 +1866,6 @@ function App() {
       return (m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner??null;
     }
     if (champ.division === "Estadual" && (
-      champ.name==="Campeonato Maranhense" ||
-      champ.name==="Campeonato Maranhense - 2ª Divisão"
-    )) {
-      const final=games.filter(m=>m.stage==="final");
-      if(final.length!==2 || !final.every(m=>m.played)) return null;
-      return knockoutWinner(games,2,champ.id)[0] ?? null;
-    }
-    if (champ.division === "Estadual" && (
       champ.name==="Campeonato Goiano - 2ª Divisão" ||
       champ.name==="Campeonato Goiano - 3ª Divisão"
     )) {
