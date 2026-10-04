@@ -592,77 +592,83 @@ export default function App() {
                             : `TABELA — ${currentPhase}`;
                         })()}
                       </div>
+
                       {(() => {
                         const currentPhase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
                         const matches = selected.phaseMatches?.[currentPhase] ?? [];
+
                         if (currentPhase === "Semi final" || currentPhase === "Final") {
                           return (
                             <div className="knockout-list">
                               {matches.length === 0 ? (
                                 <div className="phase-empty">As partidas desta fase ainda não foram geradas.</div>
-                              ) : matches.map((match, index) => (
-                                <div className="knockout-match" key={`${currentPhase}-${index}`}>
-                                  <span>{match.home}</span>
-                                  <strong>{match.homeScore ?? "—"} × {match.awayScore ?? "—"}</strong>
-                                  <span>{match.away}</span>
-                                </div>
-                              ))}
+                              ) : (
+                                matches.map((match, index) => (
+                                  <div className="knockout-match" key={`${currentPhase}-${index}`}>
+                                    <span>{match.home}</span>
+                                    <strong>{match.homeScore ?? "—"} × {match.awayScore ?? "—"}</strong>
+                                    <span>{match.away}</span>
+                                  </div>
+                                ))
+                              )}
                             </div>
                           );
                         }
+
                         const phaseTable = selected.phaseStandings?.[currentPhase] ?? selected.standings ?? {};
                         const phaseTeams = [...(selected.teams ?? [])].sort((a, b) => {
                           const A = phaseTable[a] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
                           const B = phaseTable[b] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
                           return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
                         });
+
                         return (
                           <div className="standings-wrap">
                             <table className="standings-table">
-                          <thead>
-                            <tr>
-                              <th>#</th>
-                              <th>TIME</th>
-                              <th>J</th>
-                              <th>V</th>
-                              <th>E</th>
-                              <th>D</th>
-                              <th>GP</th>
-                              <th>GC</th>
-                              <th>SG</th>
-                              <th>PTS</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {phaseTeams.map((team, index) => {
-                              const phase = currentPhase;
-                              const row = phaseTable[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-                              return (
-                                <tr key={team} className={getRowClass(selected, phase, index)}>
-                                  <td>{index + 1}</td>
-                                  <td className="standing-team">{team}</td>
-                                  <td>{row.j}</td>
-                                  <td>{row.v}</td>
-                                  <td>{row.e}</td>
-                                  <td>{row.d}</td>
-                                  <td>{row.gp}</td>
-                                  <td>{row.gc}</td>
-                                  <td>{row.sg}</td>
-                                  <td className="standing-points">{row.pts}</td>
+                              <thead>
+                                <tr>
+                                  <th>#</th>
+                                  <th>TIME</th>
+                                  <th>J</th>
+                                  <th>V</th>
+                                  <th>E</th>
+                                  <th>D</th>
+                                  <th>GP</th>
+                                  <th>GC</th>
+                                  <th>SG</th>
+                                  <th>PTS</th>
                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                        </div>
+                              </thead>
+                              <tbody>
+                                {phaseTeams.map((team, index) => {
+                                  const row = phaseTable[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                                  return (
+                                    <tr key={team} className={getRowClass(selected, currentPhase, index)}>
+                                      <td>{index + 1}</td>
+                                      <td className="standing-team">{team}</td>
+                                      <td>{row.j}</td>
+                                      <td>{row.v}</td>
+                                      <td>{row.e}</td>
+                                      <td>{row.d}</td>
+                                      <td>{row.gp}</td>
+                                      <td>{row.gc}</td>
+                                      <td>{row.sg}</td>
+                                      <td className="standing-points">{row.pts}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
                         );
                       })()}
-                        <div className="standings-legend">
-                          <span><i className="legend-next" /> Classificado para a próxima fase</span>
-                          {selected.division === "1ª Divisão" && (selectedPhase[selected.id] ?? selected.phases?.[0]) === "Primeira fase" && (
+
+                      <div className="standings-legend">
+                        <span><i className="legend-next" /> Classificado para a próxima fase</span>
+                        {selected.division === "1ª Divisão" &&
+                          (selectedPhase[selected.id] ?? selected.phases?.[0]) === "Primeira fase" && (
                             <span><i className="legend-relegation" /> Rebaixado</span>
                           )}
-                        </div>
                       </div>
                     </div>
                   </div>
