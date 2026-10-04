@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
 
+type Matchup = {
+  home: string;
+  away: string;
+  homeScore?: number;
+  awayScore?: number;
+};
+
 type Standing = {
   j: number;
   v: number;
@@ -22,6 +29,10 @@ type Championship = {
   rules?: string[];
   phases?: string[];
   standings?: Record<string, Standing>;
+  phaseStandings?: Record<string, Record<string, Standing>>;
+  phaseMatches?: Record<string, Matchup[]>;
+  firstTurnWinner?: string;
+  secondTurnWinner?: string;
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -222,6 +233,14 @@ export default function App() {
     });
   }
 
+  function generateSemiFinals(teams: string[]) {
+    if (teams.length < 4) return [];
+    return [
+      { home: teams[0], away: teams[3] },
+      { home: teams[1], away: teams[2] },
+    ];
+  }
+
   function simulateSeason() {
     if (!selected) return;
 
@@ -231,24 +250,122 @@ export default function App() {
       return;
     }
 
-    const standings = simulateRoundRobin(teams);
+    const phase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "Primeira fase";
+    const existingPhaseStandings = selected.phaseStandings ?? {};
 
-    setChampionships((current) =>
-      current.map((championship) =>
-        championship.id === selected.id
-          ? { ...championship, standings }
-          : championship
-      )
-    );
+    if (selected.state === "Acre" && selected.division === "1ª Divisão") {
+      if (phase === "Primeira fase") {
+        const standings = simulateRoundRobin(teams);
+        const ordered = [...teams].sort((a, b) => {
+          const A = standings[a], B = standings[b];
+          return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+        });
+        const semiFinals = generateSemiFinals(ordered.slice(0, 4));
 
-    setSelectedPhase((current) => ({
-      ...current,
-      [selected.id]: selected.phases?.[0] ?? "Classificação",
-    }));
-    setSelectedSection((current) => ({
-      ...current,
-      [selected.id]: "competition",
-    }));
+        setChampionships((current) =>
+          current.map((championship) =>
+            championship.id === selected.id
+              ? {
+                  ...championship,
+                  standings,
+                  phaseStandings: { ...existingPhaseStandings, "Primeira fase": standings },
+                  phaseMatches: { ...(championship.phaseMatches ?? {}), "Semi final": semiFinals },
+                }
+              : championship
+          )
+        );
+      } else if (phase === "Semi final") {
+        const matches = selected.phaseMatches?.["Semi final"] ?? [];
+        if (!matches.length) {
+          window.alert("Primeiro simule a Primeira fase para gerar as semifinais.");
+          return;
+        }
+        const played = matches.map((m) => ({
+          ...m,
+          homeScore: Math.floor(Math.random() * 5),
+          awayScore: Math.floor(Math.random() * 5),
+        }));
+        const winners = played.map((m) => (m.homeScore! >= m.awayScore! ? m.home : m.away));
+        const final = winners.length === 2 ? [{ home: winners[0], away: winners[1] }] : [];
+        setChampionships((current) =>
+          current.map((championship) =>
+            championship.id === selected.id
+              ? { ...championship, phaseMatches: { ...(championship.phaseMatches ?? {}), "Semi final": played, "Final": final } }
+              : championship
+          )
+        );
+      } else if (phase === "Final") {
+        const matches = selected.phaseMatches?.["Final"] ?? [];
+        if (!matches.length) {
+          window.alert("Primeiro conclua as semifinais para gerar a final.");
+          return;
+        }
+        const played = matches.map((m) => ({
+          ...m,
+          homeScore: Math.floor(Math.random() * 5),
+          awayScore: Math.floor(Math.random() * 5),
+        }));
+        setChampionships((current) =>
+          current.map((championship) =>
+            championship.id === selected.id
+              ? { ...championship, phaseMatches: { ...(championship.phaseMatches ?? {}), "Final": played } }
+              : championship
+          )
+        );
+      }
+    } else if (selected.state === "Acre" && selected.division === "2ª Divisão") {
+      if (phase === "Primeiro turno" || phase === "Segundo turno") {
+        const standings = simulateRoundRobin(teams);
+        const phaseStandings = { ...existingPhaseStandings, [phase]: standings };
+        const ordered = [...teams].sort((a, b) => {
+          const A = standings[a], B = standings[b];
+          return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+        });
+        const winner = ordered[0];
+
+        setChampionships((current) =>
+          current.map((championship) =>
+            championship.id === selected.id
+              ? {
+                  ...championship,
+                  standings: phase === "Primeiro turno" ? standings : championship.standings,
+                  phaseStandings,
+                  firstTurnWinner: phase === "Primeiro turno" ? winner : championship.firstTurnWinner,
+                  secondTurnWinner: phase === "Segundo turno" ? winner : championship.secondTurnWinner,
+                }
+              : championship
+          )
+        );
+      } else if (phase === "Final") {
+        const first = selected.firstTurnWinner;
+        const second = selected.secondTurnWinner;
+        if (!first) {
+          window.alert("O Primeiro turno ainda não foi concluído.");
+          return;
+        }
+        if (!second || second === first) {
+          window.alert("O mesmo campeão dos dois turnos é campeão automaticamente.");
+          return;
+        }
+        const final = [{ home: first, away: second }];
+        setChampionships((current) =>
+          current.map((championship) =>
+            championship.id === selected.id
+              ? { ...championship, phaseMatches: { ...(championship.phaseMatches ?? {}), "Final": final } }
+              : championship
+          )
+        );
+      }
+    } else {
+      const standings = simulateRoundRobin(teams);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? { ...championship, standings } : championship
+        )
+      );
+    }
+
+    setSelectedSection((current) => ({ ...current, [selected.id]: "competition" }));
   }
 
   function resetEverything() {
@@ -468,10 +585,40 @@ export default function App() {
                   <div className="competition-content">
                     <div className="competition-block standings-block full-width-block">
                       <div className="block-title">
-                        TABELA — {selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO"}
+                        {(() => {
+                          const currentPhase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
+                          return currentPhase === "Semi final" || currentPhase === "Final"
+                            ? currentPhase.toUpperCase()
+                            : `TABELA — ${currentPhase}`;
+                        })()}
                       </div>
-                      <div className="standings-wrap">
-                        <table className="standings-table">
+                      {(() => {
+                        const currentPhase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
+                        const matches = selected.phaseMatches?.[currentPhase] ?? [];
+                        if (currentPhase === "Semi final" || currentPhase === "Final") {
+                          return (
+                            <div className="knockout-list">
+                              {matches.length === 0 ? (
+                                <div className="phase-empty">As partidas desta fase ainda não foram geradas.</div>
+                              ) : matches.map((match, index) => (
+                                <div className="knockout-match" key={`${currentPhase}-${index}`}>
+                                  <span>{match.home}</span>
+                                  <strong>{match.homeScore ?? "—"} × {match.awayScore ?? "—"}</strong>
+                                  <span>{match.away}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        const phaseTable = selected.phaseStandings?.[currentPhase] ?? selected.standings ?? {};
+                        const phaseTeams = [...(selected.teams ?? [])].sort((a, b) => {
+                          const A = phaseTable[a] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
+                          const B = phaseTable[b] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
+                          return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+                        });
+                        return (
+                          <div className="standings-wrap">
+                            <table className="standings-table">
                           <thead>
                             <tr>
                               <th>#</th>
@@ -487,9 +634,9 @@ export default function App() {
                             </tr>
                           </thead>
                           <tbody>
-                            {sortedTeams(selected).map((team, index) => {
-                              const phase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
-                              const row = selected.standings?.[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                            {phaseTeams.map((team, index) => {
+                              const phase = currentPhase;
+                              const row = phaseTable[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
                               return (
                                 <tr key={team} className={getRowClass(selected, phase, index)}>
                                   <td>{index + 1}</td>
@@ -507,6 +654,9 @@ export default function App() {
                             })}
                           </tbody>
                         </table>
+                        </div>
+                        );
+                      })()}
                         <div className="standings-legend">
                           <span><i className="legend-next" /> Classificado para a próxima fase</span>
                           {selected.division === "1ª Divisão" && (selectedPhase[selected.id] ?? selected.phases?.[0]) === "Primeira fase" && (
