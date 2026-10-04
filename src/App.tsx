@@ -73,6 +73,7 @@ const LS = {
   paraV1: "sports-para-v1",
   paraibaV1: "sports-paraiba-v1",
   paranaV1: "sports-parana-v1",
+  saoPauloV1: "sports-sao-paulo-v1",
 };
 
 const A_CLUBS = [
@@ -881,6 +882,63 @@ function buildParanaThirdDivision(championshipId:number,startClubId:number,start
   return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
 }
 
+const SAO_PAULO_1_CLUBS = [
+  "Botafogo-SP","Capivariano","Corinthians","Guarani","Mirassol","Noroeste","Novorizontino","Palmeiras",
+  "Ponte Preta","Portuguesa","Primavera","Red Bull Bragantino","Santos","São Bernardo","São Paulo","Velo Clube",
+];
+const SAO_PAULO_2_CLUBS = [
+  "Água Santa","Ferroviária","Ituano","São José-SP","Sertãozinho","Votuporanguense","Juventus-SP","XV de Piracicaba",
+  "Osasco Sporting","Santo André","Taubaté","Inter de Limeira","Linense","Monte Azul","Grêmio Prudente","São Bento",
+];
+const SAO_PAULO_3_CLUBS = [
+  "Portuguesa Santista","Marília","Rio Preto","XV de Jaú","Rio Claro","União Barbarense","EC São Bernardo","Paulista",
+  "União São João","Catanduva","Bandeirante","Rio Branco SP","Francana","Itapirense","Desportivo Brasil","União Suzano",
+];
+const SAO_PAULO_4_CLUBS = [
+  "Inter de Bebedouro","São Caetano","Penapolense","São Carlense","Barretos EC","Taquaritinga","Jacarei FC","Lemense",
+  "ECUS SP","Comercial","Tanabi","Jabaquara","Vocem","Colorado Caieiras","Nacional SP","AEA Araçatuba",
+];
+const SAO_PAULO_5_CLUBS = [
+  "José Bonifacio EC","America SP","Assisense","Tupã","Riopretano","Santa Fé SP","Independente de Limeira","Matonense",
+  "São Carlos","Santacruzense","Mogi Mirim","Catanduvense","Flamengo de Guarulhos","Paulinense","Audax-SP","Paulinia FU",
+  "Votoraty SP","Guarulhos","Itaqua","Mauá","União Mogi","Manthiqueira","Mauaense","Barcelona SP",
+];
+
+function buildSaoPauloDivision(championshipId:number,startClubId:number,startMatchId:number,division:number){
+  const lists=[SAO_PAULO_1_CLUBS,SAO_PAULO_2_CLUBS,SAO_PAULO_3_CLUBS,SAO_PAULO_4_CLUBS,SAO_PAULO_5_CLUBS];
+  const names=["Campeonato Paulista","Campeonato Paulista - 2ª Divisão","Campeonato Paulista - 3ª Divisão","Campeonato Paulista - 4ª Divisão","Campeonato Paulista - 5ª Divisão"];
+  const clubsList=lists[division-1];
+  const name=names[division-1];
+  const isFifth=division===5;
+  const promotion=division===1
+    ? "O campeão é o vencedor da final. Não há acesso informado para a 1ª Divisão."
+    : "Os dois finalistas garantem acesso à divisão imediatamente superior.";
+  const relegation=division===5
+    ? "Não há rebaixamento informado para a 5ª Divisão."
+    : "Os 2 últimos colocados da primeira fase são rebaixados para a divisão imediatamente inferior.";
+  const regulation=isFifth
+    ? "24 clubes divididos em 4 grupos de 6. A primeira fase é disputada em turno e returno dentro de cada grupo. Os 4 primeiros de cada grupo avançam ao mata-mata de 16 clubes, disputado em ida e volta."
+    : "16 clubes disputam turno único em 15 rodadas. Os 8 melhores avançam ao mata-mata, disputado em ida e volta.";
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026",name,
+    isFifth ? "4 grupos + oitavas + quartas + semifinais + final" : "Turno único + oitavas + quartas + semifinais + final",
+    regulation+" Em qualquer confronto eliminatório empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.",
+    promotion,relegation,clubsList.length,isFifth?10:15,1,"São Paulo"
+  );
+  const clubs:Club[]=clubsList.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  let matches:Match[]=[];
+  if(isFifth){
+    const groups=["A","B","C","D"];
+    for(let g=0;g<4;g++){
+      const ids=clubs.slice(g*6,g*6+6).map(c=>c.id);
+      matches.push(...roundRobin(ids,championshipId,startMatchId+matches.length,2,0,groups[g]));
+    }
+  } else {
+    matches=roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1);
+  }
+  return {championship,clubs,matches};
+}
+
 const PARAIBA_1_CLUBS = [
   "Atlético PB","Botafogo PB","Campinense","Confiança-PB","Esporte",
   "Nacional de Patos","Pombal","Serra Branca","Sousa","Treze",
@@ -1669,6 +1727,32 @@ function App() {
         addParana(buildParanaThirdDivision);
         localStorage.setItem(LS.paranaV1,"1");
       }
+
+      if (localStorage.getItem(LS.saoPauloV1) !== "1") {
+        const oldIds=new Set(cs.filter(c=>c.state==="São Paulo" || c.name.startsWith("Campeonato Paulista")).map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+        const addSaoPaulo=(division:number)=>{
+          const cid=Math.max(...cs.map(c=>c.id),0)+1;
+          const uid=Math.max(...cl.map(c=>c.id),0)+1;
+          const mid=Math.max(...ms.map(m=>m.id),0)+1;
+          const built=buildSaoPauloDivision(cid,uid,mid,division);
+          cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+        };
+        [1,2,3,4,5].forEach(addSaoPaulo);
+        localStorage.setItem(LS.saoPauloV1,"1");
+      }
+      const ensureSaoPaulo=(division:number)=>{
+        const name=["Campeonato Paulista","Campeonato Paulista - 2ª Divisão","Campeonato Paulista - 3ª Divisão","Campeonato Paulista - 4ª Divisão","Campeonato Paulista - 5ª Divisão"][division-1];
+        if(cs.some(c=>c.name===name&&c.season==="2026")) return;
+        const cid=Math.max(...cs.map(c=>c.id),0)+1;
+        const uid=Math.max(...cl.map(c=>c.id),0)+1;
+        const mid=Math.max(...ms.map(m=>m.id),0)+1;
+        const built=buildSaoPauloDivision(cid,uid,mid,division);
+        cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+      };
+      [1,2,3,4,5].forEach(ensureSaoPaulo);
 
       const ensureParana = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
         if (cs.some(c=>c.name===name && c.season==="2026")) return;
@@ -3051,6 +3135,72 @@ function App() {
       return;
     }
 
+    if (championship.division === "Estadual" && championship.state==="São Paulo" && championship.name.startsWith("Campeonato Paulista")) {
+      const own=next.filter(m=>m.championshipId===championship.id);
+      const regular=own.filter(m=>m.stage==="regular");
+      const r16=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===16);
+      const r8=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===8);
+      const r4=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
+      const final=own.filter(m=>m.stage==="final");
+      const isFifth=championship.name==="Campeonato Paulista - 5ª Divisão";
+      const expected=isFifth?60:120;
+      const regularDone=regular.length===expected && regular.every(m=>m.played);
+
+      if(regularDone && r16.length===0 && r8.length===0 && r4.length===0 && final.length===0){
+        const qualified:number[]=[];
+        if(isFifth){
+          for(const g of ["A","B","C","D"]){
+            const ids=[...new Set(regular.filter(m=>m.group===g).flatMap(m=>[m.home,m.away]))];
+            const table=tableFor(championship,ids,next,"regular",g);
+            if(table.length!==6) return;
+            qualified.push(...table.slice(0,4).map(x=>x.clubId));
+          }
+        } else {
+          const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+          if(table.length!==16) return;
+          qualified.push(...table.slice(0,8).map(x=>x.clubId));
+        }
+        const pairs=isFifth
+          ? [[qualified[0],qualified[7]],[qualified[1],qualified[6]],[qualified[2],qualified[5]],[qualified[3],qualified[4]],
+             [qualified[8],qualified[15]],[qualified[9],qualified[14]],[qualified[10],qualified[13]],[qualified[11],qualified[12]]]
+          : [[qualified[0],qualified[7]],[qualified[1],qualified[6]],[qualified[2],qualified[5]],[qualified[3],qualified[4]]];
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:16,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:16,group:"volta"});
+        });
+        setMatches(next);setSection("Oitavas de final");phaseAlert(`Oitavas de final do ${championship.name} criadas em ida e volta.`);return;
+      }
+
+      if(r16.length===16 && r16.every(m=>m.played) && r8.length===0 && r4.length===0 && final.length===0){
+        const winners=knockoutWinner(next,16,championship.id);
+        if(winners.length!==8) return;
+        for(let i=0;i<8;i+=2){
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
+        }
+        setMatches(next);setSection("Quartas de final");phaseAlert(`Quartas de final do ${championship.name} criadas em ida e volta.`);return;
+      }
+
+      if(r8.length===8 && r8.every(m=>m.played) && r4.length===0 && final.length===0){
+        const winners=knockoutWinner(next,8,championship.id);
+        if(winners.length!==4) return;
+        for(let i=0;i<4;i+=2){
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+5,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+6,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        }
+        setMatches(next);setSection("Semifinais");phaseAlert(`Semifinais do ${championship.name} criadas em ida e volta.`);return;
+      }
+
+      if(r4.length===4 && r4.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2) return;
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+7,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+8,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
+      }
+      return;
+    }
+
     if (championship.division === "Estadual") {
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const finalExists=next.some(m=>m.championshipId===championship.id&&m.stage==="final");
@@ -3730,6 +3880,7 @@ D → C: ${promotedD.length} promovidos`
     ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===Number(section.replace("Série D · ","")))
     : section==="Segunda fase" ? myMatches.filter((m)=>m.stage==="secondPhase")
     : section==="Final" ? myMatches.filter((m)=>m.stage==="final")
+    : section==="Oitavas de final" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===16)
     : section==="Quartas de final" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===8)
     : section==="Semifinais" ? myMatches.filter((m)=>m.stage==="knockout"&&m.knockoutRound===4)
     : section==="Play-offs" || section==="Play-off de acesso" ? myMatches.filter((m)=>m.stage==="playoff")
@@ -3824,6 +3975,30 @@ D → C: ${promotedD.length} promovidos`
         return "";
       }
       if (state==="Paraná" && name==="Campeonato Paranaense - 3ª Divisão") {
+        if(position<=4) return "qualification";
+        return "";
+      }
+      if (state==="São Paulo" && name==="Campeonato Paulista") {
+        if(position>=15) return "relegation";
+        if(position<=8) return "qualification";
+        return "";
+      }
+      if (state==="São Paulo" && name==="Campeonato Paulista - 2ª Divisão") {
+        if(position>=15) return "relegation";
+        if(position<=8) return "qualification";
+        return "";
+      }
+      if (state==="São Paulo" && name==="Campeonato Paulista - 3ª Divisão") {
+        if(position>=15) return "relegation";
+        if(position<=8) return "qualification";
+        return "";
+      }
+      if (state==="São Paulo" && name==="Campeonato Paulista - 4ª Divisão") {
+        if(position>=15) return "relegation";
+        if(position<=8) return "qualification";
+        return "";
+      }
+      if (state==="São Paulo" && name==="Campeonato Paulista - 5ª Divisão") {
         if(position<=4) return "qualification";
         return "";
       }
@@ -4061,6 +4236,8 @@ D → C: ${promotedD.length} promovidos`
                   .sort((a,b)=>a.name.localeCompare(b.name));
                 return stateDivisions.length>1 ? stateDivisions.map(c=>button(
                   c.name.includes("4ª Divisão") ? "4ª Divisão" :
+                  c.name.includes("5ª Divisão") ? "5ª Divisão" :
+                  c.name.includes("4ª Divisão") ? "4ª Divisão" :
                   c.name.includes("3ª Divisão") ? "3ª Divisão" :
                   c.name.includes("2ª Divisão") ? "2ª Divisão" : "1ª Divisão",
                   ()=>{setSelectedId(c.id);setSection("Visão geral");setSelectedClub(null);}
@@ -4071,6 +4248,7 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
               {championship.division==="Estadual"&&championship.name==="Campeonato Carioca - 2ª Divisão"&&myMatches.some((m)=>m.stage==="playoff")&&button("Play-off de permanência",()=>setSection("Play-off de permanência"))}
               {championship.division==="Estadual"&&championship.name==="Campeonato Capixaba"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===8)&&button("Quartas de final",()=>setSection("Quartas de final"))}
+              {championship.state==="São Paulo"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===16)&&button("Oitavas de final",()=>setSection("Oitavas de final"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===4)&&button("Semifinais",()=>setSection("Semifinais"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
               {championship.division==="Série D"&&button("Classificados próxima temporada",()=>setSection("Classificados"))}
