@@ -859,6 +859,16 @@ const PARA_3_CLUBS = [
   "Sport Belem","Belenense","CA Vila Rica","Gavião","Paraupebas","Altamira",
 ];
 
+const PERNAMBUCO_1_CLUBS = [
+  "Náutico","Sport","Retrô","Santa Cruz","Decisão Goiana","Maguary","Vitória das Tabocas","Jaguar",
+];
+const PERNAMBUCO_2_CLUBS = [
+  "Academica Vitória","Caruaru","CA Porto","Águia FC","Ypiranga","America PE","Centro Limoeirense","Belo Jardim","Ipojuca","Vera Cruz",
+];
+const PERNAMBUCO_3_CLUBS = [
+  "Pesqueira","Cha Grande","1° de Maio","Sete de Setembro",
+];
+
 const PARANA_1_CLUBS = [
   "Londrina","Foz do Iguaçu","Athletico-PR","São Joseense","Maringá FC","Cascavel",
   "Azuriz","Coritiba","Cianorte","Operário-PR","Andraus","Galo Maringá",
@@ -871,6 +881,24 @@ const PARANA_3_CLUBS = [
   "AA Iguaçu","Hope Internacional","Iraty","Samas","Parana STC","CA Cambé",
   "City London","Londrinense","Oeste Brasil","União PR","Campo Mourão",
 ];
+
+function buildPernambucoFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Pernambucano","Turno único + semifinais + final","8 clubes disputam turno único em 7 rodadas. Os 4 primeiros avançam às semifinais, disputadas em jogos de ida e volta. A final também é disputada em ida e volta. Em qualquer confronto eliminatório empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.","O campeão é o vencedor da final do Campeonato Pernambucano.","Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",8,7,1,"Pernambuco");
+  const clubs:Club[]=PERNAMBUCO_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildPernambucoSecondDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Pernambucano - 2ª Divisão","Turno único + semifinais + final","10 clubes disputam turno único em 9 rodadas. Os 4 primeiros avançam às semifinais, disputadas em jogos de ida e volta. A final também é disputada em ida e volta. Em qualquer confronto eliminatório empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.","Os dois finalistas garantem acesso à 1ª Divisão.","O último colocado da primeira fase é rebaixado para a 3ª Divisão.",10,9,1,"Pernambuco");
+  const clubs:Club[]=PERNAMBUCO_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildPernambucoThirdDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Pernambucano - 3ª Divisão","Turno e returno","4 clubes disputam turno e returno em 6 rodadas, sem mata-mata. O campeão é definido pela maior pontuação ao final da fase.","O campeão garante acesso à 2ª Divisão.","Não há rebaixamento informado para a 3ª Divisão.",4,6,2,"Pernambuco");
+  const clubs:Club[]=PERNAMBUCO_3_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,2)};
+}
 
 function buildParanaFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
   const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Paranaense","Turno único + semifinais + final","12 clubes disputam turno único em 11 rodadas. Os 4 primeiros avançam ao mata-mata, com semifinais e final em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.","O campeão é o vencedor da final do Campeonato Paranaense.","Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",12,11,1,"Paraná");
@@ -1897,6 +1925,10 @@ function App() {
         const built=builder(cid,uid,mid);
         cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
       };
+      ensureParana("Campeonato Pernambucano", buildPernambucoFirstDivision);
+      ensureParana("Campeonato Pernambucano - 2ª Divisão", buildPernambucoSecondDivision);
+      ensureParana("Campeonato Pernambucano - 3ª Divisão", buildPernambucoThirdDivision);
+
       ensureParana("Campeonato Paranaense", buildParanaFirstDivision);
       ensureParana("Campeonato Paranaense - 2ª Divisão", buildParanaSecondDivision);
       ensureParana("Campeonato Paranaense - 3ª Divisão", buildParanaThirdDivision);
@@ -2714,6 +2746,38 @@ function App() {
         next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
         setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
       }
+      return;
+    }
+
+    if (championship.division === "Estadual" && (
+      championship.name==="Campeonato Pernambucano" ||
+      championship.name==="Campeonato Pernambucano - 2ª Divisão"
+    )) {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      const expected=championship.name==="Campeonato Pernambucano" ? 28 : 45;
+
+      if(regular.length===expected && regular.every(m=>m.played) && semis.length===0 && final.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        if(table.length<4) return;
+        [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");phaseAlert(`Semifinais do ${championship.name} criadas em ida e volta.`);return;
+      }
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){phaseAlert(`Não foi possível identificar os finalistas do ${championship.name}.`);return;}
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
+      }
+      return;
+    }
+
+    if (championship.division === "Estadual" && championship.name === "Campeonato Pernambucano - 3ª Divisão") {
       return;
     }
 
