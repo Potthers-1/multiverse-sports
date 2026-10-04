@@ -78,6 +78,7 @@ const LS = {
   saoPauloV3: "sports-sao-paulo-v3",
   saoPauloV4: "sports-sao-paulo-v4",
   saoPauloV5: "sports-sao-paulo-v5",
+  saoPauloV6: "sports-sao-paulo-v6",
 };
 
 const A_CLUBS = [
@@ -1801,6 +1802,30 @@ function App() {
           }
         }
         localStorage.setItem(LS.saoPauloV5,"1");
+      }
+
+      // São Paulo V6: garante uma reconstrução limpa das 5 divisões,
+      // inclusive quando todas existem mas alguma fase eliminatória ficou incompatível.
+      if (localStorage.getItem(LS.saoPauloV6) !== "1") {
+        const names = [
+          "Campeonato Paulista",
+          "Campeonato Paulista - 2ª Divisão",
+          "Campeonato Paulista - 3ª Divisão",
+          "Campeonato Paulista - 4ª Divisão",
+          "Campeonato Paulista - 5ª Divisão",
+        ];
+        const oldIds=new Set(cs.filter(c=>c.state==="São Paulo" || names.includes(c.name)).map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+        for(const division of [1,2,3,4,5]) {
+          const cid=Math.max(...cs.map(c=>c.id),0)+1;
+          const uid=Math.max(...cl.map(c=>c.id),0)+1;
+          const mid=Math.max(...ms.map(m=>m.id),0)+1;
+          const built=buildSaoPauloDivision(cid,uid,mid,division);
+          cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+        }
+        localStorage.setItem(LS.saoPauloV6,"1");
       }
 
       const ensureParana = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
@@ -3753,6 +3778,35 @@ function App() {
         final.length===0;
 
       if(needsSemifinals || needsFinal) prepareNextPhase();
+      return;
+    }
+
+    if (championship.state==="São Paulo" && championship.name.startsWith("Campeonato Paulista")) {
+      const own=matches.filter(m=>m.championshipId===championship.id);
+      const regular=own.filter(m=>m.stage==="regular");
+      const r16=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===16);
+      const q=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===8);
+      const s=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
+      const fin=own.filter(m=>m.stage==="final");
+      const fifth=championship.name==="Campeonato Paulista - 5ª Divisão";
+      const expected=fifth?60:120;
+
+      if(regular.length===expected && regular.every(m=>m.played) && r16.length===0 && q.length===0 && s.length===0 && fin.length===0) {
+        prepareNextPhase();
+        return;
+      }
+      if(fifth && r16.length===16 && r16.every(m=>m.played) && q.length===0 && s.length===0 && fin.length===0) {
+        prepareNextPhase();
+        return;
+      }
+      if(q.length===8 && q.every(m=>m.played) && s.length===0 && fin.length===0) {
+        prepareNextPhase();
+        return;
+      }
+      if(s.length===4 && s.every(m=>m.played) && fin.length===0) {
+        prepareNextPhase();
+        return;
+      }
       return;
     }
 
