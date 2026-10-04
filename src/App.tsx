@@ -869,6 +869,39 @@ const PERNAMBUCO_3_CLUBS = [
   "Pesqueira","Cha Grande","1° de Maio","Sete de Setembro",
 ];
 
+const PIAUI_1_CLUBS = [
+  "Atlético-PI","Piauí","Fluminense-PI","AE Altos","Oeirense","TEC","Corisabba","Parnahyba",
+];
+const PIAUI_2_CLUBS = [
+  "Picos","Comercial-PI","Flamengo-PI","River-PI","4 de Julho","Caiçara",
+];
+
+function buildPiauiFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Piauiense",
+    "Turno único + semifinais + final",
+    "8 clubes disputam turno único em 7 rodadas. Os 4 primeiros avançam às semifinais, disputadas em jogos de ida e volta. A final também é disputada em jogos de ida e volta. Em qualquer confronto eliminatório empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.",
+    "O campeão é o vencedor da final do Campeonato Piauiense.",
+    "Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",
+    8,7,1,"Piauí"
+  );
+  const clubs:Club[]=PIAUI_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildPiauiSecondDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Piauiense - 2ª Divisão",
+    "Turno único + semifinais + final",
+    "6 clubes disputam turno único em 5 rodadas. Os 4 primeiros avançam às semifinais, disputadas em jogos de ida e volta. A final também é disputada em jogos de ida e volta. Os dois finalistas garantem acesso à 1ª Divisão.",
+    "Os dois finalistas conquistam o acesso à 1ª Divisão do Piauí.",
+    "Não há rebaixamento informado para a 2ª Divisão.",
+    6,5,1,"Piauí"
+  );
+  const clubs:Club[]=PIAUI_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
 const PARANA_1_CLUBS = [
   "Londrina","Foz do Iguaçu","Athletico-PR","São Joseense","Maringá FC","Cascavel",
   "Azuriz","Coritiba","Cianorte","Operário-PR","Andraus","Galo Maringá",
@@ -1928,6 +1961,8 @@ function App() {
       ensureParana("Campeonato Pernambucano", buildPernambucoFirstDivision);
       ensureParana("Campeonato Pernambucano - 2ª Divisão", buildPernambucoSecondDivision);
       ensureParana("Campeonato Pernambucano - 3ª Divisão", buildPernambucoThirdDivision);
+      ensureParana("Campeonato Piauiense", buildPiauiFirstDivision);
+      ensureParana("Campeonato Piauiense - 2ª Divisão", buildPiauiSecondDivision);
 
       ensureParana("Campeonato Paranaense", buildParanaFirstDivision);
       ensureParana("Campeonato Paranaense - 2ª Divisão", buildParanaSecondDivision);
@@ -2784,6 +2819,34 @@ function App() {
     }
 
     if (championship.division === "Estadual" && championship.name === "Campeonato Pernambucano - 3ª Divisão") {
+      return;
+    }
+
+    if (championship.division === "Estadual" && (
+      championship.name==="Campeonato Piauiense" ||
+      championship.name==="Campeonato Piauiense - 2ª Divisão"
+    )) {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      const expected=championship.name==="Campeonato Piauiense" ? 28 : 15;
+
+      if(regular.length===expected && regular.every(m=>m.played) && semis.length===0 && final.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        if(table.length<4) return;
+        [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");phaseAlert(`Semifinais do ${championship.name} criadas em ida e volta.`);return;
+      }
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){phaseAlert(`Não foi possível identificar os finalistas do ${championship.name}.`);return;}
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
+      }
       return;
     }
 
@@ -4340,6 +4403,15 @@ D → C: ${promotedD.length} promovidos`
         if (position === 1) return "promotion";
         return "";
       }
+      if (state==="Piauí" && name==="Campeonato Piauiense") {
+        if (position >= 7) return "relegation";
+        if (position <= 4) return "qualification";
+        return "";
+      }
+      if (state==="Piauí" && name==="Campeonato Piauiense - 2ª Divisão") {
+        if (position <= 4) return "qualification";
+        return "";
+      }
       if (state==="Acre" && name==="Campeonato Acreano") {
         if (position >= 7) return "relegation";
         if (position <= 4) return "qualification";
@@ -4708,6 +4780,8 @@ D → C: ${promotedD.length} promovidos`
             const isPernambuco1 = championship.name==="Campeonato Pernambucano";
             const isPernambuco2 = championship.name==="Campeonato Pernambucano - 2ª Divisão";
             const isPernambuco3 = championship.name==="Campeonato Pernambucano - 3ª Divisão";
+            const isPiaui1 = championship.name==="Campeonato Piauiense";
+            const isPiaui2 = championship.name==="Campeonato Piauiense - 2ª Divisão";
             const isStateSecond = isAcre2 || isAlagoas2 || isDistritoFederal2 || isEspiritoSanto2 || isPernambuco2;
             return <>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:14}}>
@@ -4716,7 +4790,7 @@ D → C: ${promotedD.length} promovidos`
                 <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isDistritoFederal2?0:isEspiritoSanto1?8:isEspiritoSanto2?4:isAcre2?2:isAlagoas2?4:4}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isDistritoFederal2||isEspiritoSanto1?"classificados ao mata-mata":"semifinalistas"}</div></div>
                 <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isEspiritoSanto1?0:isEspiritoSanto2?2:isStateSecond?0:2}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isEspiritoSanto2?"vagas de acesso":"vagas para a Série D"}</div></div>
               </div>
-              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : isAlagoas2 ? "Os 4 primeiros avançam para as semifinais. O campeão garante o acesso à 1ª Divisão de Alagoas." : isDistritoFederal2 ? "Fase única em turno único. Os 2 primeiros colocados garantem acesso à 1ª Divisão do Distrito Federal; o 1º colocado é o campeão." : isEspiritoSanto1 ? "10 clubes jogam em turno único. Os 8 primeiros avançam às quartas de final; quartas, semifinais e final são em ida e volta. Os 2 últimos são rebaixados." : isEspiritoSanto2 ? "Dois grupos de 5 em turno e returno. Os 2 primeiros de cada grupo avançam às semifinais em ida e volta; a final é em jogo único. Os dois finalistas sobem." : isPernambuco1 ? "8 clubes jogam em turno único. Os 4 primeiros avançam às semifinais em ida e volta. Os 2 últimos são rebaixados para a 2ª Divisão." : isPernambuco2 ? "10 clubes jogam em turno único. Os 4 primeiros avançam às semifinais em ida e volta. O último é rebaixado e os dois finalistas sobem." : isPernambuco3 ? "4 clubes jogam em turno e returno, sem mata-mata. Ao final das 6 rodadas, o líder é o campeão e garante acesso à 2ª Divisão." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
+              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : isAlagoas2 ? "Os 4 primeiros avançam para as semifinais. O campeão garante o acesso à 1ª Divisão de Alagoas." : isDistritoFederal2 ? "Fase única em turno único. Os 2 primeiros colocados garantem acesso à 1ª Divisão do Distrito Federal; o 1º colocado é o campeão." : isEspiritoSanto1 ? "10 clubes jogam em turno único. Os 8 primeiros avançam às quartas de final; quartas, semifinais e final são em ida e volta. Os 2 últimos são rebaixados." : isEspiritoSanto2 ? "Dois grupos de 5 em turno e returno. Os 2 primeiros de cada grupo avançam às semifinais em ida e volta; a final é em jogo único. Os dois finalistas sobem." : isPernambuco1 ? "8 clubes jogam em turno único. Os 4 primeiros avançam às semifinais em ida e volta. Os 2 últimos são rebaixados para a 2ª Divisão." : isPernambuco2 ? "10 clubes jogam em turno único. Os 4 primeiros avançam às semifinais em ida e volta. O último é rebaixado e os dois finalistas sobem." : isPiaui1 ? "8 clubes jogam em turno único. Os 4 primeiros avançam às semifinais em ida e volta, seguidas de final em ida e volta. Os 2 últimos são rebaixados." : isPiaui2 ? "6 clubes jogam em turno único. Os 4 primeiros avançam às semifinais em ida e volta, seguidas de final em ida e volta. Os dois finalistas conquistam o acesso." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
             </>;
           })())}
           {section==="Visão geral" && panel("Regulamento",<>
