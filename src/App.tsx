@@ -850,7 +850,7 @@ const PARA_3_CLUBS = [
 ];
 
 const PARAIBA_1_CLUBS = [
-  "Atlético PB","Botafogo PB","Campinense","Confiança","Esporte",
+  "Atlético PB","Botafogo PB","Campinense","Confiança-PB","Esporte",
   "Nacional de Patos","Pombal","Serra Branca","Sousa","Treze",
 ];
 const PARAIBA_2_CLUBS = [
