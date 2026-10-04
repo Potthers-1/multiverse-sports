@@ -652,41 +652,18 @@ export default function App() {
     // 7º e 8º da 1ª Divisão descem.
     const relegated = firstRanking.slice(6, 8);
 
-    // Descobre o campeão da 2ª Divisão.
-    const firstWinner = acreSecond.firstTurnWinner;
-    const secondWinner = acreSecond.secondTurnWinner;
-    let champion: string | undefined;
+    // O acesso da 2ª Divisão é exatamente o que aparece em VERDE
+    // na aba "Classificação geral": campeão + melhor classificado
+    // além do campeão. Não recalculamos uma regra diferente aqui.
+    const accessIds = getSecondDivisionAccessIds(acreSecond);
+    const promoted = secondTeams.filter((team) => accessIds.has(team));
 
-    if (firstWinner && secondWinner && firstWinner === secondWinner) {
-      champion = firstWinner;
-    } else if (firstWinner && secondWinner) {
-      const final = acreSecond.phaseMatches?.["Final"]?.[0];
-
-      if (final?.penaltyWinner) {
-        champion = final.penaltyWinner;
-      } else if (
-        final?.homeScore !== undefined &&
-        final?.awayScore !== undefined &&
-        final.homeScore !== final.awayScore
-      ) {
-        champion = final.homeScore > final.awayScore ? final.home : final.away;
-      }
-    }
-
-    if (!champion || !secondTeams.includes(champion)) {
-      window.alert("O campeão da 2ª Divisão não foi definido. Simule a temporada completa novamente.");
+    if (promoted.length !== 2) {
+      window.alert(
+        "O sistema não conseguiu identificar exatamente os 2 times marcados em verde na Classificação geral. Simule a temporada completa novamente."
+      );
       return;
     }
-
-    // O segundo acesso é o primeiro da classificação geral que não seja o campeão.
-    const secondPromoted = secondRanking.find((team) => team !== champion);
-
-    if (!secondPromoted) {
-      window.alert("Não foi possível identificar o segundo promovido.");
-      return;
-    }
-
-    const promoted = [champion, secondPromoted];
 
     // Segurança: nenhum clube pode ficar nas duas divisões.
     const nextFirstTeams = [
