@@ -310,7 +310,19 @@ export default function App() {
     };
   }
 
+  // Partida de ida/volta: o resultado do jogo NÃO gera pênaltis.
+  // O desempate é feito somente pelo placar agregado após a segunda partida.
   function simulateKnockoutMatch(home: string, away: string): Matchup {
+    return {
+      home,
+      away,
+      homeScore: Math.floor(Math.random() * 5),
+      awayScore: Math.floor(Math.random() * 5),
+    };
+  }
+
+  // Jogo único: empate no tempo regulamentar gera pênaltis automaticamente.
+  function simulateSingleKnockoutMatch(home: string, away: string): Matchup {
     const match: Matchup = {
       home,
       away,
@@ -365,7 +377,7 @@ export default function App() {
     }
 
     const finalMatch = semiWinners.length === 2
-      ? [simulateKnockoutMatch(semiWinners[0], semiWinners[1])]
+      ? [simulateSingleKnockoutMatch(semiWinners[0], semiWinners[1])]
       : [];
 
     return {
@@ -428,7 +440,7 @@ export default function App() {
 
     let finalMatches: Matchup[] = [];
     if (firstWinner !== secondWinner) {
-      finalMatches = [simulateKnockoutMatch(firstWinner, secondWinner)];
+      finalMatches = [simulateSingleKnockoutMatch(firstWinner, secondWinner)];
     }
 
     return {
