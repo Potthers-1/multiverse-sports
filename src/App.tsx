@@ -180,6 +180,38 @@ export default function App() {
     return "";
   }
 
+  function getSecondDivisionAccessIds(championship: Championship) {
+    if (championship.state !== "Acre" || championship.division !== "2ª Divisão") return new Set<string>();
+
+    const firstWinner = championship.firstTurnWinner;
+    const secondWinner = championship.secondTurnWinner;
+    let champion: string | undefined = firstWinner;
+
+    if (firstWinner && secondWinner && firstWinner !== secondWinner) {
+      const final = championship.phaseMatches?.["Final"]?.[0];
+      if (final?.homeScore !== undefined && final?.awayScore !== undefined) {
+        champion = final.homeScore >= final.awayScore ? final.home : final.away;
+      } else {
+        champion = undefined;
+      }
+    }
+
+    const general = championship.phaseStandings?.["Classificação geral"] ?? championship.standings ?? {};
+    const ordered = Object.keys(general).sort((a, b) => {
+      const A = general[a];
+      const B = general[b];
+      return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+    });
+
+    const access = new Set<string>();
+    if (champion) access.add(champion);
+
+    const bestNonChampion = ordered.find((team) => team !== champion);
+    if (bestNonChampion) access.add(bestNonChampion);
+
+    return access;
+  }
+
   function simulateRoundRobin(teams: string[]) {
     const table: Record<string, Standing> = {};
     teams.forEach((team) => {
@@ -798,8 +830,10 @@ export default function App() {
                               <tbody>
                                 {phaseTeams.map((team, index) => {
                                   const row = phaseTable[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                                  const accessIds = getSecondDivisionAccessIds(selected);
+                                  const accessClass = currentPhase === "Classificação geral" && accessIds.has(team) ? "zone-next" : "";
                                   return (
-                                    <tr key={team} className={getRowClass(selected, currentPhase, index)}>
+                                    <tr key={team} className={getRowClass(selected, currentPhase, index) || accessClass}>
                                       <td>{index + 1}</td>
                                       <td className="standing-team">{team}</td>
                                       <td>{row.j}</td>
@@ -824,6 +858,10 @@ export default function App() {
                         {selected.division === "1ª Divisão" &&
                           (selectedPhase[selected.id] ?? selected.phases?.[0]) === "Primeira fase" && (
                             <span><i className="legend-relegation" /> Rebaixado</span>
+                          )}
+                        {selected.division === "2ª Divisão" &&
+                          (selectedPhase[selected.id] ?? selected.phases?.[0]) === "Classificação geral" && (
+                            <span><i className="legend-next" /> Acesso à 1ª Divisão</span>
                           )}
                       </div>
                     </div>
