@@ -66,6 +66,7 @@ const LS = {
   cariocaV4: "sports-carioca-1d-v4",
   cearaV7: "sports-ceara-v7",
   gauchoV2: "sports-gaucho-v2",
+  goiasV1: "sports-goias-v1",
 };
 
 const A_CLUBS = [
@@ -203,6 +204,17 @@ const RIO_GRANDE_DO_SUL_2_CLUBS = [
 const RIO_GRANDE_DO_SUL_3_CLUBS = [
   "Panambi","Real SC","SC São Paulo","Cruz A.","Futvida","Riograndense",
   "GA Farroupilha","Clube 1992","EC Novo Horizonte","SC Rio Grande",
+];
+const GOIAS_1_CLUBS = [
+  "ABECAT","Anapolina","Anápolis","Aparecidense","Atlético Goianiense","Centro Oeste",
+  "CRAC","Goiás","Goiatuba","Inhumas","Jataiense","Vila Nova",
+];
+const GOIAS_2_CLUBS = [
+  "Rio Verde","Bom Jesus","Mineiros","Goianesia","Morrinhos","Goiânia",
+  "Tupy FC","São Luis","Trindade","Grêmio Anapolis",
+];
+const GOIAS_3_CLUBS = [
+  "Itumbiara","Novo Horizonte","Rioverdense","America GO","Royal","Atletico Itumbiara","Real Clube",
 ];
 
 const CARIOCA_1_CLUBS = [
@@ -711,6 +723,46 @@ function buildRioGrandeDoSulThirdDivision(championshipId:number,startClubId:numb
   );
   const clubs:Club[]=RIO_GRANDE_DO_SUL_3_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
   return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+
+function buildGoiasFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Goiano",
+    "Turno único + quartas + semifinais + final",
+    "Os 12 clubes disputam uma fase única em turno único, em 11 rodadas. Os 8 primeiros avançam ao mata-mata. Quartas de final, semifinais e final são disputadas em ida e volta. Em qualquer confronto empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.",
+    "O campeão é o vencedor da final do Campeonato Goiano.",
+    "Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",
+    12,11,1,"Goiás"
+  );
+  const clubs:Club[]=GOIAS_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildGoiasSecondDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Goiano - 2ª Divisão",
+    "Turno e returno",
+    "Os 10 clubes disputam 18 rodadas em turno e returno. Não há mata-mata. Os 2 primeiros garantem acesso à 1ª Divisão e os 2 últimos são rebaixados para a 3ª Divisão.",
+    "Os 2 primeiros colocados garantem acesso à 1ª Divisão.",
+    "Os 2 últimos colocados são rebaixados para a 3ª Divisão.",
+    10,18,2,"Goiás"
+  );
+  const clubs:Club[]=GOIAS_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,2)};
+}
+
+function buildGoiasThirdDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(
+    championshipId,"Estadual","2026","Campeonato Goiano - 3ª Divisão",
+    "Turno e returno",
+    "Os 7 clubes disputam 12 rodadas em turno e returno. Não há mata-mata. Os 2 primeiros garantem acesso à 2ª Divisão.",
+    "Os 2 primeiros colocados garantem acesso à 2ª Divisão.",
+    "Não há rebaixamento informado para a 3ª Divisão.",
+    7,12,2,"Goiás"
+  );
+  const clubs:Club[]=GOIAS_3_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,2)};
 }
 
 function buildCariocaFirstDivision(championshipId:number, startClubId:number, startMatchId:number) {
@@ -1273,6 +1325,25 @@ function App() {
         localStorage.setItem(LS.gauchoV2,"1");
       }
 
+      if (localStorage.getItem(LS.goiasV1) !== "1") {
+        const oldIds=new Set(cs.filter(c=>c.state==="Goiás" || c.name==="Campeonato Goiano" || c.name==="Campeonato Goiano - 2ª Divisão" || c.name==="Campeonato Goiano - 3ª Divisão").map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+
+        const addGoias=(builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]})=>{
+          const cid=Math.max(...cs.map(c=>c.id),0)+1;
+          const uid=Math.max(...cl.map(c=>c.id),0)+1;
+          const mid=Math.max(...ms.map(m=>m.id),0)+1;
+          const built=builder(cid,uid,mid);
+          cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+        };
+        addGoias(buildGoiasFirstDivision);
+        addGoias(buildGoiasSecondDivision);
+        addGoias(buildGoiasThirdDivision);
+        localStorage.setItem(LS.goiasV1,"1");
+      }
+
       if (!cs.length || !cl.length) { seed(); return; }
 
       // Migração incremental: adiciona o primeiro estadual sem apagar
@@ -1743,6 +1814,14 @@ function App() {
       const m=final[0];
       return (m.homeScore??0)>(m.awayScore??0)?m.home:(m.awayScore??0)>(m.homeScore??0)?m.away:m.penaltyWinner??null;
     }
+    if (champ.division === "Estadual" && (
+      champ.name==="Campeonato Goiano - 2ª Divisão" ||
+      champ.name==="Campeonato Goiano - 3ª Divisão"
+    )) {
+      const regular=games.filter(m=>m.stage==="regular");
+      if(!regular.length || !regular.every(m=>m.played)) return null;
+      return tableFor(champ,clubs.filter(c=>c.championshipId===champ.id).map(c=>c.id),games,"regular")[0]?.clubId ?? null;
+    }
     if (champ.division === "Estadual") {
       const final=games.filter(m=>m.stage==="final");
       if(final.length===1) {
@@ -1805,6 +1884,46 @@ function App() {
     let next = resolveAutomaticPenalties(matches);
     let id = nextId(next);
 
+
+    if (championship.division === "Estadual" && (
+      championship.name==="Campeonato Goiano" ||
+      championship.name==="Campeonato Goiano - 2ª Divisão" ||
+      championship.name==="Campeonato Goiano - 3ª Divisão"
+    )) {
+      if(championship.name!=="Campeonato Goiano") return;
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const quarters=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+
+      if(regular.length===66 && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        const pairs=[[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]];
+        const base=championship.rounds+1;
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:base,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:base+1,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
+        });
+        setMatches(next);setSection("Quartas de final");phaseAlert("Quartas de final do Campeonato Goiano criadas em ida e volta.");return;
+      }
+      if(quarters.length===8 && quarters.every(m=>m.played) && semis.length===0 && final.length===0){
+        const winners=knockoutWinner(next,8,championship.id);
+        if(winners.length!==4){phaseAlert("Não foi possível identificar os vencedores das quartas do Campeonato Goiano.");return;}
+        [[winners[0],winners[3]],[winners[1],winners[2]]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do Campeonato Goiano criadas em ida e volta.");return;
+      }
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){phaseAlert("Não foi possível identificar os finalistas do Campeonato Goiano.");return;}
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+5,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+6,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        setMatches(next);setSection("Final");phaseAlert("Final do Campeonato Goiano criada em ida e volta.");return;
+      }
+      return;
+    }
 
     if (championship.division === "Estadual" && (
       championship.name==="Campeonato Gaúcho" ||
@@ -2740,6 +2859,23 @@ function App() {
     }
 
 
+    if (championship.name==="Campeonato Goiano") {
+      const own=matches.filter(m=>m.championshipId===championship.id);
+      const regular=own.filter(m=>m.stage==="regular");
+      const quarters=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
+      const final=own.filter(m=>m.stage==="final");
+      if(
+        (regular.length===66 && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0) ||
+        (quarters.length===8 && quarters.every(m=>m.played) && semis.length===0 && final.length===0) ||
+        (semis.length===4 && semis.every(m=>m.played) && final.length===0)
+      ) prepareNextPhase();
+      return;
+    }
+    if (championship.name==="Campeonato Goiano - 2ª Divisão" || championship.name==="Campeonato Goiano - 3ª Divisão") {
+      return;
+    }
+
     if (championship.name==="Campeonato Gaúcho" ||
         championship.name==="Campeonato Gaúcho - 2ª Divisão" ||
         championship.name==="Campeonato Gaúcho - 3ª Divisão") {
@@ -3063,6 +3199,19 @@ D → C: ${promotedD.length} promovidos`
         return "";
       }
       if (state==="Amazonas" && name==="Campeonato Amazonense - 2ª Divisão") return position <= 4 ? "qualification" : "";
+      if (state==="Goiás" && name==="Campeonato Goiano") {
+        if(position>=11) return "relegation";
+        if(position<=8) return "qualification";
+        return "";
+      }
+      if (state==="Goiás" && name==="Campeonato Goiano - 2ª Divisão") {
+        if(position>=9) return "relegation";
+        if(position<=2) return "promotion";
+        return "";
+      }
+      if (state==="Goiás" && name==="Campeonato Goiano - 3ª Divisão") {
+        return position<=2 ? "promotion" : "";
+      }
       if (state==="Rio Grande do Sul" && name==="Campeonato Gaúcho") {
         if(position>=11) return "relegation";
         if(position<=8) return "qualification";
