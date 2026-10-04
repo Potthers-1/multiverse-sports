@@ -618,8 +618,12 @@ export default function App() {
       return;
     }
 
-    const acreFirst = countryChampionships.find((c) => c.state === "Acre" && c.division === "1ª Divisão");
-    const acreSecond = countryChampionships.find((c) => c.state === "Acre" && c.division === "2ª Divisão");
+    const acreFirst = countryChampionships.find(
+      (c) => c.state === "Acre" && c.division === "1ª Divisão"
+    );
+    const acreSecond = countryChampionships.find(
+      (c) => c.state === "Acre" && c.division === "2ª Divisão"
+    );
 
     if (acreFirst && acreSecond) {
       const firstTable = acreFirst.phaseStandings?.["Primeira fase"];
@@ -631,7 +635,7 @@ export default function App() {
       }
 
       if (access.size !== 2) {
-        window.alert("Finalize os dois turnos e a definição do campeão da 2ª Divisão do Acre antes de avançar a temporada.");
+        window.alert("Finalize os dois turnos e a final da 2ª Divisão do Acre antes de avançar a temporada.");
         return;
       }
 
@@ -640,20 +644,33 @@ export default function App() {
         return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
       });
 
-      const relegated = new Set(orderedFirst.slice(-2));
+      // Regra do Acre:
+      // 7º e 8º da 1ª Divisão são rebaixados.
+      const relegatedTeams = orderedFirst.slice(6, 8);
+
       const firstTeams = acreFirst.teams ?? [];
       const secondTeams = acreSecond.teams ?? [];
 
+      // Campeão + melhor classificado que não seja o campeão sobem.
       const promotedTeams = secondTeams.filter((team) => access.has(team));
-      const relegatedTeams = firstTeams.filter((team) => relegated.has(team));
 
-      if (promotedTeams.length !== 2 || relegatedTeams.length !== 2) {
-        window.alert("Não foi possível identificar exatamente 2 acessos e 2 rebaixamentos no Acre.");
+      if (relegatedTeams.length !== 2 || promotedTeams.length !== 2) {
+        window.alert("Não foi possível identificar exatamente os 2 rebaixados (7º e 8º) e os 2 promovidos da 2ª Divisão.");
         return;
       }
 
-      const nextFirstTeams = [...firstTeams.filter((team) => !relegated.has(team)), ...promotedTeams];
-      const nextSecondTeams = [...secondTeams.filter((team) => !access.has(team)), ...relegatedTeams];
+      // Acesso/rebaixamento é uma troca direta de vagas:
+      // 1ª Divisão: entram os 2 promovidos no lugar do 7º e 8º.
+      // 2ª Divisão: entram o 7º e 8º rebaixados no lugar dos 2 promovidos.
+      const nextFirstTeams = [
+        ...firstTeams.filter((team) => !relegatedTeams.includes(team)),
+        ...promotedTeams,
+      ];
+
+      const nextSecondTeams = [
+        ...secondTeams.filter((team) => !promotedTeams.includes(team)),
+        ...relegatedTeams,
+      ];
 
       const nextSeason = countryChampionships.map((championship) => {
         const base = {
@@ -666,12 +683,22 @@ export default function App() {
           secondTurnWinner: undefined,
         };
 
-        if (championship.id === acreFirst.id) return { ...base, teams: nextFirstTeams };
-        if (championship.id === acreSecond.id) return { ...base, teams: nextSecondTeams };
+        if (championship.id === acreFirst.id) {
+          return { ...base, teams: nextFirstTeams };
+        }
+
+        if (championship.id === acreSecond.id) {
+          return { ...base, teams: nextSecondTeams };
+        }
+
         return base;
       });
 
-      const updated = [...championships.filter((c) => c.country !== country), ...nextSeason];
+      const updated = [
+        ...championships.filter((c) => c.country !== country),
+        ...nextSeason,
+      ];
+
       setChampionships(updated);
       setSelectedId(acreFirst.id);
 
@@ -679,6 +706,7 @@ export default function App() {
       nextSeason.forEach((c) => {
         if (c.phases?.length) nextPhases[c.id] = c.phases[0];
       });
+
       setSelectedPhase(nextPhases);
       setSelectedSection({});
       return;
@@ -694,7 +722,11 @@ export default function App() {
       secondTurnWinner: undefined,
     }));
 
-    const updated = [...championships.filter((c) => c.country !== country), ...nextSeason];
+    const updated = [
+      ...championships.filter((c) => c.country !== country),
+      ...nextSeason,
+    ];
+
     setChampionships(updated);
     setSelectedId(nextSeason[0]?.id ?? null);
 
@@ -702,6 +734,7 @@ export default function App() {
     nextSeason.forEach((c) => {
       if (c.phases?.length) nextPhases[c.id] = c.phases[0];
     });
+
     setSelectedPhase(nextPhases);
     setSelectedSection({});
   }
