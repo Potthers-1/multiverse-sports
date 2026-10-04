@@ -229,6 +229,9 @@ export default function App() {
         .reset-button { border: 1px solid #343d52; background: transparent; color: #8e9ab4; border-radius: 9px; padding: 9px; }
         .main { flex: 1; min-width: 0; padding: 32px 42px; }
         .topbar { max-width: 1100px; margin: 0 auto 26px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+        .country-heading { display: flex; align-items: center; gap: 12px; }
+        .simulate-season { border: 1px solid #33466f; background: #14213b; color: #dce5ff; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; }
+        .simulate-season:hover { background: #1b2c4d; border-color: #4b65a0; }
         h1, h2, h3, p { margin: 0; }
         h1 { font-size: 28px; margin-top: 5px; }
         h2 { font-size: 20px; margin-top: 5px; }
