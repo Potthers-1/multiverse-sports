@@ -2427,6 +2427,12 @@ function App() {
       return winners[0] ?? null;
     }
 
+    if (champ.division === "Estadual" && champ.name==="Campeonato Pernambucano - 3ª Divisão") {
+      const regular=games.filter(m=>m.stage==="regular");
+      if(regular.length!==12 || !regular.every(m=>m.played)) return null;
+      return tableFor(champ,clubs.filter(c=>c.championshipId===champ.id).map(c=>c.id),games,"regular")[0]?.clubId ?? null;
+    }
+
     if (champ.division === "Estadual" && champ.name==="Campeonato Brasiliense - 2ª Divisão") {
       const regular=games.filter(m=>m.stage==="regular");
       if(!regular.length || !regular.every(m=>m.played)) return null;
@@ -4320,6 +4326,20 @@ D → C: ${promotedD.length} promovidos`
     if (division==="Estadual" && name==="Campeonato Catarinense - 2ª Divisão") { if(position<=2) return "promotion"; if(position===10) return "relegation"; return ""; }
     if (division==="Estadual" && name==="Campeonato Catarinense - 3ª Divisão") return position<=2 ? "qualification" : "";
     if (division==="Estadual") {
+      if (state==="Pernambuco" && name==="Campeonato Pernambucano") {
+        if (position >= 7) return "relegation";
+        if (position <= 4) return "qualification";
+        return "";
+      }
+      if (state==="Pernambuco" && name==="Campeonato Pernambucano - 2ª Divisão") {
+        if (position === 10) return "relegation";
+        if (position <= 4) return "qualification";
+        return "";
+      }
+      if (state==="Pernambuco" && name==="Campeonato Pernambucano - 3ª Divisão") {
+        if (position === 1) return "promotion";
+        return "";
+      }
       if (state==="Acre" && name==="Campeonato Acreano") {
         if (position >= 7) return "relegation";
         if (position <= 4) return "qualification";
@@ -4685,7 +4705,10 @@ D → C: ${promotedD.length} promovidos`
             const isDistritoFederal2 = championship.name==="Campeonato Brasiliense - 2ª Divisão";
             const isEspiritoSanto1 = championship.name==="Campeonato Capixaba";
             const isEspiritoSanto2 = championship.name==="Campeonato Capixaba - 2ª Divisão";
-            const isStateSecond = isAcre2 || isAlagoas2 || isDistritoFederal2 || isEspiritoSanto2;
+            const isPernambuco1 = championship.name==="Campeonato Pernambucano";
+            const isPernambuco2 = championship.name==="Campeonato Pernambucano - 2ª Divisão";
+            const isPernambuco3 = championship.name==="Campeonato Pernambucano - 3ª Divisão";
+            const isStateSecond = isAcre2 || isAlagoas2 || isDistritoFederal2 || isEspiritoSanto2 || isPernambuco2;
             return <>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:14}}>
                 <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isAcre2?4:isAlagoas2?6:isDistritoFederal2?7:isEspiritoSanto1||isEspiritoSanto2?10:8}</strong><div style={{fontSize:12,color:"#8291a5"}}>clubes</div></div>
@@ -4693,7 +4716,7 @@ D → C: ${promotedD.length} promovidos`
                 <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isDistritoFederal2?0:isEspiritoSanto1?8:isEspiritoSanto2?4:isAcre2?2:isAlagoas2?4:4}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isDistritoFederal2||isEspiritoSanto1?"classificados ao mata-mata":"semifinalistas"}</div></div>
                 <div style={{padding:14,border:"1px solid #1e2b3b",borderRadius:12,background:"#0b131f"}}><strong>{isEspiritoSanto1?0:isEspiritoSanto2?2:isStateSecond?0:2}</strong><div style={{fontSize:12,color:"#8291a5"}}>{isEspiritoSanto2?"vagas de acesso":"vagas para a Série D"}</div></div>
               </div>
-              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : isAlagoas2 ? "Os 4 primeiros avançam para as semifinais. O campeão garante o acesso à 1ª Divisão de Alagoas." : isDistritoFederal2 ? "Fase única em turno único. Os 2 primeiros colocados garantem acesso à 1ª Divisão do Distrito Federal; o 1º colocado é o campeão." : isEspiritoSanto1 ? "10 clubes jogam em turno único. Os 8 primeiros avançam às quartas de final; quartas, semifinais e final são em ida e volta. Os 2 últimos são rebaixados." : isEspiritoSanto2 ? "Dois grupos de 5 em turno e returno. Os 2 primeiros de cada grupo avançam às semifinais em ida e volta; a final é em jogo único. Os dois finalistas sobem." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
+              <p style={{color:"#8291a5"}}>{isAcre2 ? "Os 2 primeiros colocados garantem acesso à 1ª Divisão do Acre. O 1º colocado é o campeão." : isAlagoas2 ? "Os 4 primeiros avançam para as semifinais. O campeão garante o acesso à 1ª Divisão de Alagoas." : isDistritoFederal2 ? "Fase única em turno único. Os 2 primeiros colocados garantem acesso à 1ª Divisão do Distrito Federal; o 1º colocado é o campeão." : isEspiritoSanto1 ? "10 clubes jogam em turno único. Os 8 primeiros avançam às quartas de final; quartas, semifinais e final são em ida e volta. Os 2 últimos são rebaixados." : isEspiritoSanto2 ? "Dois grupos de 5 em turno e returno. Os 2 primeiros de cada grupo avançam às semifinais em ida e volta; a final é em jogo único. Os dois finalistas sobem." : isPernambuco1 ? "8 clubes jogam em turno único. Os 4 primeiros avançam às semifinais em ida e volta. Os 2 últimos são rebaixados para a 2ª Divisão." : isPernambuco2 ? "10 clubes jogam em turno único. Os 4 primeiros avançam às semifinais em ida e volta. O último é rebaixado e os dois finalistas sobem." : isPernambuco3 ? "4 clubes jogam em turno e returno, sem mata-mata. Ao final das 6 rodadas, o líder é o campeão e garante acesso à 2ª Divisão." : "As vagas para a Série D serão identificadas automaticamente conforme a classificação final, respeitando a elegibilidade nacional dos clubes."}</p>
             </>;
           })())}
           {section==="Visão geral" && panel("Regulamento",<>
