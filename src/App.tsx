@@ -79,6 +79,7 @@ const LS = {
   saoPauloV4: "sports-sao-paulo-v4",
   saoPauloV5: "sports-sao-paulo-v5",
   saoPauloV6: "sports-sao-paulo-v6",
+  saoPauloV7: "sports-sao-paulo-v7",
 };
 
 const A_CLUBS = [
@@ -1828,6 +1829,36 @@ function App() {
         localStorage.setItem(LS.saoPauloV6,"1");
       }
 
+      // São Paulo V7 — reconstrução definitiva do mata-mata.
+      // Copia a mesma mecânica já utilizada no Goiano: classificação da primeira fase,
+      // quartas (8->4), semifinais (4->2) e final (2->1), sempre em ida e volta.
+      // Na 5ª divisão: oitavas (16->8), quartas (8->4), semifinais e final.
+      // A migração remove também qualquer mata-mata antigo para não misturar fases.
+      if (localStorage.getItem(LS.saoPauloV7) !== "1") {
+        const names = [
+          "Campeonato Paulista",
+          "Campeonato Paulista - 2ª Divisão",
+          "Campeonato Paulista - 3ª Divisão",
+          "Campeonato Paulista - 4ª Divisão",
+          "Campeonato Paulista - 5ª Divisão",
+        ];
+        const oldIds=new Set(cs.filter(c=>c.state==="São Paulo" || names.includes(c.name)).map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+
+        for(const division of [1,2,3,4,5]){
+          const cid=Math.max(...cs.map(c=>c.id),0)+1;
+          const uid=Math.max(...cl.map(c=>c.id),0)+1;
+          const mid=Math.max(...ms.map(m=>m.id),0)+1;
+          const built=buildSaoPauloDivision(cid,uid,mid,division);
+          cs.push(built.championship);
+          cl.push(...built.clubs);
+          ms.push(...built.matches);
+        }
+        localStorage.setItem(LS.saoPauloV7,"1");
+      }
+
       const ensureParana = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
         if (cs.some(c=>c.name===name && c.season==="2026")) return;
         const cid=Math.max(...cs.map(c=>c.id),0)+1;
@@ -3259,17 +3290,17 @@ function App() {
     if (championship.division === "Estadual" && championship.state==="São Paulo" && championship.name.startsWith("Campeonato Paulista")) {
       const own=next.filter(m=>m.championshipId===championship.id);
       const regular=own.filter(m=>m.stage==="regular");
-      const r16=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===16);
-      const r8=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===8);
-      const r4=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
+      const oitavas=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===16);
+      const quarters=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
       const final=own.filter(m=>m.stage==="final");
       const isFifth=championship.name==="Campeonato Paulista - 5ª Divisão";
-      const expected=isFifth ? 60 : 120;
-      const regularDone=regular.length===expected && regular.every(m=>m.played);
+      const expected=isFifth?60:120;
 
-      // 1ª-4ª: 8 classificados -> 4 quartas -> 2 semifinais -> final.
-      // 5ª: 16 classificados -> 8 oitavas -> 4 quartas -> 2 semifinais -> final.
-      if(regularDone && r16.length===0 && r8.length===0 && r4.length===0 && final.length===0){
+      // 1ª-4ª: 8 classificados -> quartas -> semifinais -> final.
+      // 5ª: 16 classificados -> oitavas -> quartas -> semifinais -> final.
+      if(regular.length===expected && regular.every(m=>m.played) &&
+         oitavas.length===0 && quarters.length===0 && semis.length===0 && final.length===0){
         const qualified:number[]=[];
 
         if(isFifth){
@@ -3277,47 +3308,41 @@ function App() {
             const ids=[...new Set(regular.filter(m=>m.group===group).flatMap(m=>[m.home,m.away]))];
             const table=tableFor(championship,ids,next,"regular",group);
             if(table.length!==6) return;
-            qualified.push(...table.slice(0,4).map(x=>x.clubId));
+            qualified.push(...table.slice(0,4).map(r=>r.clubId));
           }
           if(qualified.length!==16) return;
         } else {
           const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
           if(table.length!==16) return;
-          qualified.push(...table.slice(0,8).map(x=>x.clubId));
-          if(qualified.length!==8) return;
+          qualified.push(...table.slice(0,8).map(r=>r.clubId));
         }
 
         const pairs=isFifth
-          ? [
-              [qualified[0],qualified[15]],[qualified[1],qualified[14]],[qualified[2],qualified[13]],[qualified[3],qualified[12]],
-              [qualified[4],qualified[11]],[qualified[5],qualified[10]],[qualified[6],qualified[9]],[qualified[7],qualified[8]]
-            ]
-          : [
-              [qualified[0],qualified[7]],[qualified[1],qualified[6]],[qualified[2],qualified[5]],[qualified[3],qualified[4]]
-            ];
+          ? [[qualified[0],qualified[15]],[qualified[1],qualified[14]],[qualified[2],qualified[13]],[qualified[3],qualified[12]],
+             [qualified[4],qualified[11]],[qualified[5],qualified[10]],[qualified[6],qualified[9]],[qualified[7],qualified[8]]]
+          : [[qualified[0],qualified[7]],[qualified[1],qualified[6]],[qualified[2],qualified[5]],[qualified[3],qualified[4]]];
 
-        for(const [home,away] of pairs){
-          const round=championship.rounds+1;
-          const knockoutRound=isFifth ? 16 : 8;
-          next.push({id:id++,championshipId:championship.id,round,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:round+1,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound,group:"volta"});
-        }
+        const base=championship.rounds+1;
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:base,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:isFifth?16:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:base+1,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:isFifth?16:8,group:"volta"});
+        });
 
         setMatches(next);
-        setSection(isFifth ? "Oitavas de final" : "Quartas de final");
-        phaseAlert((isFifth ? "Oitavas de final" : "Quartas de final")+" do "+championship.name+" criadas em ida e volta.");
+        setSection(isFifth?"Oitavas de final":"Quartas de final");
+        phaseAlert((isFifth?"Oitavas de final":"Quartas de final")+" do "+championship.name+" criadas em ida e volta.");
         return;
       }
 
-      // Somente a 5ª divisão possui oitavas.
-      if(isFifth && r16.length===16 && r16.every(m=>m.played) && r8.length===0 && r4.length===0 && final.length===0){
+      if(isFifth && oitavas.length===16 && oitavas.every(m=>m.played) &&
+         quarters.length===0 && semis.length===0 && final.length===0){
         const winners=knockoutWinner(next,16,championship.id);
         if(winners.length!==8) return;
 
+        const base=championship.rounds+3;
         for(let i=0;i<8;i+=2){
-          const round=championship.rounds+3;
-          next.push({id:id++,championshipId:championship.id,round,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:round+1,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
+          next.push({id:id++,championshipId:championship.id,round:base,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:base+1,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
         }
 
         setMatches(next);
@@ -3326,15 +3351,15 @@ function App() {
         return;
       }
 
-      // 1ª-4ª chegam aqui após as quartas; 5ª chega após as oitavas/quartas.
-      if(r8.length===8 && r8.every(m=>m.played) && r4.length===0 && final.length===0){
+      if(quarters.length===8 && quarters.every(m=>m.played) &&
+         semis.length===0 && final.length===0){
         const winners=knockoutWinner(next,8,championship.id);
         if(winners.length!==4) return;
 
+        const base=championship.rounds+(isFifth?5:3);
         for(let i=0;i<4;i+=2){
-          const round=championship.rounds+5;
-          next.push({id:id++,championshipId:championship.id,round,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:round+1,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+          next.push({id:id++,championshipId:championship.id,round:base,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:base+1,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
         }
 
         setMatches(next);
@@ -3343,13 +3368,13 @@ function App() {
         return;
       }
 
-      if(r4.length===4 && r4.every(m=>m.played) && final.length===0){
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
         const winners=knockoutWinner(next,4,championship.id);
         if(winners.length!==2) return;
 
-        const round=championship.rounds+7;
-        next.push({id:id++,championshipId:championship.id,round,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
-        next.push({id:id++,championshipId:championship.id,round:round+1,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        const base=championship.rounds+(isFifth?7:5);
+        next.push({id:id++,championshipId:championship.id,round:base,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:base+1,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
 
         setMatches(next);
         setSection("Final");
