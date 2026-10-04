@@ -111,7 +111,15 @@ export default function App() {
       <main className="main">
         <header className="topbar">
           <div>
-            <div className="eyebrow">BRASIL</div>
+            <div className="country-heading">
+              <div className="eyebrow">BRASIL</div>
+              <button
+                className="simulate-season"
+                onClick={() => window.alert("A simulação da temporada completa será executada aqui.")}
+              >
+                ▶ Simular temporada completa
+              </button>
+            </div>
             <h1>{selected ? selected.name : "Novo começo"}</h1>
           </div>
           <button className="top-action" onClick={() => setShowCreate(true)}>
@@ -228,6 +236,9 @@ export default function App() {
         .new-button:hover, .primary-button:hover, .top-action:hover { background: #3d65ed; }
         .reset-button { border: 1px solid #343d52; background: transparent; color: #8e9ab4; border-radius: 9px; padding: 9px; }
         .main { flex: 1; min-width: 0; padding: 32px 42px; }
+        .country-heading { display: flex; align-items: center; gap: 12px; }
+        .simulate-season { border: 1px solid #33466f; background: #14213b; color: #dce5ff; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; cursor: pointer; }
+        .simulate-season:hover { background: #1b2c4d; border-color: #4b65a0; }
         .topbar { max-width: 1100px; margin: 0 auto 26px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
         .country-heading { display: flex; align-items: center; gap: 12px; }
         .simulate-season { border: 1px solid #33466f; background: #14213b; color: #dce5ff; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; }
