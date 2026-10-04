@@ -921,7 +921,7 @@ function buildSaoPauloDivision(championshipId:number,startClubId:number,startMat
     : "16 clubes disputam turno único em 15 rodadas. Os 8 melhores avançam ao mata-mata, disputado em ida e volta.";
   const championship=makeChampionship(
     championshipId,"Estadual","2026",name,
-    isFifth ? "4 grupos + oitavas + quartas + semifinais + final" : "Turno único + oitavas + quartas + semifinais + final",
+    isFifth ? "4 grupos + oitavas + quartas + semifinais + final" : "Turno único + quartas + semifinais + final",
     regulation+" Em qualquer confronto eliminatório empatado no agregado, o sistema define automaticamente o vencedor nos pênaltis.",
     promotion,relegation,clubsList.length,isFifth?10:15,1,"São Paulo"
   );
@@ -3165,20 +3165,23 @@ function App() {
              [qualified[8],qualified[15]],[qualified[9],qualified[14]],[qualified[10],qualified[13]],[qualified[11],qualified[12]]]
           : [[qualified[0],qualified[7]],[qualified[1],qualified[6]],[qualified[2],qualified[5]],[qualified[3],qualified[4]]];
         pairs.forEach(([home,away])=>{
-          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:16,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:16,group:"volta"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:isFifth?16:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:isFifth?16:8,group:"volta"});
         });
-        setMatches(next);setSection("Oitavas de final");phaseAlert(`Oitavas de final do ${championship.name} criadas em ida e volta.`);return;
+        setMatches(next);
+        setSection(isFifth ? "Oitavas de final" : "Quartas de final");
+        phaseAlert((isFifth ? "Oitavas de final" : "Quartas de final") + " do " + championship.name + " criadas em ida e volta.");
+        return;
       }
 
-      if(r16.length===16 && r16.every(m=>m.played) && r8.length===0 && r4.length===0 && final.length===0){
+      if(isFifth && r16.length===16 && r16.every(m=>m.played) && r8.length===0 && r4.length===0 && final.length===0){
         const winners=knockoutWinner(next,16,championship.id);
         if(winners.length!==8) return;
         for(let i=0;i<8;i+=2){
           next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
           next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
         }
-        setMatches(next);setSection("Quartas de final");phaseAlert(`Quartas de final do ${championship.name} criadas em ida e volta.`);return;
+        setMatches(next);setSection("Quartas de final");phaseAlert("Quartas de final do "+championship.name+" criadas em ida e volta.");return;
       }
 
       if(r8.length===8 && r8.every(m=>m.played) && r4.length===0 && final.length===0){
@@ -3188,7 +3191,7 @@ function App() {
           next.push({id:id++,championshipId:championship.id,round:championship.rounds+5,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
           next.push({id:id++,championshipId:championship.id,round:championship.rounds+6,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
         }
-        setMatches(next);setSection("Semifinais");phaseAlert(`Semifinais do ${championship.name} criadas em ida e volta.`);return;
+        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do "+championship.name+" criadas em ida e volta.");return;
       }
 
       if(r4.length===4 && r4.every(m=>m.played) && final.length===0){
@@ -4248,7 +4251,8 @@ D → C: ${promotedD.length} promovidos`
               {championship.division==="Série C"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
               {championship.division==="Estadual"&&championship.name==="Campeonato Carioca - 2ª Divisão"&&myMatches.some((m)=>m.stage==="playoff")&&button("Play-off de permanência",()=>setSection("Play-off de permanência"))}
               {championship.division==="Estadual"&&championship.name==="Campeonato Capixaba"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===8)&&button("Quartas de final",()=>setSection("Quartas de final"))}
-              {championship.state==="São Paulo"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===16)&&button("Oitavas de final",()=>setSection("Oitavas de final"))}
+              {championship.state==="São Paulo"&&championship.name==="Campeonato Paulista - 5ª Divisão"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===16)&&button("Oitavas de final",()=>setSection("Oitavas de final"))}
+              {championship.state==="São Paulo"&&championship.name!=="Campeonato Paulista - 5ª Divisão"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===8)&&button("Quartas de final",()=>setSection("Quartas de final"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="knockout"&&m.knockoutRound===4)&&button("Semifinais",()=>setSection("Semifinais"))}
               {championship.division==="Estadual"&&championship.name!=="Campeonato Brasiliense - 2ª Divisão"&&myMatches.some((m)=>m.stage==="final")&&button("Final",()=>setSection("Final"))}
               {championship.division==="Série D"&&button("Classificados próxima temporada",()=>setSection("Classificados"))}
@@ -4451,6 +4455,33 @@ D → C: ${promotedD.length} promovidos`
                           <thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map((x)=><th key={x} style={{textAlign:"left",padding:8,borderBottom:"2px solid #1e2b3b",fontSize:11}}>{x}</th>)}</tr></thead>
                           <tbody>
                             {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(tableZone(championship.division,i+1,championship.state,championship.name))}>
+                              <td style={{padding:8,fontWeight:700}}>{i+1}</td>
+                              <td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",textAlign:"left",display:"flex",alignItems:"center",gap:9}}><span>{clubName(r.clubId)}</span></button></td>
+                              <td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td>
+                            </tr>)}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>;
+                  })}
+                </div>
+              </div>
+            ) : championship.name==="Campeonato Paulista - 5ª Divisão" ? (
+              <div>
+                <p style={{color:"#8291a5",marginTop:0}}>
+                  5ª Divisão — 4 grupos de 6 clubes. Cada grupo disputa turno e returno. Os 4 primeiros de cada grupo avançam às oitavas de final.
+                </p>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(430px,1fr))",gap:18}}>
+                  {["A","B","C","D"].map((group) => {
+                    const groupClubs=myClubs.filter(c=>myMatches.some(m=>m.stage==="regular"&&m.group===group&&(m.home===c.id||m.away===c.id)));
+                    const rows=tableFor(championship,groupClubs.map(c=>c.id),myMatches,"regular",group);
+                    return <div key={group} style={{border:"1px solid #1e2b3b",borderRadius:14,overflow:"hidden",background:"#0b131f"}}>
+                      <div style={{padding:"12px 14px",fontWeight:800,borderBottom:"1px solid #1e2b3b"}}>Grupo {group}</div>
+                      <div style={{overflowX:"auto"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse"}}>
+                          <thead><tr>{["#","Clube","J","V","E","D","GP","GC","SG","Pts"].map(x=><th key={x} style={{textAlign:"left",padding:8,borderBottom:"2px solid #1e2b3b",fontSize:11}}>{x}</th>)}</tr></thead>
+                          <tbody>
+                            {rows.map((r,i)=><tr key={r.clubId} style={zoneStyle(i<4?"qualification":"")}>
                               <td style={{padding:8,fontWeight:700}}>{i+1}</td>
                               <td style={{padding:8}}><button onClick={()=>setSelectedClub(clubName(r.clubId))} style={{border:0,background:"none",padding:0,cursor:"pointer",fontWeight:800,color:"#f4f7fb",textAlign:"left",display:"flex",alignItems:"center",gap:9}}><span>{clubName(r.clubId)}</span></button></td>
                               <td>{r.played}</td><td>{r.wins}</td><td>{r.draws}</td><td>{r.losses}</td><td>{r.gf}</td><td>{r.ga}</td><td>{r.gd}</td><td><strong>{r.points}</strong></td>
