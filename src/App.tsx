@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
 
+type Standing = {
+  j: number;
+  v: number;
+  e: number;
+  d: number;
+  gp: number;
+  gc: number;
+  sg: number;
+  pts: number;
+};
+
 type Championship = {
   id: number;
   name: string;
@@ -10,6 +21,7 @@ type Championship = {
   teams?: string[];
   rules?: string[];
   phases?: string[];
+  standings?: Record<string, Standing>;
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -139,6 +151,88 @@ export default function App() {
       if (index === 0) return "zone-next";
     }
     return "";
+  }
+
+  function simulateRoundRobin(teams: string[]) {
+    const table: Record<string, Standing> = {};
+    teams.forEach((team) => {
+      table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    });
+
+    for (let i = 0; i < teams.length; i++) {
+      for (let j = i + 1; j < teams.length; j++) {
+        const home = teams[i];
+        const away = teams[j];
+        const homeGoals = Math.floor(Math.random() * 5);
+        const awayGoals = Math.floor(Math.random() * 5);
+
+        table[home].j++;
+        table[away].j++;
+        table[home].gp += homeGoals;
+        table[home].gc += awayGoals;
+        table[away].gp += awayGoals;
+        table[away].gc += homeGoals;
+
+        if (homeGoals > awayGoals) {
+          table[home].v++;
+          table[home].pts += 3;
+          table[away].d++;
+        } else if (homeGoals < awayGoals) {
+          table[away].v++;
+          table[away].pts += 3;
+          table[home].d++;
+        } else {
+          table[home].e++;
+          table[away].e++;
+          table[home].pts++;
+          table[away].pts++;
+        }
+      }
+    }
+
+    Object.values(table).forEach((row) => {
+      row.sg = row.gp - row.gc;
+    });
+    return table;
+  }
+
+  function sortedTeams(championship: Championship) {
+    const teams = championship.teams ?? [];
+    const table = championship.standings ?? {};
+    return [...teams].sort((a, b) => {
+      const A = table[a] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+      const B = table[b] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+      return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+    });
+  }
+
+  function simulateSeason() {
+    if (!selected) return;
+
+    const teams = selected.teams ?? [];
+    if (!teams.length) {
+      window.alert("Este campeonato ainda não possui clubes cadastrados.");
+      return;
+    }
+
+    const standings = simulateRoundRobin(teams);
+
+    setChampionships((current) =>
+      current.map((championship) =>
+        championship.id === selected.id
+          ? { ...championship, standings }
+          : championship
+      )
+    );
+
+    setSelectedPhase((current) => ({
+      ...current,
+      [selected.id]: selected.phases?.[0] ?? "Classificação",
+    }));
+    setSelectedSection((current) => ({
+      ...current,
+      [selected.id]: "competition",
+    }));
   }
 
   function resetEverything() {
@@ -275,7 +369,7 @@ export default function App() {
               <div className="eyebrow">BRASIL</div>
               <button
                 className="simulate-season"
-                onClick={() => window.alert("A simulação da temporada completa será executada aqui.")}
+                onClick={simulateSeason}
               >
                 ▶ Simular temporada completa
               </button>
@@ -377,20 +471,21 @@ export default function App() {
                             </tr>
                           </thead>
                           <tbody>
-                            {(selected.teams ?? []).map((team, index) => {
+                            {sortedTeams(selected).map((team, index) => {
                               const phase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
+                              const row = selected.standings?.[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
                               return (
                                 <tr key={team} className={getRowClass(selected, phase, index)}>
                                   <td>{index + 1}</td>
                                   <td className="standing-team">{team}</td>
-                                  <td>0</td>
-                                  <td>0</td>
-                                  <td>0</td>
-                                  <td>0</td>
-                                  <td>0</td>
-                                  <td>0</td>
-                                  <td>0</td>
-                                  <td className="standing-points">0</td>
+                                  <td>{row.j}</td>
+                                  <td>{row.v}</td>
+                                  <td>{row.e}</td>
+                                  <td>{row.d}</td>
+                                  <td>{row.gp}</td>
+                                  <td>{row.gc}</td>
+                                  <td>{row.sg}</td>
+                                  <td className="standing-points">{row.pts}</td>
                                 </tr>
                               );
                             })}
