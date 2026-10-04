@@ -76,6 +76,7 @@ const LS = {
   saoPauloV1: "sports-sao-paulo-v1",
   saoPauloV2: "sports-sao-paulo-v2",
   saoPauloV3: "sports-sao-paulo-v3",
+  saoPauloV4: "sports-sao-paulo-v4",
 };
 
 const A_CLUBS = [
@@ -1752,6 +1753,26 @@ function App() {
         localStorage.setItem(LS.saoPauloV1,"1");
         localStorage.setItem(LS.saoPauloV2,"1");
         localStorage.setItem(LS.saoPauloV3,"1");
+      }
+
+      // São Paulo 1ª Divisão V4: reconstrução exclusiva da primeira divisão.
+      // Estrutura definitiva: 16 clubes, turno único (15 rodadas), 8 classificados,
+      // quartas de final em ida e volta, depois semifinais e final também em ida e volta.
+      if (localStorage.getItem(LS.saoPauloV4) !== "1") {
+        const oldFirst=cs.filter(c=>c.name==="Campeonato Paulista" && c.state==="São Paulo" && c.season==="2026");
+        const oldIds=new Set(oldFirst.map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+
+        const cid=Math.max(...cs.map(c=>c.id),0)+1;
+        const uid=Math.max(...cl.map(c=>c.id),0)+1;
+        const mid=Math.max(...ms.map(m=>m.id),0)+1;
+        const built=buildSaoPauloDivision(cid,uid,mid,1);
+        cs.push(built.championship);
+        cl.push(...built.clubs);
+        ms.push(...built.matches);
+        localStorage.setItem(LS.saoPauloV4,"1");
       }
 
       const ensureParana = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
