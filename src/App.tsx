@@ -14,6 +14,7 @@ export default function App() {
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [estaduaisOpen, setEstaduaisOpen] = useState(false);
   const [name, setName] = useState("");
   const [season, setSeason] = useState("2026");
   const [division, setDivision] = useState("Estadual");
@@ -82,19 +83,51 @@ export default function App() {
 
         <div className="sidebar-section">
           <div className="section-title">CAMPEONATOS</div>
-          {championships.length === 0 ? (
+          {championships.filter((champ) => champ.division !== "Estadual").length === 0 ? (
             <div className="empty-sidebar">Nenhum campeonato criado.</div>
           ) : (
-            championships.map((champ) => (
-              <button
-                key={champ.id}
-                className={`champ-link ${selectedId === champ.id ? "selected" : ""}`}
-                onClick={() => setSelectedId(champ.id)}
-              >
-                <span>{champ.name}</span>
-                <small>{champ.season}</small>
-              </button>
-            ))
+            championships
+              .filter((champ) => champ.division !== "Estadual")
+              .map((champ) => (
+                <button
+                  key={champ.id}
+                  className={`champ-link ${selectedId === champ.id ? "selected" : ""}`}
+                  onClick={() => setSelectedId(champ.id)}
+                >
+                  <span>{champ.name}</span>
+                  <small>{champ.season}</small>
+                </button>
+              ))
+          )}
+
+          <button
+            className={`state-menu-toggle ${estaduaisOpen ? "open" : ""}`}
+            onClick={() => setEstaduaisOpen((open) => !open)}
+            aria-expanded={estaduaisOpen}
+          >
+            <span>Estaduais</span>
+            <span className="state-chevron">{estaduaisOpen ? "▾" : "▸"}</span>
+          </button>
+
+          {estaduaisOpen && (
+            <div className="state-menu">
+              {championships.filter((champ) => champ.division === "Estadual").length === 0 ? (
+                <div className="state-empty">Nenhum estadual criado.</div>
+              ) : (
+                championships
+                  .filter((champ) => champ.division === "Estadual")
+                  .map((champ) => (
+                    <button
+                      key={champ.id}
+                      className={`state-link ${selectedId === champ.id ? "selected" : ""}`}
+                      onClick={() => setSelectedId(champ.id)}
+                    >
+                      <span>{champ.name}</span>
+                      <small>{champ.season}</small>
+                    </button>
+                  ))
+              )}
+            </div>
           )}
         </div>
 
@@ -231,6 +264,14 @@ export default function App() {
         .champ-link { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
         .champ-link small { color: #68758f; }
         .empty-sidebar { color: #66728b; font-size: 12px; padding: 12px 11px; line-height: 1.5; }
+        .state-menu-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-top: 7px; padding: 10px 11px; border: 0; border-radius: 9px; background: transparent; color: #b8c2d9; text-align: left; font-weight: 700; }
+        .state-menu-toggle:hover, .state-menu-toggle.open { background: #121b30; color: #fff; }
+        .state-chevron { color: #71809f; font-size: 12px; }
+        .state-menu { margin: 2px 0 0 9px; padding-left: 8px; border-left: 1px solid #26314a; }
+        .state-empty { color: #5f6b84; font-size: 11px; padding: 9px 10px; }
+        .state-link { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 0; background: transparent; color: #9ba8c1; text-align: left; border-radius: 7px; padding: 8px 10px; font-size: 12px; }
+        .state-link:hover, .state-link.selected { background: #17213a; color: #fff; }
+        .state-link small { color: #68758f; font-size: 10px; }
         .sidebar-bottom { margin-top: auto; display: grid; gap: 8px; }
         .new-button, .primary-button, .top-action { border: 0; background: #3157d5; color: white; font-weight: 700; border-radius: 9px; padding: 11px 15px; }
         .new-button:hover, .primary-button:hover, .top-action:hover { background: #3d65ed; }
