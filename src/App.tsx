@@ -75,6 +75,7 @@ const LS = {
   paranaV1: "sports-parana-v1",
   saoPauloV1: "sports-sao-paulo-v1",
   saoPauloV2: "sports-sao-paulo-v2",
+  saoPauloV3: "sports-sao-paulo-v3",
 };
 
 const A_CLUBS = [
@@ -918,8 +919,8 @@ function buildSaoPauloDivision(championshipId:number,startClubId:number,startMat
     ? "Não há rebaixamento informado para a 5ª Divisão."
     : "Os 2 últimos colocados da primeira fase são rebaixados para a divisão imediatamente inferior.";
   const regulation=isFifth
-    ? "24 clubes divididos em 4 grupos de 6. A primeira fase é disputada em turno e returno dentro de cada grupo. Os 4 primeiros de cada grupo avançam ao mata-mata de 16 clubes, disputado em ida e volta."
-    : "16 clubes disputam turno único em 15 rodadas. Os 8 melhores avançam ao mata-mata, disputado em ida e volta.";
+    ? "24 clubes divididos em 4 grupos de 6. A primeira fase é disputada em turno e returno dentro de cada grupo. Os 4 primeiros de cada grupo avançam às oitavas de final. O mata-mata é disputado em ida e volta até a final."
+    : "16 clubes disputam turno único em 15 rodadas. Os 8 melhores avançam às quartas de final. Quartas, semifinais e final são disputadas em ida e volta.";
   const championship=makeChampionship(
     championshipId,"Estadual","2026",name,
     isFifth ? "4 grupos + oitavas + quartas + semifinais + final" : "Turno único + quartas + semifinais + final",
@@ -1729,65 +1730,28 @@ function App() {
         localStorage.setItem(LS.paranaV1,"1");
       }
 
-      if (localStorage.getItem(LS.saoPauloV1) !== "1") {
-        const oldIds=new Set(cs.filter(c=>c.state==="São Paulo" || c.name.startsWith("Campeonato Paulista")).map(c=>c.id));
-        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
-        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
-        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+      // São Paulo — reconstrução integral V3.
+      // Remove qualquer versão anterior das 5 divisões paulistas e cria novamente
+      // as competições de 2026 com a estrutura definitiva.
+      if (localStorage.getItem(LS.saoPauloV3) !== "1") {
+        const spIds=new Set(cs.filter(c=>c.state==="São Paulo" || c.name.startsWith("Campeonato Paulista")).map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(spIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(spIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(spIds.has(cs[i].id)) cs.splice(i,1);
+
         const addSaoPaulo=(division:number)=>{
           const cid=Math.max(...cs.map(c=>c.id),0)+1;
           const uid=Math.max(...cl.map(c=>c.id),0)+1;
           const mid=Math.max(...ms.map(m=>m.id),0)+1;
           const built=buildSaoPauloDivision(cid,uid,mid,division);
-          cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+          cs.push(built.championship);
+          cl.push(...built.clubs);
+          ms.push(...built.matches);
         };
         [1,2,3,4,5].forEach(addSaoPaulo);
         localStorage.setItem(LS.saoPauloV1,"1");
-      }
-      const ensureSaoPaulo=(division:number)=>{
-        const name=["Campeonato Paulista","Campeonato Paulista - 2ª Divisão","Campeonato Paulista - 3ª Divisão","Campeonato Paulista - 4ª Divisão","Campeonato Paulista - 5ª Divisão"][division-1];
-        if(cs.some(c=>c.name===name&&c.season==="2026")) return;
-        const cid=Math.max(...cs.map(c=>c.id),0)+1;
-        const uid=Math.max(...cl.map(c=>c.id),0)+1;
-        const mid=Math.max(...ms.map(m=>m.id),0)+1;
-        const built=buildSaoPauloDivision(cid,uid,mid,division);
-        cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
-      };
-      [1,2,3,4,5].forEach(ensureSaoPaulo);
-
-      // Migração São Paulo V2: corrige o mata-mata das divisões 1ª-4ª.
-      // Essas divisões começam nas quartas (8 classificados), não nas oitavas.
-      if (localStorage.getItem(LS.saoPauloV2) !== "1") {
-        const spTopNames = [
-          "Campeonato Paulista",
-          "Campeonato Paulista - 2ª Divisão",
-          "Campeonato Paulista - 3ª Divisão",
-          "Campeonato Paulista - 4ª Divisão",
-        ];
-        const spTop = cs.filter(c=>c.state==="São Paulo" && spTopNames.includes(c.name) && c.season==="2026");
-        for (const champ of spTop) {
-          for (let i=ms.length-1;i>=0;i--) {
-            if (ms[i].championshipId===champ.id && (ms[i].stage==="knockout" || ms[i].stage==="final")) ms.splice(i,1);
-          }
-          const champClubs=cl.filter(c=>c.championshipId===champ.id);
-          const regular=ms.filter(m=>m.championshipId===champ.id && m.stage==="regular");
-          if (regular.length===120 && regular.every(m=>m.played) && champClubs.length===16) {
-            const table=tableFor(champ,champClubs.map(c=>c.id),ms,"regular");
-            const qualified=table.slice(0,8).map(x=>x.clubId);
-            const pairs=[
-              [qualified[0],qualified[7]],
-              [qualified[1],qualified[6]],
-              [qualified[2],qualified[5]],
-              [qualified[3],qualified[4]],
-            ];
-            let mid=Math.max(...ms.map(m=>m.id),0)+1;
-            for (const [home,away] of pairs) {
-              ms.push({id:mid++,championshipId:champ.id,round:champ.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
-              ms.push({id:mid++,championshipId:champ.id,round:champ.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
-            }
-          }
-        }
         localStorage.setItem(LS.saoPauloV2,"1");
+        localStorage.setItem(LS.saoPauloV3,"1");
       }
 
       const ensureParana = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
@@ -3179,64 +3143,99 @@ function App() {
       const r4=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
       const final=own.filter(m=>m.stage==="final");
       const isFifth=championship.name==="Campeonato Paulista - 5ª Divisão";
-      const expected=isFifth?60:120;
+      const expected=isFifth ? 60 : 120;
       const regularDone=regular.length===expected && regular.every(m=>m.played);
 
+      // 1ª-4ª: 8 classificados -> 4 quartas -> 2 semifinais -> final.
+      // 5ª: 16 classificados -> 8 oitavas -> 4 quartas -> 2 semifinais -> final.
       if(regularDone && r16.length===0 && r8.length===0 && r4.length===0 && final.length===0){
         const qualified:number[]=[];
+
         if(isFifth){
-          for(const g of ["A","B","C","D"]){
-            const ids=[...new Set(regular.filter(m=>m.group===g).flatMap(m=>[m.home,m.away]))];
-            const table=tableFor(championship,ids,next,"regular",g);
+          for(const group of ["A","B","C","D"]){
+            const ids=[...new Set(regular.filter(m=>m.group===group).flatMap(m=>[m.home,m.away]))];
+            const table=tableFor(championship,ids,next,"regular",group);
             if(table.length!==6) return;
             qualified.push(...table.slice(0,4).map(x=>x.clubId));
           }
+          if(qualified.length!==16) return;
         } else {
           const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
           if(table.length!==16) return;
           qualified.push(...table.slice(0,8).map(x=>x.clubId));
+          if(qualified.length!==8) return;
         }
+
         const pairs=isFifth
-          ? [[qualified[0],qualified[7]],[qualified[1],qualified[6]],[qualified[2],qualified[5]],[qualified[3],qualified[4]],
-             [qualified[8],qualified[15]],[qualified[9],qualified[14]],[qualified[10],qualified[13]],[qualified[11],qualified[12]]]
-          : [[qualified[0],qualified[7]],[qualified[1],qualified[6]],[qualified[2],qualified[5]],[qualified[3],qualified[4]]];
-        pairs.forEach(([home,away])=>{
-          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:isFifth?16:8,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:isFifth?16:8,group:"volta"});
-        });
+          ? [
+              [qualified[0],qualified[15]],[qualified[1],qualified[14]],[qualified[2],qualified[13]],[qualified[3],qualified[12]],
+              [qualified[4],qualified[11]],[qualified[5],qualified[10]],[qualified[6],qualified[9]],[qualified[7],qualified[8]]
+            ]
+          : [
+              [qualified[0],qualified[7]],[qualified[1],qualified[6]],[qualified[2],qualified[5]],[qualified[3],qualified[4]]
+            ];
+
+        for(const [home,away] of pairs){
+          const round=championship.rounds+1;
+          const knockoutRound=isFifth ? 16 : 8;
+          next.push({id:id++,championshipId:championship.id,round,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:round+1,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound,group:"volta"});
+        }
+
         setMatches(next);
         setSection(isFifth ? "Oitavas de final" : "Quartas de final");
-        phaseAlert((isFifth ? "Oitavas de final" : "Quartas de final") + " do " + championship.name + " criadas em ida e volta.");
+        phaseAlert((isFifth ? "Oitavas de final" : "Quartas de final")+" do "+championship.name+" criadas em ida e volta.");
         return;
       }
 
+      // Somente a 5ª divisão possui oitavas.
       if(isFifth && r16.length===16 && r16.every(m=>m.played) && r8.length===0 && r4.length===0 && final.length===0){
         const winners=knockoutWinner(next,16,championship.id);
         if(winners.length!==8) return;
+
         for(let i=0;i<8;i+=2){
-          next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
+          const round=championship.rounds+3;
+          next.push({id:id++,championshipId:championship.id,round,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:round+1,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
         }
-        setMatches(next);setSection("Quartas de final");phaseAlert("Quartas de final do "+championship.name+" criadas em ida e volta.");return;
+
+        setMatches(next);
+        setSection("Quartas de final");
+        phaseAlert("Quartas de final do "+championship.name+" criadas em ida e volta.");
+        return;
       }
 
+      // 1ª-4ª chegam aqui após as quartas; 5ª chega após as oitavas/quartas.
       if(r8.length===8 && r8.every(m=>m.played) && r4.length===0 && final.length===0){
         const winners=knockoutWinner(next,8,championship.id);
         if(winners.length!==4) return;
+
         for(let i=0;i<4;i+=2){
-          next.push({id:id++,championshipId:championship.id,round:championship.rounds+5,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
-          next.push({id:id++,championshipId:championship.id,round:championship.rounds+6,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+          const round=championship.rounds+5;
+          next.push({id:id++,championshipId:championship.id,round,home:winners[i],away:winners[i+1],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:round+1,home:winners[i+1],away:winners[i],homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
         }
-        setMatches(next);setSection("Semifinais");phaseAlert("Semifinais do "+championship.name+" criadas em ida e volta.");return;
+
+        setMatches(next);
+        setSection("Semifinais");
+        phaseAlert("Semifinais do "+championship.name+" criadas em ida e volta.");
+        return;
       }
 
       if(r4.length===4 && r4.every(m=>m.played) && final.length===0){
         const winners=knockoutWinner(next,4,championship.id);
         if(winners.length!==2) return;
-        next.push({id:id++,championshipId:championship.id,round:championship.rounds+7,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
-        next.push({id:id++,championshipId:championship.id,round:championship.rounds+8,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
-        setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
+
+        const round=championship.rounds+7;
+        next.push({id:id++,championshipId:championship.id,round,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:round+1,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+
+        setMatches(next);
+        setSection("Final");
+        phaseAlert("Final do "+championship.name+" criada em ida e volta.");
+        return;
       }
+
       return;
     }
 
