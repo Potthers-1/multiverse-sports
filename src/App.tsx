@@ -262,6 +262,14 @@ export default function App() {
     return table;
   }
 
+  function sortStandingTeams(teams: string[], table: Record<string, Standing> = {}) {
+    return [...teams].sort((a, b) => {
+      const A = table[a] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+      const B = table[b] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+      return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+    });
+  }
+
   function sortedTeams(championship: Championship) {
     const teams = championship.teams ?? [];
     const table = championship.standings ?? {};
@@ -610,17 +618,19 @@ export default function App() {
     const acreSecond = championships.find((c) => c.id === acreSecondId);
 
     if (!acreFirst || !acreSecond) {
-      window.alert("As duas divisões do Acre precisam estar cadastradas para avançar a temporada.");
+      window.alert("As duas divisões do Acre precisam estar cadastradas.");
       return;
     }
 
     const firstTable =
       acreFirst.phaseStandings?.["Primeira fase"] ??
-      acreFirst.standings;
+      acreFirst.standings ??
+      {};
 
     const secondGeneral =
       acreSecond.phaseStandings?.["Classificação geral"] ??
-      acreSecond.standings;
+      acreSecond.standings ??
+      {};
 
     const firstTeams = [...(acreFirst.teams ?? [])];
     const secondTeams = [...(acreSecond.teams ?? [])];
@@ -628,36 +638,23 @@ export default function App() {
     if (
       firstTeams.length !== 8 ||
       secondTeams.length !== 4 ||
-      !firstTable ||
       Object.keys(firstTable).length !== 8 ||
-      !secondGeneral ||
       Object.keys(secondGeneral).length !== 4
     ) {
-      window.alert("Finalize a simulação completa das duas divisões do Acre antes de avançar.");
+      window.alert("Finalize a temporada completa do Acre antes de avançar.");
       return;
     }
 
-    // 1) Ordena a 1ª divisão e pega EXATAMENTE o 7º e o 8º.
-    const firstOrder = [...firstTeams].sort((a, b) => {
-      const A = firstTable[a] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
-      const B = firstTable[b] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
-      return (
-        B.pts - A.pts ||
-        B.v - A.v ||
-        B.sg - A.sg ||
-        B.gp - A.gp ||
-        a.localeCompare(b)
-      );
-    });
+    // ESTA É A MESMA ORDENAÇÃO USADA PELA TABELA NA TELA.
+    const firstRanking = sortStandingTeams(firstTeams, firstTable);
+    const secondRanking = sortStandingTeams(secondTeams, secondGeneral);
 
-    const relegated = [firstOrder[6], firstOrder[7]].filter(Boolean);
+    // 7º e 8º da 1ª Divisão descem.
+    const relegated = firstRanking.slice(6, 8);
 
-    // 2) Descobre o campeão da 2ª divisão.
-    //    Se um time ganhou os dois turnos, ele é campeão sem final.
-    //    Caso contrário, usa o resultado da final e os pênaltis automáticos.
+    // Descobre o campeão da 2ª Divisão.
     const firstWinner = acreSecond.firstTurnWinner;
     const secondWinner = acreSecond.secondTurnWinner;
-
     let champion: string | undefined;
 
     if (firstWinner && secondWinner && firstWinner === secondWinner) {
@@ -668,61 +665,30 @@ export default function App() {
       if (final?.penaltyWinner) {
         champion = final.penaltyWinner;
       } else if (
-        final &&
-        final.homeScore !== undefined &&
-        final.awayScore !== undefined &&
+        final?.homeScore !== undefined &&
+        final?.awayScore !== undefined &&
         final.homeScore !== final.awayScore
       ) {
-        champion =
-          final.homeScore > final.awayScore
-            ? final.home
-            : final.away;
+        champion = final.homeScore > final.awayScore ? final.home : final.away;
       }
     }
 
     if (!champion || !secondTeams.includes(champion)) {
-      window.alert("Não foi possível identificar o campeão da 2ª Divisão do Acre. Simule a temporada completa novamente.");
+      window.alert("O campeão da 2ª Divisão não foi definido. Simule a temporada completa novamente.");
       return;
     }
 
-    // 3) Ordena a classificação geral e pega o melhor clube
-    //    que NÃO seja o campeão. Esse é o segundo promovido.
-    const secondOrder = [...secondTeams].sort((a, b) => {
-      const A = secondGeneral[a] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
-      const B = secondGeneral[b] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
-      return (
-        B.pts - A.pts ||
-        B.v - A.v ||
-        B.sg - A.sg ||
-        B.gp - A.gp ||
-        a.localeCompare(b)
-      );
-    });
+    // O segundo acesso é o primeiro da classificação geral que não seja o campeão.
+    const secondPromoted = secondRanking.find((team) => team !== champion);
 
-    const secondPromoted = secondOrder.find((team) => team !== champion);
-
-    if (!secondPromoted || secondPromoted === champion) {
-      window.alert("Não foi possível identificar o segundo promovido da 2ª Divisão do Acre.");
+    if (!secondPromoted) {
+      window.alert("Não foi possível identificar o segundo promovido.");
       return;
     }
 
     const promoted = [champion, secondPromoted];
 
-    // 4) Validação final: os quatro clubes precisam ser distintos
-    //    e cada promovido precisa realmente estar na 2ª divisão.
-    if (
-      new Set(relegated).size !== 2 ||
-      new Set(promoted).size !== 2 ||
-      relegated.some((team) => !firstTeams.includes(team)) ||
-      promoted.some((team) => !secondTeams.includes(team))
-    ) {
-      window.alert("A troca de clubes do Acre falhou na validação. Nenhuma temporada foi alterada.");
-      return;
-    }
-
-    // 5) TROCA REAL:
-    //    1ª divisão = seus 6 sobreviventes + os 2 promovidos.
-    //    2ª divisão = seus 2 sobreviventes + os 2 rebaixados.
+    // Segurança: nenhum clube pode ficar nas duas divisões.
     const nextFirstTeams = [
       ...firstTeams.filter((team) => !relegated.includes(team)),
       ...promoted,
@@ -733,63 +699,48 @@ export default function App() {
       ...relegated,
     ];
 
-    if (nextFirstTeams.length !== 8 || nextSecondTeams.length !== 4) {
-      window.alert("A troca não produziu a quantidade correta de clubes. Nenhuma temporada foi alterada.");
+    if (
+      nextFirstTeams.length !== 8 ||
+      nextSecondTeams.length !== 4 ||
+      new Set(nextFirstTeams).size !== 8 ||
+      new Set(nextSecondTeams).size !== 4 ||
+      nextFirstTeams.some((team) => nextSecondTeams.includes(team))
+    ) {
+      window.alert("A troca de divisões falhou na validação. Nenhuma alteração foi feita.");
       return;
     }
 
+    const countryChampionships = championships.filter((c) => c.country === country);
     const currentYear = Math.max(
-      ...championships
-        .filter((c) => c.country === country)
-        .map((c) => Number(c.season) || 2026)
+      ...countryChampionships.map((c) => Number(c.season) || 2026)
     );
     const nextYear = String(currentYear + 1);
 
-    // 6) Atualiza os DOIS registros existentes. Não cria campeonato novo.
-    //    A função usa o estado atual inteiro para evitar qualquer objeto antigo.
-    const updated = championships.map((championship) => {
-      if (championship.id === acreFirstId) {
-        return {
+    // Transação única: os dois registros existentes são substituídos juntos.
+    setChampionships((current) =>
+      current.map((championship) => {
+        const reset = {
           ...championship,
-          season: nextYear,
-          teams: nextFirstTeams,
-          standings: undefined,
-          phaseStandings: undefined,
-          phaseMatches: undefined,
-          firstTurnWinner: undefined,
-          secondTurnWinner: undefined,
+          season: championship.country === country ? nextYear : championship.season,
+          standings: championship.country === country ? undefined : championship.standings,
+          phaseStandings: championship.country === country ? undefined : championship.phaseStandings,
+          phaseMatches: championship.country === country ? undefined : championship.phaseMatches,
+          firstTurnWinner: championship.country === country ? undefined : championship.firstTurnWinner,
+          secondTurnWinner: championship.country === country ? undefined : championship.secondTurnWinner,
         };
-      }
 
-      if (championship.id === acreSecondId) {
-        return {
-          ...championship,
-          season: nextYear,
-          teams: nextSecondTeams,
-          standings: undefined,
-          phaseStandings: undefined,
-          phaseMatches: undefined,
-          firstTurnWinner: undefined,
-          secondTurnWinner: undefined,
-        };
-      }
+        if (championship.id === acreFirstId) {
+          return { ...reset, teams: [...nextFirstTeams] };
+        }
 
-      if (championship.country === country) {
-        return {
-          ...championship,
-          season: nextYear,
-          standings: undefined,
-          phaseStandings: undefined,
-          phaseMatches: undefined,
-          firstTurnWinner: undefined,
-          secondTurnWinner: undefined,
-        };
-      }
+        if (championship.id === acreSecondId) {
+          return { ...reset, teams: [...nextSecondTeams] };
+        }
 
-      return championship;
-    });
+        return reset;
+      })
+    );
 
-    setChampionships(updated);
     setSelectedId(acreFirstId);
     setSelectedPhase((current) => ({
       ...current,
@@ -803,7 +754,12 @@ export default function App() {
     }));
 
     window.alert(
-      `Temporada ${nextYear} criada!\\n\\n1ª Divisão — rebaixados: ${relegated.join(", ")}.\\n2ª Divisão — promovidos: ${promoted.join(", ")}.`
+      `Temporada ${nextYear} criada!
+
+1ª Divisão — rebaixados: ${relegated.join(", ")}.
+2ª Divisão — promovidos: ${promoted.join(", ")}.
+
+A troca foi aplicada nas duas divisões.`
     );
   }
 
@@ -1127,11 +1083,7 @@ export default function App() {
                         }
 
                         const phaseTable = selected.phaseStandings?.[currentPhase] ?? selected.standings ?? {};
-                        const phaseTeams = [...(selected.teams ?? [])].sort((a, b) => {
-                          const A = phaseTable[a] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
-                          const B = phaseTable[b] ?? { pts: 0, v: 0, sg: 0, gp: 0 };
-                          return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
-                        });
+                        const phaseTeams = sortStandingTeams(selected.teams ?? [], phaseTable);
 
                         return (
                           <div className="standings-wrap">
