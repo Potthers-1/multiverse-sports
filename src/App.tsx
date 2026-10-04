@@ -5,6 +5,9 @@ type Matchup = {
   away: string;
   homeScore?: number;
   awayScore?: number;
+  penaltyHome?: number;
+  penaltyAway?: number;
+  penaltyWinner?: string;
 };
 
 type Standing = {
@@ -273,13 +276,66 @@ export default function App() {
     ];
   }
 
-  function simulateKnockoutMatch(home: string, away: string): Matchup {
+  function automaticPenaltyShootout(home: string, away: string) {
+    let homeGoals = 0;
+    let awayGoals = 0;
+
+    for (let i = 0; i < 5; i++) {
+      if (Math.random() < 0.75) homeGoals++;
+      if (Math.random() < 0.75) awayGoals++;
+    }
+
+    while (homeGoals === awayGoals) {
+      if (Math.random() < 0.75) homeGoals++;
+      if (Math.random() < 0.75) awayGoals++;
+    }
+
     return {
+      home: homeGoals,
+      away: awayGoals,
+      winner: homeGoals > awayGoals ? home : away,
+    };
+  }
+
+  function resolveKnockoutTie(match: Matchup) {
+    if (match.homeScore === undefined || match.awayScore === undefined) return match;
+    if (match.homeScore !== match.awayScore) return match;
+
+    const shootout = automaticPenaltyShootout(match.home, match.away);
+    return {
+      ...match,
+      penaltyHome: shootout.home,
+      penaltyAway: shootout.away,
+      penaltyWinner: shootout.winner,
+    };
+  }
+
+  function simulateKnockoutMatch(home: string, away: string): Matchup {
+    const match: Matchup = {
       home,
       away,
       homeScore: Math.floor(Math.random() * 5),
       awayScore: Math.floor(Math.random() * 5),
     };
+
+    return resolveKnockoutTie(match);
+  }
+
+  function resolveTwoLeggedTie(leg1: Matchup, leg2: Matchup) {
+    const totalHome = (leg1.homeScore ?? 0) + (leg2.awayScore ?? 0);
+    const totalAway = (leg1.awayScore ?? 0) + (leg2.homeScore ?? 0);
+
+    if (totalHome !== totalAway) {
+      return totalHome > totalAway ? leg1.home : leg1.away;
+    }
+
+    if (leg2.penaltyWinner) return leg2.penaltyWinner;
+
+    const shootout = automaticPenaltyShootout(leg2.home, leg2.away);
+    leg2.penaltyHome = shootout.home;
+    leg2.penaltyAway = shootout.away;
+    leg2.penaltyWinner = shootout.winner;
+    return shootout.winner;
   }
 
   function simulateAcreFirstDivision(championship: Championship): Championship {
@@ -305,9 +361,7 @@ export default function App() {
       const leg2 = simulateKnockoutMatch(teamB, teamA);
       semiMatches.push(leg1, leg2);
 
-      const totalA = (leg1.homeScore ?? 0) + (leg2.awayScore ?? 0);
-      const totalB = (leg1.awayScore ?? 0) + (leg2.homeScore ?? 0);
-      semiWinners.push(totalA >= totalB ? teamA : teamB);
+      semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
     }
 
     const finalMatch = semiWinners.length === 2
@@ -903,8 +957,14 @@ export default function App() {
                                   const homeScore = match.homeScore;
                                   const awayScore = match.awayScore;
                                   const played = homeScore !== undefined && awayScore !== undefined;
-                                  const homeWinner = played && homeScore > awayScore;
-                                  const awayWinner = played && awayScore > homeScore;
+                                  const homeWinner = played && (
+                                    homeScore > awayScore ||
+                                    match.penaltyWinner === match.home
+                                  );
+                                  const awayWinner = played && (
+                                    awayScore > homeScore ||
+                                    match.penaltyWinner === match.away
+                                  );
 
                                   return (
                                     <div className="knockout-card" key={`${currentPhase}-${index}`}>
@@ -920,6 +980,11 @@ export default function App() {
                                         <div className="knockout-score">
                                           <span>PLACAR</span>
                                           <strong>{played ? `${homeScore} × ${awayScore}` : "— × —"}</strong>
+                                          {played && match.penaltyWinner && (
+                                            <small className="penalty-result">
+                                              Pênaltis: {match.penaltyHome} × {match.penaltyAway}
+                                            </small>
+                                          )}
                                         </div>
                                         <div className={`knockout-team away ${awayWinner ? "winner" : ""}`}>
                                           <span className="knockout-team-position">FORA</span>
@@ -1141,6 +1206,7 @@ export default function App() {
         .knockout-team.winner strong { color: #86efac; }
         .knockout-score { text-align: center; padding: 10px 8px; border-left: 1px solid #202d46; border-right: 1px solid #202d46; }
         .knockout-score span { display: block; color: #65738e; font-size: 9px; font-weight: 800; letter-spacing: .08em; margin-bottom: 6px; }
+        .penalty-result { display: block; margin-top: 5px; font-size: 10px; color: #7ee2a8; font-weight: 800; }
         .knockout-score strong { color: #fff; font-size: 24px; letter-spacing: .02em; }
         .knockout-card-footer { border-top: 1px solid #1e2a42; font-size: 10px; }
         .knockout-winner { color: #6ee7a0; letter-spacing: 0; }
