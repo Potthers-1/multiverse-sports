@@ -36,8 +36,6 @@ type Championship = {
   phaseMatches?: Record<string, Matchup[]>;
   firstTurnWinner?: string;
   secondTurnWinner?: string;
-  accessTeams?: string[];
-  relegatedTeams?: string[];
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -63,30 +61,7 @@ const ACRE_CHAMPIONSHIPS: Championship[] = [
       "Primeira fase em turno único, com 7 rodadas.",
       "Os 4 primeiros colocados avançam ao mata-mata.",
       "Semifinais em jogos de ida e volta.",
-      "O 7º e o 8º colocados são rebaixados.",
-    ],
-  },
-  {
-    id: 1002,
-    name: "Acre",
-    season: "2026",
-    division: "2ª Divisão",
-    country: "Brasil",
-    state: "Acre",
-    teams: [
-      "Atlético Acreano - AC",
-      "Andirá - AC",
-      "Nauás - AC",
-      "Plácido de Castro - AC",
-    ],
-    phases: ["Primeiro turno", "Segundo turno", "Final", "Classificação geral"],
-    rules: [
-      "1º turno: 4 times disputam entre si em 3 jogos; o melhor vai para a final.",
-      "2º turno: 4 times disputam entre si em 3 jogos; o melhor vai para a final.",
-      "Final em jogo único entre os vencedores dos turnos.",
-      "Se o mesmo time vencer os dois turnos, será campeão automaticamente.",
-      "O campeão geral garante o acesso à 1ª Divisão.",
-      "O melhor classificado na tabela geral, além do campeão, também garante o acesso à 1ª Divisão."
+      "Final em jogo único.",
     ],
   },
 ];
@@ -109,7 +84,7 @@ export default function App() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as Championship[];
+        const parsed = (JSON.parse(saved) as Championship[]).filter((champ) => champ.id !== 1002);
         const merged = parsed.map((champ) => {
           const acreDefinition = ACRE_CHAMPIONSHIPS.find((acre) => acre.id === champ.id);
           return acreDefinition
@@ -179,17 +154,7 @@ export default function App() {
       if (index < 4) return "zone-next";
       if (index >= (championship.teams?.length ?? 0) - 2) return "zone-relegation";
     }
-    if (championship.division === "2ª Divisão" && (phase === "Primeiro turno" || phase === "Segundo turno")) {
-      if (index === 0) return "zone-next";
-    }
     return "";
-  }
-
-  function getSecondDivisionAccessIds(championship: Championship) {
-    if (championship.state !== "Acre" || championship.division !== "2ª Divisão") {
-      return new Set<string>();
-    }
-    return new Set(championship.accessTeams ?? []);
   }
 
   function simulateRoundRobin(teams: string[]) {
@@ -377,97 +342,6 @@ export default function App() {
         "Semi final": semiMatches,
         "Final": finalMatch,
       },
-      relegatedTeams: ordered.slice(6, 8),
-    };
-  }
-
-  function simulateAcreSecondDivision(championship: Championship): Championship {
-    const teams = championship.teams ?? [];
-
-    const firstTurn = simulateRoundRobin(teams);
-    const firstOrder = [...teams].sort((a, b) => {
-      const A = firstTurn[a];
-      const B = firstTurn[b];
-      return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
-    });
-    const firstWinner = firstOrder[0];
-
-    // O segundo turno começa com uma tabela completamente nova e independente.
-    const secondTurn = simulateRoundRobin(teams);
-    const secondOrder = [...teams].sort((a, b) => {
-      const A = secondTurn[a];
-      const B = secondTurn[b];
-      return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
-    });
-    const secondWinner = secondOrder[0];
-
-    const phaseStandings = {
-      ...(championship.phaseStandings ?? {}),
-      "Primeiro turno": firstTurn,
-      "Segundo turno": secondTurn,
-    };
-
-    // Classificação geral soma os dois turnos.
-    const general: Record<string, Standing> = {};
-    teams.forEach((team) => {
-      const a = firstTurn[team];
-      const b = secondTurn[team];
-      general[team] = {
-        j: a.j + b.j,
-        v: a.v + b.v,
-        e: a.e + b.e,
-        d: a.d + b.d,
-        gp: a.gp + b.gp,
-        gc: a.gc + b.gc,
-        sg: a.sg + b.sg,
-        pts: a.pts + b.pts,
-      };
-    });
-
-    let finalMatches: Matchup[] = [];
-    if (firstWinner !== secondWinner) {
-      finalMatches = [simulateSingleKnockoutMatch(firstWinner, secondWinner)];
-    }
-
-    // Define os 2 acessos uma única vez e guarda os nomes no resultado
-    // da temporada. A interface e a troca de divisão usam exatamente esta lista.
-    let champion: string | undefined;
-    if (firstWinner === secondWinner) {
-      champion = firstWinner;
-    } else {
-      const final = finalMatches[0];
-      if (final?.penaltyWinner) {
-        champion = final.penaltyWinner;
-      } else if (
-        final?.homeScore !== undefined &&
-        final?.awayScore !== undefined &&
-        final.homeScore !== final.awayScore
-      ) {
-        champion = final.homeScore > final.awayScore ? final.home : final.away;
-      }
-    }
-
-    const generalOrder = sortStandingTeams(teams, general);
-    const secondPromoted = champion
-      ? generalOrder.find((team) => team !== champion)
-      : undefined;
-    const accessTeams =
-      champion && secondPromoted ? [champion, secondPromoted] : [];
-
-    return {
-      ...championship,
-      standings: general,
-      phaseStandings: {
-        ...phaseStandings,
-        "Classificação geral": general,
-      },
-      phaseMatches: {
-        ...(championship.phaseMatches ?? {}),
-        "Final": finalMatches,
-      },
-      firstTurnWinner: firstWinner,
-      secondTurnWinner: secondWinner,
-      accessTeams,
     };
   }
 
@@ -505,9 +379,6 @@ export default function App() {
         return simulateAcreFirstDivision(championship);
       }
 
-      if (championship.state === "Acre" && championship.division === "2ª Divisão") {
-        return simulateAcreSecondDivision(championship);
-      }
 
       return simulateGenericChampionship(championship);
     });
@@ -542,17 +413,6 @@ export default function App() {
         ...current,
         [selected.id]: "Primeira fase",
       }));
-    } else if (selected.state === "Acre" && selected.division === "2ª Divisão") {
-      const updated = simulateAcreSecondDivision(selected);
-      setChampionships((current) =>
-        current.map((championship) =>
-          championship.id === selected.id ? updated : championship
-        )
-      );
-      setSelectedPhase((current) => ({
-        ...current,
-        [selected.id]: "Primeiro turno",
-      }));
     } else {
       const updated = simulateGenericChampionship(selected);
       setChampionships((current) =>
@@ -576,160 +436,47 @@ export default function App() {
     setShowCreate(false);
   }
 
-  function getAcreSecondDivisionChampion(championship: Championship) {
-    const firstWinner = championship.firstTurnWinner;
-    const secondWinner = championship.secondTurnWinner;
-    if (!firstWinner || !secondWinner) return undefined;
-    if (firstWinner === secondWinner) return firstWinner;
-
-    const final = championship.phaseMatches?.["Final"]?.[0];
-    if (!final) return undefined;
-
-    // Final empatada: o campeão é definido pelo pênalti automático.
-    if (final.penaltyWinner) return final.penaltyWinner;
-
-    if (final.homeScore === undefined || final.awayScore === undefined) return undefined;
-    if (final.homeScore === final.awayScore) return undefined;
-
-    return final.homeScore > final.awayScore ? final.home : final.away;
-  }
-
-  function getAcreAccessTeams(championship: Championship) {
-    const champion = getAcreSecondDivisionChampion(championship);
-    const general = championship.phaseStandings?.["Classificação geral"];
-    if (!champion || !general) return new Set<string>();
-
-    const ordered = Object.keys(general).sort((a, b) => {
-      const A = general[a], B = general[b];
-      return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
-    });
-
-    const bestNonChampion = ordered.find((team) => team !== champion);
-    return bestNonChampion ? new Set([champion, bestNonChampion]) : new Set<string>();
-  }
-
-
   function goToNextSeason() {
     const country = "Brasil";
-    const acreFirstId = 1001;
-    const acreSecondId = 1002;
-
-    const acreFirst = championships.find((c) => c.id === acreFirstId);
-    const acreSecond = championships.find((c) => c.id === acreSecondId);
-
-    if (!acreFirst || !acreSecond) {
-      window.alert("As duas divisões do Acre precisam estar cadastradas.");
-      return;
-    }
-
-    const firstTable =
-      acreFirst.phaseStandings?.["Primeira fase"] ??
-      acreFirst.standings ??
-      {};
-
-    const secondGeneral =
-      acreSecond.phaseStandings?.["Classificação geral"] ??
-      acreSecond.standings ??
-      {};
-
-    const firstTeams = [...(acreFirst.teams ?? [])];
-    const secondTeams = [...(acreSecond.teams ?? [])];
-
-    if (
-      firstTeams.length !== 8 ||
-      secondTeams.length !== 4 ||
-      Object.keys(firstTable).length !== 8 ||
-      Object.keys(secondGeneral).length !== 4
-    ) {
-      window.alert("Finalize a temporada completa do Acre antes de avançar.");
-      return;
-    }
-
-    // Os resultados de acesso/rebaixamento já foram definidos no fim
-    // da simulação. Não tentamos descobrir os times novamente.
-    const relegated = acreFirst.relegatedTeams ?? [];
-    const promoted = acreSecond.accessTeams ?? [];
-
-    if (promoted.length !== 2) {
-      window.alert(
-        "O sistema não conseguiu identificar exatamente os 2 times marcados em verde na Classificação geral. Simule a temporada completa novamente."
-      );
-      return;
-    }
-
-    // Segurança: nenhum clube pode ficar nas duas divisões.
-    const nextFirstTeams = [
-      ...firstTeams.filter((team) => !relegated.includes(team)),
-      ...promoted,
-    ];
-
-    const nextSecondTeams = [
-      ...secondTeams.filter((team) => !promoted.includes(team)),
-      ...relegated,
-    ];
-
-    if (
-      nextFirstTeams.length !== 8 ||
-      nextSecondTeams.length !== 4 ||
-      new Set(nextFirstTeams).size !== 8 ||
-      new Set(nextSecondTeams).size !== 4 ||
-      nextFirstTeams.some((team) => nextSecondTeams.includes(team))
-    ) {
-      window.alert("A troca de divisões falhou na validação. Nenhuma alteração foi feita.");
-      return;
-    }
-
     const countryChampionships = championships.filter((c) => c.country === country);
+
+    if (!countryChampionships.length) {
+      window.alert("Não há campeonatos cadastrados para avançar.");
+      return;
+    }
+
     const currentYear = Math.max(
       ...countryChampionships.map((c) => Number(c.season) || 2026)
     );
     const nextYear = String(currentYear + 1);
 
-    // Transação única: os dois registros existentes são substituídos juntos.
     setChampionships((current) =>
       current.map((championship) => {
-        const reset = {
+        if (championship.country !== country) return championship;
+
+        return {
           ...championship,
-          season: championship.country === country ? nextYear : championship.season,
-          standings: championship.country === country ? undefined : championship.standings,
-          phaseStandings: championship.country === country ? undefined : championship.phaseStandings,
-          phaseMatches: championship.country === country ? undefined : championship.phaseMatches,
-          firstTurnWinner: championship.country === country ? undefined : championship.firstTurnWinner,
-          secondTurnWinner: championship.country === country ? undefined : championship.secondTurnWinner,
+          season: nextYear,
+          standings: undefined,
+          phaseStandings: undefined,
+          phaseMatches: undefined,
+          firstTurnWinner: undefined,
+          secondTurnWinner: undefined,
         };
-
-        if (championship.id === acreFirstId) {
-          return { ...reset, teams: [...nextFirstTeams] };
-        }
-
-        if (championship.id === acreSecondId) {
-          return { ...reset, teams: [...nextSecondTeams] };
-        }
-
-        return reset;
       })
     );
 
-    setSelectedId(acreFirstId);
+    setSelectedId(1001);
     setSelectedPhase((current) => ({
       ...current,
-      [acreFirstId]: "Primeira fase",
-      [acreSecondId]: "Primeiro turno",
+      [1001]: "Primeira fase",
     }));
     setSelectedSection((current) => ({
       ...current,
-      [acreFirstId]: "competition",
-      [acreSecondId]: "competition",
+      [1001]: "competition",
     }));
 
-    window.alert(
-      `Temporada ${nextYear} criada!
-
-1ª Divisão — rebaixados: ${relegated.join(", ")}.
-2ª Divisão — promovidos: ${promoted.join(", ")}.
-
-A troca foi aplicada nas duas divisões.`
-    );
+    window.alert(`Temporada ${nextYear} criada. A composição dos clubes foi mantida, sem promoção ou rebaixamento.`);
   }
 
   function resetSeasonTo2026() {
@@ -747,8 +494,6 @@ A troca foi aplicada nas duas divisões.`
         phaseMatches: undefined,
         firstTurnWinner: undefined,
         secondTurnWinner: undefined,
-        accessTeams: undefined,
-        relegatedTeams: undefined,
       };
     });
 
@@ -1076,10 +821,8 @@ A troca foi aplicada nas duas divisões.`
                               <tbody>
                                 {phaseTeams.map((team, index) => {
                                   const row = phaseTable[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-                                  const accessIds = getSecondDivisionAccessIds(selected);
-                                  const accessClass = currentPhase === "Classificação geral" && accessIds.has(team) ? "zone-next" : "";
                                   return (
-                                    <tr key={team} className={getRowClass(selected, currentPhase, index) || accessClass}>
+                                    <tr key={team} className={getRowClass(selected, currentPhase, index)}>
                                       <td>{index + 1}</td>
                                       <td className="standing-team">{team}</td>
                                       <td>{row.j}</td>
@@ -1101,14 +844,6 @@ A troca foi aplicada nas duas divisões.`
 
                       <div className="standings-legend">
                         <span><i className="legend-next" /> Classificado para a próxima fase</span>
-                        {selected.division === "1ª Divisão" &&
-                          (selectedPhase[selected.id] ?? selected.phases?.[0]) === "Primeira fase" && (
-                            <span><i className="legend-relegation" /> Rebaixado</span>
-                          )}
-                        {selected.division === "2ª Divisão" &&
-                          (selectedPhase[selected.id] ?? selected.phases?.[0]) === "Classificação geral" && (
-                            <span><i className="legend-next" /> Acesso à 1ª Divisão</span>
-                          )}
                       </div>
                     </div>
                   </div>
@@ -1261,14 +996,10 @@ A troca foi aplicada nas duas divisões.`
         .standings-table tr.zone-next td { background: rgba(34, 197, 94, 0.16) !important; }
         .standings-table tr.zone-next td:first-child { box-shadow: inset 4px 0 0 #22c55e; color: #86efac !important; }
         .standings-table tr.zone-next .standing-team { color: #bbf7d0 !important; }
-        .standings-table tr.zone-relegation td { background: rgba(239, 68, 68, 0.16) !important; }
-        .standings-table tr.zone-relegation td:first-child { box-shadow: inset 4px 0 0 #ef4444; color: #fca5a5 !important; }
-        .standings-table tr.zone-relegation .standing-team { color: #fecaca !important; }
         .standings-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; color: #8e9ab4; font-size: 10px; }
         .standings-legend span { display: inline-flex; align-items: center; gap: 6px; }
         .standings-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: 0 0 10px; }
         .standings-legend .legend-next { background: #22c55e; }
-        .standings-legend .legend-relegation { background: #ef4444; }
 
         .rules-list { display: grid; gap: 10px; }
         .rule-item { color: #b5bfd4; font-size: 13px; line-height: 1.45; }
