@@ -94,12 +94,28 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as Championship[];
-        const merged = [
-          ...parsed,
-          ...ACRE_CHAMPIONSHIPS.filter(
-            (acre) => !parsed.some((champ) => champ.id === acre.id)
-          ),
-        ];
+        const merged = parsed.map((champ) => {
+          const acreDefinition = ACRE_CHAMPIONSHIPS.find((acre) => acre.id === champ.id);
+          return acreDefinition
+            ? {
+                ...champ,
+                name: acreDefinition.name,
+                country: acreDefinition.country,
+                state: acreDefinition.state,
+                division: acreDefinition.division,
+                teams: champ.teams?.length ? champ.teams : acreDefinition.teams,
+                phases: acreDefinition.phases,
+                rules: acreDefinition.rules,
+              }
+            : champ;
+        });
+
+        for (const acre of ACRE_CHAMPIONSHIPS) {
+          if (!merged.some((champ) => champ.id === acre.id)) {
+            merged.push(acre);
+          }
+        }
+
         setChampionships(merged);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       } else {
