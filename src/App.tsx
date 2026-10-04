@@ -9,6 +9,7 @@ type Championship = {
   state?: string;
   teams?: string[];
   rules?: string[];
+  phases?: string[];
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -29,6 +30,7 @@ const ACRE_CHAMPIONSHIPS: Championship[] = [
       "São Francisco - AC",
       "Vasco da Gama - AC",
     ],
+    phases: ["1ª Fase", "Semifinais", "Final"],
     rules: [
       "Primeira fase em turno único, com 7 rodadas.",
       "Os 4 primeiros colocados avançam ao mata-mata.",
@@ -49,6 +51,7 @@ const ACRE_CHAMPIONSHIPS: Championship[] = [
       "Nauás - AC",
       "Plácido de Castro - AC",
     ],
+    phases: ["1º Turno", "2º Turno", "Final"],
     rules: [
       "1º turno: 4 times disputam entre si em 3 jogos; o melhor vai para a final.",
       "2º turno: 4 times disputam entre si em 3 jogos; o melhor vai para a final.",
@@ -71,6 +74,7 @@ export default function App() {
   const [name, setName] = useState("");
   const [season, setSeason] = useState("2026");
   const [division, setDivision] = useState("Estadual");
+  const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
 
   useEffect(() => {
     try {
@@ -288,51 +292,77 @@ export default function App() {
               <div><span>Temporada</span><strong>{selected.season}</strong></div>
             </div>
 
-            <div className="competition-content">
-              <div className="competition-block standings-block">
-                <div className="block-title">TABELA DE CLASSIFICAÇÃO</div>
-                <div className="standings-wrap">
-                  <table className="standings-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>TIME</th>
-                        <th>J</th>
-                        <th>V</th>
-                        <th>E</th>
-                        <th>D</th>
-                        <th>GP</th>
-                        <th>GC</th>
-                        <th>SG</th>
-                        <th>PTS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selected.teams ?? []).map((team, index) => (
-                        <tr key={team}>
-                          <td>{index + 1}</td>
-                          <td className="standing-team">{team}</td>
-                          <td>0</td>
-                          <td>0</td>
-                          <td>0</td>
-                          <td>0</td>
-                          <td>0</td>
-                          <td>0</td>
-                          <td>0</td>
-                          <td className="standing-points">0</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <div className="phase-area">
+              {selected.phases && selected.phases.length > 1 && (
+                <div className="phase-tabs">
+                  {selected.phases.map((phase) => {
+                    const activePhase = selectedPhase[selected.id] ?? selected.phases![0];
+                    return (
+                      <button
+                        key={phase}
+                        className={`phase-tab ${activePhase === phase ? "active" : ""}`}
+                        onClick={() =>
+                          setSelectedPhase((current) => ({
+                            ...current,
+                            [selected.id]: phase,
+                          }))
+                        }
+                      >
+                        {phase}
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
+              )}
 
-              <div className="competition-block">
-                <div className="block-title">FORMATO DA COMPETIÇÃO</div>
-                <div className="rules-list">
-                  {(selected.rules ?? ["Estrutura ainda não definida."]).map((rule) => (
-                    <div className="rule-item" key={rule}>• {rule}</div>
-                  ))}
+              <div className="competition-content">
+                <div className="competition-block standings-block">
+                  <div className="block-title">
+                    {selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO"}
+                  </div>
+                  <div className="standings-wrap">
+                    <table className="standings-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>TIME</th>
+                          <th>J</th>
+                          <th>V</th>
+                          <th>E</th>
+                          <th>D</th>
+                          <th>GP</th>
+                          <th>GC</th>
+                          <th>SG</th>
+                          <th>PTS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(selected.teams ?? []).map((team, index) => (
+                          <tr key={team}>
+                            <td>{index + 1}</td>
+                            <td className="standing-team">{team}</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td className="standing-points">0</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="competition-block">
+                  <div className="block-title">FORMATO DA COMPETIÇÃO</div>
+                  <div className="rules-list">
+                    {(selected.rules ?? ["Estrutura ainda não definida."]).map((rule) => (
+                      <div className="rule-item" key={rule}>• {rule}</div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -422,7 +452,12 @@ export default function App() {
         .state-name-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0; background: transparent; color: #d5dcf0; font-size: 12px; font-weight: 800; text-align: left; border-radius: 7px; padding: 8px 10px 5px; }
         .state-name-toggle:hover, .state-name-toggle.open { background: #111a2e; color: #fff; }
         .division-menu { margin-left: 9px; padding-left: 8px; border-left: 1px solid #26314a; }
-        .competition-content { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding-top: 22px; }
+        .phase-area { padding-top: 22px; }
+        .phase-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .phase-tab { border: 1px solid #293651; background: #0c1323; color: #8e9ab4; border-radius: 8px; padding: 8px 13px; font-size: 11px; font-weight: 800; }
+        .phase-tab:hover { background: #141e34; color: #dce5ff; }
+        .phase-tab.active { background: #3157d5; border-color: #3157d5; color: #fff; }
+        .competition-content { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
         .competition-block { background: #0c1323; border: 1px solid #202a40; border-radius: 12px; padding: 17px; }
         .block-title { color: #71809f; font-size: 10px; font-weight: 800; letter-spacing: .14em; margin-bottom: 12px; }
         .standings-block { min-width: 0; }
