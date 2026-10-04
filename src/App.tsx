@@ -54,6 +54,8 @@ const ACRE_CHAMPIONSHIPS: Championship[] = [
       "2º turno: 4 times disputam entre si em 3 jogos; o melhor vai para a final.",
       "Final em jogo único entre os vencedores dos turnos.",
       "Se o mesmo time vencer os dois turnos, será campeão automaticamente.",
+      "O campeão geral garante o acesso à 1ª Divisão.",
+      "O melhor classificado na tabela geral, além do campeão, também garante o acesso à 1ª Divisão."
     ],
   },
 ];
