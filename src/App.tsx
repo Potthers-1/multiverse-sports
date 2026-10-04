@@ -530,6 +530,18 @@ export default function App() {
         .standings-table td:first-child { color: #71809f; font-weight: 700; width: 28px; }
         .standing-team { text-align: left !important; color: #eef2ff !important; font-weight: 700; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
         .standing-points { color: #fff !important; font-weight: 800; }
+        .standings-table tr.zone-next td { background: rgba(34, 197, 94, 0.16) !important; }
+        .standings-table tr.zone-next td:first-child { box-shadow: inset 4px 0 0 #22c55e; color: #86efac !important; }
+        .standings-table tr.zone-next .standing-team { color: #bbf7d0 !important; }
+        .standings-table tr.zone-relegation td { background: rgba(239, 68, 68, 0.16) !important; }
+        .standings-table tr.zone-relegation td:first-child { box-shadow: inset 4px 0 0 #ef4444; color: #fca5a5 !important; }
+        .standings-table tr.zone-relegation .standing-team { color: #fecaca !important; }
+        .standings-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; color: #8e9ab4; font-size: 10px; }
+        .standings-legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .standings-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: 0 0 10px; }
+        .standings-legend .legend-next { background: #22c55e; }
+        .standings-legend .legend-relegation { background: #ef4444; }
+
         .rules-list { display: grid; gap: 10px; }
         .rule-item { color: #b5bfd4; font-size: 13px; line-height: 1.45; }
         .state-empty { color: #5f6b84; font-size: 11px; padding: 9px 10px; }
