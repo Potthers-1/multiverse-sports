@@ -68,6 +68,7 @@ const LS = {
   gauchoV2: "sports-gaucho-v2",
   goiasV1: "sports-goias-v1",
   maranhaoV1: "sports-maranhao-v1",
+  matoGrossoV1: "sports-mato-grosso-v1",
 };
 
 const A_CLUBS = [
@@ -223,6 +224,14 @@ const MARANHAO_1_CLUBS = [
 const MARANHAO_2_CLUBS = [
   "Araioses","São Luis","Tupan","Expressinho","Americano Bacabal","São José MA","Lago Verde",
   "Pinheiro","Viana","Timon EC","Cordino EC","Balsas",
+];
+const MATO_GROSSO_1_CLUBS = [
+  "Luverdense","Mixto","Operário VG","Sport Sinnop","Cuiabá","Nova Mutum",
+  "Chapada","União Rondonópolis","Primavera AC","Várzea Grande",
+];
+const MATO_GROSSO_2_CLUBS = [
+  "Sinop FC","Sorriso EC","Santa Cruz MT","Grêmio Sorriso","Campo Novo",
+  "Uirapuru","Ação","Cacerense","Paulistano FC","Atlético MT",
 ];
 
 const CARIOCA_1_CLUBS = [
@@ -1395,6 +1404,23 @@ function App() {
         localStorage.setItem(LS.maranhaoV1,"1");
       }
 
+      if (localStorage.getItem(LS.matoGrossoV1) !== "1") {
+        const oldIds=new Set(cs.filter(c=>c.state==="Mato Grosso" || c.name==="Campeonato Mato-Grossense" || c.name==="Campeonato Mato-Grossense - 2ª Divisão").map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+        const addMatoGrosso=(builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]})=>{
+          const cid=Math.max(...cs.map(c=>c.id),0)+1;
+          const uid=Math.max(...cl.map(c=>c.id),0)+1;
+          const mid=Math.max(...ms.map(m=>m.id),0)+1;
+          const built=builder(cid,uid,mid);
+          cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+        };
+        addMatoGrosso(buildMatoGrossoFirstDivision);
+        addMatoGrosso(buildMatoGrossoSecondDivision);
+        localStorage.setItem(LS.matoGrossoV1,"1");
+      }
+
       if (!cs.length || !cl.length)      if (!cs.length || !cl.length) { seed(); return; }
 
       // Migração incremental: adiciona o primeiro estadual sem apagar
@@ -1982,6 +2008,33 @@ function App() {
         if(winners.length!==2){phaseAlert("Não foi possível identificar os finalistas do Campeonato Maranhense.");return;}
         next.push({id:id++,championshipId:championship.id,round:championship.rounds+(isFirst?3:5),home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
         next.push({id:id++,championshipId:championship.id,round:championship.rounds+(isFirst?4:6),home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
+      }
+      return;
+    }
+
+    if (championship.division === "Estadual" && (
+      championship.name==="Campeonato Mato-Grossense" ||
+      championship.name==="Campeonato Mato-Grossense - 2ª Divisão"
+    )) {
+      const isFirst=championship.name==="Campeonato Mato-Grossense";
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      const expected=90;
+      if(regular.length===expected && regular.every(m=>m.played) && semis.length===0 && final.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");phaseAlert(`Semifinais do ${championship.name} criadas em ida e volta.`);return;
+      }
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){phaseAlert(`Não foi possível identificar os finalistas do ${championship.name}.`);return;}
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
         setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
       }
       return;
@@ -2978,6 +3031,18 @@ function App() {
       return;
     }
 
+    if (championship.name==="Campeonato Mato-Grossense" || championship.name==="Campeonato Mato-Grossense - 2ª Divisão") {
+      const own=matches.filter(m=>m.championshipId===championship.id);
+      const regular=own.filter(m=>m.stage==="regular");
+      const semis=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
+      const final=own.filter(m=>m.stage==="final");
+      if(
+        (regular.length===90 && regular.every(m=>m.played) && semis.length===0 && final.length===0) ||
+        (semis.length===4 && semis.every(m=>m.played) && final.length===0)
+      ) prepareNextPhase();
+      return;
+    }
+
     if (championship.name==="Campeonato Goiano") {
       const own=matches.filter(m=>m.championshipId===championship.id);
       const regular=own.filter(m=>m.stage==="regular");
@@ -3330,6 +3395,15 @@ D → C: ${promotedD.length} promovidos`
       }
       if (state==="Goiás" && name==="Campeonato Goiano - 3ª Divisão") {
         return position<=2 ? "promotion" : "";
+      }
+      if (state==="Mato Grosso" && name==="Campeonato Mato-Grossense") {
+        if(position>=9) return "relegation";
+        if(position<=4) return "qualification";
+        return "";
+      }
+      if (state==="Mato Grosso" && name==="Campeonato Mato-Grossense - 2ª Divisão") {
+        if(position<=4) return "qualification";
+        return "";
       }
       if (state==="Maranhão" && name==="Campeonato Maranhense") {
         if(position>=7) return "relegation";
