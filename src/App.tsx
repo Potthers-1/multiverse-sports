@@ -75,7 +75,15 @@ export default function App() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        setChampionships(JSON.parse(saved));
+        const parsed = JSON.parse(saved) as Championship[];
+        const merged = [
+          ...parsed,
+          ...ACRE_CHAMPIONSHIPS.filter(
+            (acre) => !parsed.some((champ) => champ.id === acre.id)
+          ),
+        ];
+        setChampionships(merged);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       } else {
         setChampionships(ACRE_CHAMPIONSHIPS);
       }
