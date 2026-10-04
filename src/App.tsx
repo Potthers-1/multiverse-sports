@@ -808,6 +808,18 @@ function buildMaranhaoSecondDivision(championshipId:number,startClubId:number,st
   return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
 }
 
+function buildMatoGrossoFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Mato-Grossense","Turno único + semifinais + final","10 clubes disputam turno único em 9 rodadas. Os 4 primeiros avançam ao mata-mata, com semifinais e final em ida e volta. Empate no agregado é decidido automaticamente nos pênaltis.","O campeão é o vencedor da final.","Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",10,9,1,"Mato Grosso");
+  const clubs:Club[]=MATO_GROSSO_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildMatoGrossoSecondDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Mato-Grossense - 2ª Divisão","Turno único + semifinais + final","10 clubes disputam turno único em 9 rodadas. Os 4 primeiros avançam ao mata-mata, com semifinais e final em ida e volta. Empate no agregado é decidido automaticamente nos pênaltis.","Os dois finalistas garantem acesso à 1ª Divisão.","Não há rebaixamento informado para esta divisão.",10,9,1,"Mato Grosso");
+  const clubs:Club[]=MATO_GROSSO_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
 function buildCariocaFirstDivision(championshipId:number, startClubId:number, startMatchId:number) {
   const championship=makeChampionship(
     championshipId,
@@ -2021,7 +2033,7 @@ function App() {
       const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
-      const expected=90;
+      const expected=45;
       if(regular.length===expected && regular.every(m=>m.played) && semis.length===0 && final.length===0){
         const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
         [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([home,away])=>{
@@ -3037,7 +3049,7 @@ function App() {
       const semis=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
       const final=own.filter(m=>m.stage==="final");
       if(
-        (regular.length===90 && regular.every(m=>m.played) && semis.length===0 && final.length===0) ||
+        (regular.length===45 && regular.every(m=>m.played) && semis.length===0 && final.length===0) ||
         (semis.length===4 && semis.every(m=>m.played) && final.length===0)
       ) prepareNextPhase();
       return;
