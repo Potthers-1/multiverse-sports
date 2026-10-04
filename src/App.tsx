@@ -501,130 +501,87 @@ export default function App() {
   function getAcreSecondDivisionChampion(championship: Championship) {
     const firstWinner = championship.firstTurnWinner;
     const secondWinner = championship.secondTurnWinner;
-
-    if (!firstWinner) return undefined;
-    if (!secondWinner || firstWinner === secondWinner) return firstWinner;
+    if (!firstWinner || !secondWinner) return undefined;
+    if (firstWinner === secondWinner) return firstWinner;
 
     const final = championship.phaseMatches?.["Final"]?.[0];
-    if (!final || final.homeScore === undefined || final.awayScore === undefined) {
-      return undefined;
-    }
+    if (!final || final.homeScore === undefined || final.awayScore === undefined) return undefined;
+    if (final.homeScore === final.awayScore) return undefined;
 
-    return final.homeScore >= final.awayScore ? final.home : final.away;
+    return final.homeScore > final.awayScore ? final.home : final.away;
   }
 
   function getAcreAccessTeams(championship: Championship) {
     const champion = getAcreSecondDivisionChampion(championship);
-    const general = championship.phaseStandings?.["Classificação geral"] ?? championship.standings ?? {};
+    const general = championship.phaseStandings?.["Classificação geral"];
+    if (!champion || !general) return new Set<string>();
 
     const ordered = Object.keys(general).sort((a, b) => {
-      const A = general[a];
-      const B = general[b];
+      const A = general[a], B = general[b];
       return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
     });
 
-    const access = new Set<string>();
-    if (champion) access.add(champion);
-
     const bestNonChampion = ordered.find((team) => team !== champion);
-    if (bestNonChampion) access.add(bestNonChampion);
-
-    return access;
+    return bestNonChampion ? new Set([champion, bestNonChampion]) : new Set<string>();
   }
+
 
   function goToNextSeason() {
     const country = "Brasil";
-    const countryChampionships = championships.filter(
-      (championship) => championship.country === country
-    );
+    const countryChampionships = championships.filter((c) => c.country === country);
 
     if (!countryChampionships.length) {
       window.alert("Não há campeonatos cadastrados para avançar de temporada.");
       return;
     }
 
-    const currentYear = Math.max(
-      ...countryChampionships.map((championship) => Number(championship.season) || 2026)
-    );
+    const currentYear = Math.max(...countryChampionships.map((c) => Number(c.season) || 2026));
     const nextYear = String(currentYear + 1);
 
-    if (countryChampionships.some((championship) => championship.season === nextYear)) {
-      window.alert(`A temporada ${nextYear} já foi criada.`);
+    if (countryChampionships.some((c) => c.season === nextYear)) {
+      window.alert(`A temporada ${nextYear} já existe.`);
       return;
     }
 
-    const acreFirst = countryChampionships.find(
-      (championship) => championship.state === "Acre" && championship.division === "1ª Divisão"
-    );
-    const acreSecond = countryChampionships.find(
-      (championship) => championship.state === "Acre" && championship.division === "2ª Divisão"
-    );
-
-    let relegatedFromFirst = new Set<string>();
-    let promotedFromSecond = new Set<string>();
+    const acreFirst = countryChampionships.find((c) => c.state === "Acre" && c.division === "1ª Divisão");
+    const acreSecond = countryChampionships.find((c) => c.state === "Acre" && c.division === "2ª Divisão");
 
     if (acreFirst && acreSecond) {
-      const firstTable = acreFirst.phaseStandings?.["Primeira fase"] ?? acreFirst.standings ?? {};
-      const firstOrder = Object.keys(firstTable).sort((a, b) => {
-        const A = firstTable[a];
-        const B = firstTable[b];
+      const firstTable = acreFirst.phaseStandings?.["Primeira fase"];
+      const access = getAcreAccessTeams(acreSecond);
+
+      if (!firstTable || Object.keys(firstTable).length !== (acreFirst.teams?.length ?? 0)) {
+        window.alert("Finalize a Primeira fase da 1ª Divisão do Acre antes de avançar a temporada.");
+        return;
+      }
+
+      if (access.size !== 2) {
+        window.alert("Finalize os dois turnos e a final da 2ª Divisão do Acre antes de avançar a temporada.");
+        return;
+      }
+
+      const orderedFirst = Object.keys(firstTable).sort((a, b) => {
+        const A = firstTable[a], B = firstTable[b];
         return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
       });
 
-      if (!firstOrder.length) {
-        window.alert("A 1ª Divisão do Acre ainda não foi simulada.");
-        return;
-      }
-
-      relegatedFromFirst = new Set(firstOrder.slice(-2));
-      promotedFromSecond = getAcreAccessTeams(acreSecond);
-
-      if (promotedFromSecond.size < 2) {
-        window.alert("A 2ª Divisão do Acre ainda não foi concluída ou não definiu os dois acessos.");
-        return;
-      }
-
+      const relegated = new Set(orderedFirst.slice(-2));
       const firstTeams = acreFirst.teams ?? [];
       const secondTeams = acreSecond.teams ?? [];
 
-      const nextFirstTeams = [
-        ...firstTeams.filter((team) => !relegatedFromFirst.has(team)),
-        ...secondTeams.filter((team) => promotedFromSecond.has(team)),
-      ];
+      const promotedTeams = secondTeams.filter((team) => access.has(team));
+      const relegatedTeams = firstTeams.filter((team) => relegated.has(team));
 
-      const nextSecondTeams = [
-        ...secondTeams.filter((team) => !promotedFromSecond.has(team)),
-        ...firstTeams.filter((team) => relegatedFromFirst.has(team)),
-      ];
+      if (promotedTeams.length !== 2 || relegatedTeams.length !== 2) {
+        window.alert("Não foi possível identificar exatamente 2 acessos e 2 rebaixamentos no Acre.");
+        return;
+      }
+
+      const nextFirstTeams = [...firstTeams.filter((team) => !relegated.has(team)), ...promotedTeams];
+      const nextSecondTeams = [...secondTeams.filter((team) => !access.has(team)), ...relegatedTeams];
 
       const nextSeason = countryChampionships.map((championship) => {
-        if (championship.id === acreFirst.id) {
-          return {
-            ...championship,
-            season: nextYear,
-            teams: nextFirstTeams,
-            standings: undefined,
-            phaseStandings: undefined,
-            phaseMatches: undefined,
-            firstTurnWinner: undefined,
-            secondTurnWinner: undefined,
-          };
-        }
-
-        if (championship.id === acreSecond.id) {
-          return {
-            ...championship,
-            season: nextYear,
-            teams: nextSecondTeams,
-            standings: undefined,
-            phaseStandings: undefined,
-            phaseMatches: undefined,
-            firstTurnWinner: undefined,
-            secondTurnWinner: undefined,
-          };
-        }
-
-        return {
+        const base = {
           ...championship,
           season: nextYear,
           standings: undefined,
@@ -633,23 +590,20 @@ export default function App() {
           firstTurnWinner: undefined,
           secondTurnWinner: undefined,
         };
+
+        if (championship.id === acreFirst.id) return { ...base, teams: nextFirstTeams };
+        if (championship.id === acreSecond.id) return { ...base, teams: nextSecondTeams };
+        return base;
       });
 
-      const otherChampionships = championships.filter(
-        (championship) => championship.country !== country
-      );
-      const updated = [...otherChampionships, ...nextSeason];
-
+      const updated = [...championships.filter((c) => c.country !== country), ...nextSeason];
       setChampionships(updated);
       setSelectedId(acreFirst.id);
 
       const nextPhases: Record<number, string> = {};
-      nextSeason.forEach((championship) => {
-        if (championship.phases?.length) {
-          nextPhases[championship.id] = championship.phases[0];
-        }
+      nextSeason.forEach((c) => {
+        if (c.phases?.length) nextPhases[c.id] = c.phases[0];
       });
-
       setSelectedPhase(nextPhases);
       setSelectedSection({});
       return;
@@ -665,21 +619,13 @@ export default function App() {
       secondTurnWinner: undefined,
     }));
 
-    const otherChampionships = championships.filter(
-      (championship) => championship.country !== country
-    );
-    const updated = [...otherChampionships, ...nextSeason];
-
+    const updated = [...championships.filter((c) => c.country !== country), ...nextSeason];
     setChampionships(updated);
-
-    const firstNew = nextSeason[0];
-    setSelectedId(firstNew?.id ?? null);
+    setSelectedId(nextSeason[0]?.id ?? null);
 
     const nextPhases: Record<number, string> = {};
-    nextSeason.forEach((championship) => {
-      if (championship.phases?.length) {
-        nextPhases[championship.id] = championship.phases[0];
-      }
+    nextSeason.forEach((c) => {
+      if (c.phases?.length) nextPhases[c.id] = c.phases[0];
     });
     setSelectedPhase(nextPhases);
     setSelectedSection({});
@@ -689,23 +635,26 @@ export default function App() {
   function resetSeasonTo2026() {
     if (!window.confirm("Zerar todas as simulações e voltar todos os campeonatos para a temporada 2026?")) return;
 
-    const resetChampionships = championships.map((championship) => ({
-      ...championship,
-      season: "2026",
-      standings: undefined,
-      phaseStandings: undefined,
-      phaseMatches: undefined,
-      firstTurnWinner: undefined,
-      secondTurnWinner: undefined,
-    }));
+    const resetChampionships = championships.map((championship) => {
+      const acreDefinition = ACRE_CHAMPIONSHIPS.find((acre) => acre.id === championship.id);
+
+      return {
+        ...championship,
+        season: "2026",
+        teams: acreDefinition ? [...(acreDefinition.teams ?? [])] : championship.teams,
+        standings: undefined,
+        phaseStandings: undefined,
+        phaseMatches: undefined,
+        firstTurnWinner: undefined,
+        secondTurnWinner: undefined,
+      };
+    });
 
     setChampionships(resetChampionships);
 
     const resetPhases: Record<number, string> = {};
     resetChampionships.forEach((championship) => {
-      if (championship.phases?.length) {
-        resetPhases[championship.id] = championship.phases[0];
-      }
+      if (championship.phases?.length) resetPhases[championship.id] = championship.phases[0];
     });
 
     setSelectedPhase(resetPhases);
