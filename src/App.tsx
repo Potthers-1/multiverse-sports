@@ -71,6 +71,7 @@ const LS = {
   matoGrossoV1: "sports-mato-grosso-v1",
   minasGeraisV1: "sports-minas-gerais-v1",
   paraV1: "sports-para-v1",
+  paraibaV1: "sports-paraiba-v1",
 };
 
 const A_CLUBS = [
@@ -848,6 +849,27 @@ const PARA_3_CLUBS = [
   "Sport Belem","Belenense","CA Vila Rica","Gavião","Paraupebas","Altamira",
 ];
 
+const PARAIBA_1_CLUBS = [
+  "Atlético PB","Botafogo PB","Campinense","Confiança","Esporte",
+  "Nacional de Patos","Pombal","Serra Branca","Sousa","Treze",
+];
+const PARAIBA_2_CLUBS = [
+  "Santa Rita","Auto Esporte","Desportiva Guarabira","São Paulo Crystal","Cruzeiro-PB",
+  "Spartax","Serrano-PB","Sport-PB","Picuiense","Femar",
+];
+
+function buildParaibaFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Paraibano","Turno único + semifinais + final","10 clubes disputam turno único em 9 rodadas. Os 4 primeiros avançam às semifinais, disputadas em ida e volta. Empate no agregado é decidido automaticamente nos pênaltis.","O campeão é o vencedor da fase final.","Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",10,9,1,"Paraíba");
+  const clubs:Club[]=PARAIBA_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
+function buildParaibaSecondDivision(championshipId:number,startClubId:number,startMatchId:number){
+  const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Paraibano - 2ª Divisão","Turno único + semifinais + final","10 clubes disputam turno único em 9 rodadas. Os 4 primeiros avançam às semifinais, disputadas em ida e volta. Empate no agregado é decidido automaticamente nos pênaltis.","Os dois finalistas garantem acesso à 1ª Divisão.","Não há rebaixamento informado para a 2ª Divisão.",10,9,1,"Paraíba");
+  const clubs:Club[]=PARAIBA_2_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
+  return {championship,clubs,matches:roundRobin(clubs.map(c=>c.id),championshipId,startMatchId,1)};
+}
+
 function buildParaFirstDivision(championshipId:number,startClubId:number,startMatchId:number){
   const championship=makeChampionship(championshipId,"Estadual","2026","Campeonato Paraense","Turno único + semifinais + final","12 clubes disputam turno único em 11 rodadas. Os 4 primeiros avançam ao mata-mata, com semifinais e final em ida e volta. Empate no agregado é decidido automaticamente nos pênaltis.","O campeão é o vencedor da final.","Os 2 últimos colocados da primeira fase são rebaixados para a 2ª Divisão.",12,11,1,"Pará");
   const clubs:Club[]=PARA_1_CLUBS.map((name,i)=>({id:startClubId+i,name,championshipId,clubKey:makeClubKey(name)}));
@@ -1570,6 +1592,34 @@ function App() {
       ensurePara("Campeonato Paraense - 2ª Divisão", buildParaSecondDivision);
       ensurePara("Campeonato Paraense - 3ª Divisão", buildParaThirdDivision);
 
+      if (localStorage.getItem(LS.paraibaV1) !== "1") {
+        const oldIds=new Set(cs.filter(c=>c.state==="Paraíba" || c.name==="Campeonato Paraibano" || c.name==="Campeonato Paraibano - 2ª Divisão").map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+        const addParaiba=(builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]})=>{
+          const cid=Math.max(...cs.map(c=>c.id),0)+1;
+          const uid=Math.max(...cl.map(c=>c.id),0)+1;
+          const mid=Math.max(...ms.map(m=>m.id),0)+1;
+          const built=builder(cid,uid,mid);
+          cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+        };
+        addParaiba(buildParaibaFirstDivision);
+        addParaiba(buildParaibaSecondDivision);
+        localStorage.setItem(LS.paraibaV1,"1");
+      }
+
+      const ensureParaiba = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
+        if (cs.some(c=>c.name===name && c.season==="2026")) return;
+        const cid=Math.max(...cs.map(c=>c.id),0)+1;
+        const uid=Math.max(...cl.map(c=>c.id),0)+1;
+        const mid=Math.max(...ms.map(m=>m.id),0)+1;
+        const built=builder(cid,uid,mid);
+        cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+      };
+      ensureParaiba("Campeonato Paraibano", buildParaibaFirstDivision);
+      ensureParaiba("Campeonato Paraibano - 2ª Divisão", buildParaibaSecondDivision);
+
       if (!cs.length || !cl.length)      if (!cs.length || !cl.length) { seed(); return; }
 
       // Migração incremental: adiciona o primeiro estadual sem apagar
@@ -2157,6 +2207,32 @@ function App() {
         if(winners.length!==2){phaseAlert("Não foi possível identificar os finalistas do Campeonato Maranhense.");return;}
         next.push({id:id++,championshipId:championship.id,round:championship.rounds+(isFirst?3:5),home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
         next.push({id:id++,championshipId:championship.id,round:championship.rounds+(isFirst?4:6),home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
+      }
+      return;
+    }
+
+    if (championship.division === "Estadual" && (
+      championship.name==="Campeonato Paraibano" ||
+      championship.name==="Campeonato Paraibano - 2ª Divisão"
+    )) {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      if(regular.length===45 && regular.every(m=>m.played) && semis.length===0 && final.length===0){
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        if(table.length<4) return;
+        [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");phaseAlert(`Semifinais do ${championship.name} criadas em ida e volta.`);return;
+      }
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2){phaseAlert(`Não foi possível identificar os finalistas do ${championship.name}.`);return;}
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
         setMatches(next);setSection("Final");phaseAlert(`Final do ${championship.name} criada em ida e volta.`);return;
       }
       return;
@@ -3611,6 +3687,15 @@ D → C: ${promotedD.length} promovidos`
       }
       if (state==="Goiás" && name==="Campeonato Goiano - 3ª Divisão") {
         return position<=2 ? "promotion" : "";
+      }
+      if (state==="Paraíba" && name==="Campeonato Paraibano") {
+        if(position>=9) return "relegation";
+        if(position<=4) return "qualification";
+        return "";
+      }
+      if (state==="Paraíba" && name==="Campeonato Paraibano - 2ª Divisão") {
+        if(position<=4) return "qualification";
+        return "";
       }
       if (state==="Pará" && name==="Campeonato Paraense") {
         if(position>=11) return "relegation";
