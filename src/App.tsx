@@ -4282,8 +4282,12 @@ function App() {
     const nationalIds=new Set(
       [A,B,C].flatMap((champ)=>clubs.filter((c)=>c.championshipId===champ.id).map((c)=>makeClubKey(c.name)))
     );
-    const prior28Keys=new Set(dPrior28Ids.map((id)=>makeClubKey(clubName(id))));
-    const stateDSlots=getStateDQualifiers(currentSeason,new Set([...nationalIds,...prior28Keys]));
+    const dSecondPhaseKeys=new Set(dSecondPhaseIds.map((id)=>makeClubKey(clubName(id))));
+    // Um clube que chegou à 2ª fase da Série D já está classificado por
+    // desempenho nacional: ele não pode ocupar novamente uma vaga estadual.
+    // Isso vale tanto para os 28 que seguem para a Série D quanto para os
+    // 4 que garantiram acesso à Série C.
+    const stateDSlots=getStateDQualifiers(currentSeason,new Set([...nationalIds,...dSecondPhaseKeys]));
     const stateDNames=stateDSlots.filter((x)=>x.clubName).map((x)=>x.clubName!);
     if(stateDNames.length!==64){
       alert("As vagas estaduais da Série D ainda não estão completas. Faltam "+(64-stateDNames.length)+" vaga(s). Finalize os estaduais necessários.");return;
