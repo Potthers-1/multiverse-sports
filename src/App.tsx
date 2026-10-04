@@ -289,12 +289,41 @@ export default function App() {
             </div>
 
             <div className="competition-content">
-              <div className="competition-block">
-                <div className="block-title">CLUBES</div>
-                <div className="team-list">
-                  {(selected.teams ?? []).map((team) => (
-                    <div className="team-item" key={team}>{team}</div>
-                  ))}
+              <div className="competition-block standings-block">
+                <div className="block-title">TABELA DE CLASSIFICAÇÃO</div>
+                <div className="standings-wrap">
+                  <table className="standings-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>TIME</th>
+                        <th>J</th>
+                        <th>V</th>
+                        <th>E</th>
+                        <th>D</th>
+                        <th>GP</th>
+                        <th>GC</th>
+                        <th>SG</th>
+                        <th>PTS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selected.teams ?? []).map((team, index) => (
+                        <tr key={team}>
+                          <td>{index + 1}</td>
+                          <td className="standing-team">{team}</td>
+                          <td>0</td>
+                          <td>0</td>
+                          <td>0</td>
+                          <td>0</td>
+                          <td>0</td>
+                          <td>0</td>
+                          <td>0</td>
+                          <td className="standing-points">0</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -396,8 +425,16 @@ export default function App() {
         .competition-content { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding-top: 22px; }
         .competition-block { background: #0c1323; border: 1px solid #202a40; border-radius: 12px; padding: 17px; }
         .block-title { color: #71809f; font-size: 10px; font-weight: 800; letter-spacing: .14em; margin-bottom: 12px; }
-        .team-list { display: grid; gap: 7px; }
-        .team-item { background: #101a2d; border-radius: 8px; padding: 9px 10px; color: #dce3f4; font-size: 13px; }
+        .standings-block { min-width: 0; }
+        .standings-wrap { overflow-x: auto; }
+        .standings-table { width: 100%; border-collapse: collapse; min-width: 610px; font-size: 12px; }
+        .standings-table th { color: #71809f; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-align: center; padding: 8px 6px; border-bottom: 1px solid #202a40; }
+        .standings-table th:nth-child(2) { text-align: left; }
+        .standings-table td { color: #aeb9ce; text-align: center; padding: 9px 6px; border-bottom: 1px solid #182238; }
+        .standings-table tr:last-child td { border-bottom: 0; }
+        .standings-table td:first-child { color: #71809f; font-weight: 700; width: 28px; }
+        .standing-team { text-align: left !important; color: #eef2ff !important; font-weight: 700; white-space: nowrap; }
+        .standing-points { color: #fff !important; font-weight: 800; }
         .rules-list { display: grid; gap: 10px; }
         .rule-item { color: #b5bfd4; font-size: 13px; line-height: 1.45; }
         .state-empty { color: #5f6b84; font-size: 11px; padding: 9px 10px; }
