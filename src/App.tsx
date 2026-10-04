@@ -6,7 +6,57 @@ type Championship = {
   season: string;
   division: string;
   country: string;
+  state?: string;
+  teams?: string[];
+  rules?: string[];
 };
+
+const ACRE_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 1001,
+    name: "Acre",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Acre",
+    teams: [
+      "Galvez - AC",
+      "Humaitá - AC",
+      "Santa Cruz - AC",
+      "Rio Branco - AC",
+      "Independência - AC",
+      "Senador Guiomard - AC",
+      "São Francisco - AC",
+      "Vasco da Gama - AC",
+    ],
+    rules: [
+      "Primeira fase em turno único, com 7 rodadas.",
+      "Os 4 primeiros colocados avançam ao mata-mata.",
+      "Semifinais em jogos de ida e volta.",
+      "Os 2 últimos colocados são rebaixados.",
+    ],
+  },
+  {
+    id: 1002,
+    name: "Acre",
+    season: "2026",
+    division: "2ª Divisão",
+    country: "Brasil",
+    state: "Acre",
+    teams: [
+      "Atlético Acreano - AC",
+      "Andirá - AC",
+      "Nauás - AC",
+      "Plácido de Castro - AC",
+    ],
+    rules: [
+      "1º turno: 4 times disputam entre si em 3 jogos; o melhor vai para a final.",
+      "2º turno: 4 times disputam entre si em 3 jogos; o melhor vai para a final.",
+      "Final em jogo único entre os vencedores dos turnos.",
+      "Se o mesmo time vencer os dois turnos, será campeão automaticamente.",
+    ],
+  },
+];
 
 const STORAGE_KEY = "football-manager-clean-v1";
 
@@ -22,7 +72,11 @@ export default function App() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setChampionships(JSON.parse(saved));
+      if (saved) {
+        setChampionships(JSON.parse(saved));
+      } else {
+        setChampionships(ACRE_CHAMPIONSHIPS);
+      }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -33,6 +87,8 @@ export default function App() {
   }, [championships]);
 
   const selected = championships.find((c) => c.id === selectedId) ?? null;
+  const estadualChampionships = championships.filter((champ) => champ.state);
+  const stateNames = [...new Set(estadualChampionships.map((champ) => champ.state!))];
 
   function createChampionship() {
     const cleanName = name.trim();
@@ -111,21 +167,26 @@ export default function App() {
 
           {estaduaisOpen && (
             <div className="state-menu">
-              {championships.filter((champ) => champ.division === "Estadual").length === 0 ? (
+              {stateNames.length === 0 ? (
                 <div className="state-empty">Nenhum estadual criado.</div>
               ) : (
-                championships
-                  .filter((champ) => champ.division === "Estadual")
-                  .map((champ) => (
-                    <button
-                      key={champ.id}
-                      className={`state-link ${selectedId === champ.id ? "selected" : ""}`}
-                      onClick={() => setSelectedId(champ.id)}
-                    >
-                      <span>{champ.name}</span>
-                      <small>{champ.season}</small>
-                    </button>
-                  ))
+                stateNames.map((stateName) => (
+                  <div key={stateName} className="state-group">
+                    <div className="state-name">🇧🇷 {stateName}</div>
+                    {estadualChampionships
+                      .filter((champ) => champ.state === stateName)
+                      .map((champ) => (
+                        <button
+                          key={champ.id}
+                          className={`state-link ${selectedId === champ.id ? "selected" : ""}`}
+                          onClick={() => setSelectedId(champ.id)}
+                        >
+                          <span>{champ.division}</span>
+                          <small>{champ.season}</small>
+                        </button>
+                      ))}
+                  </div>
+                ))
               )}
             </div>
           )}
@@ -178,13 +239,24 @@ export default function App() {
               <div><span>Temporada</span><strong>{selected.season}</strong></div>
             </div>
 
-            <div className="empty-state">
-              <div className="empty-icon">🏆</div>
-              <h3>Campeonato criado</h3>
-              <p>
-                A estrutura esportiva ainda não foi definida. Este é o ponto de partida
-                para construirmos as regras da competição do zero.
-              </p>
+            <div className="competition-content">
+              <div className="competition-block">
+                <div className="block-title">CLUBES</div>
+                <div className="team-list">
+                  {(selected.teams ?? []).map((team) => (
+                    <div className="team-item" key={team}>{team}</div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="competition-block">
+                <div className="block-title">FORMATO DA COMPETIÇÃO</div>
+                <div className="rules-list">
+                  {(selected.rules ?? ["Estrutura ainda não definida."]).map((rule) => (
+                    <div className="rule-item" key={rule}>• {rule}</div>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
         ) : (
@@ -268,6 +340,15 @@ export default function App() {
         .state-menu-toggle:hover, .state-menu-toggle.open { background: #121b30; color: #fff; }
         .state-chevron { color: #71809f; font-size: 12px; }
         .state-menu { margin: 2px 0 0 9px; padding-left: 8px; border-left: 1px solid #26314a; }
+        .state-group { margin-bottom: 5px; }
+        .state-name { color: #d5dcf0; font-size: 12px; font-weight: 800; padding: 8px 10px 4px; }
+        .competition-content { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding-top: 22px; }
+        .competition-block { background: #0c1323; border: 1px solid #202a40; border-radius: 12px; padding: 17px; }
+        .block-title { color: #71809f; font-size: 10px; font-weight: 800; letter-spacing: .14em; margin-bottom: 12px; }
+        .team-list { display: grid; gap: 7px; }
+        .team-item { background: #101a2d; border-radius: 8px; padding: 9px 10px; color: #dce3f4; font-size: 13px; }
+        .rules-list { display: grid; gap: 10px; }
+        .rule-item { color: #b5bfd4; font-size: 13px; line-height: 1.45; }
         .state-empty { color: #5f6b84; font-size: 11px; padding: 9px 10px; }
         .state-link { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 0; background: transparent; color: #9ba8c1; text-align: left; border-radius: 7px; padding: 8px 10px; font-size: 12px; }
         .state-link:hover, .state-link.selected { background: #17213a; color: #fff; }
@@ -317,7 +398,7 @@ export default function App() {
           .sidebar { width: 220px; }
           .main { padding: 25px 18px; }
           .topbar { align-items: flex-start; flex-direction: column; }
-          .info-grid, .form-row { grid-template-columns: 1fr; }
+          .info-grid, .form-row, .competition-content { grid-template-columns: 1fr; }
         }
         @media (max-width: 560px) {
           .app { display: block; }
