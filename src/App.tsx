@@ -691,15 +691,48 @@ export default function App() {
                           return (
                             <div className="knockout-list">
                               {matches.length === 0 ? (
-                                <div className="phase-empty">As partidas desta fase ainda não foram geradas.</div>
+                                <div className="phase-empty">
+                                  <div className="phase-empty-icon">⚽</div>
+                                  <strong>Confrontos ainda não gerados</strong>
+                                  <span>Simule a fase anterior para gerar os jogos.</span>
+                                </div>
                               ) : (
-                                matches.map((match, index) => (
-                                  <div className="knockout-match" key={`${currentPhase}-${index}`}>
-                                    <span>{match.home}</span>
-                                    <strong>{match.homeScore ?? "—"} × {match.awayScore ?? "—"}</strong>
-                                    <span>{match.away}</span>
-                                  </div>
-                                ))
+                                matches.map((match, index) => {
+                                  const homeScore = match.homeScore;
+                                  const awayScore = match.awayScore;
+                                  const played = homeScore !== undefined && awayScore !== undefined;
+                                  const homeWinner = played && homeScore > awayScore;
+                                  const awayWinner = played && awayScore > homeScore;
+
+                                  return (
+                                    <div className="knockout-card" key={`${currentPhase}-${index}`}>
+                                      <div className="knockout-card-header">
+                                        <span>{currentPhase === "Final" ? "FINAL" : `SEMIFINAL ${index + 1}`}</span>
+                                        <span>{played ? "ENCERRADO" : "A DEFINIR"}</span>
+                                      </div>
+                                      <div className="knockout-teams">
+                                        <div className={`knockout-team ${homeWinner ? "winner" : ""}`}>
+                                          <span className="knockout-team-position">CASA</span>
+                                          <strong>{match.home}</strong>
+                                        </div>
+                                        <div className="knockout-score">
+                                          <span>PLACAR</span>
+                                          <strong>{played ? `${homeScore} × ${awayScore}` : "— × —"}</strong>
+                                        </div>
+                                        <div className={`knockout-team away ${awayWinner ? "winner" : ""}`}>
+                                          <span className="knockout-team-position">FORA</span>
+                                          <strong>{match.away}</strong>
+                                        </div>
+                                      </div>
+                                      <div className="knockout-card-footer">
+                                        <span>⚽ Jogo {index + 1}</span>
+                                        {played && (homeWinner || awayWinner) && (
+                                          <span className="knockout-winner">✓ Vencedor definido</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })
                               )}
                             </div>
                           );
@@ -887,6 +920,26 @@ export default function App() {
         .standings-table td:first-child { color: #71809f; font-weight: 700; width: 28px; }
         .standing-team { text-align: left !important; color: #eef2ff !important; font-weight: 700; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
         .standing-points { color: #fff !important; font-weight: 800; }
+        .knockout-list { display: grid; gap: 14px; margin-top: 6px; }
+        .knockout-card { border: 1px solid #24304a; border-radius: 14px; background: linear-gradient(135deg, #0d1629, #101a2e); overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+        .knockout-card-header, .knockout-card-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; color: #7f8eaa; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+        .knockout-card-header { border-bottom: 1px solid #1e2a42; }
+        .knockout-card-header span:first-child { color: #b7c3d9; }
+        .knockout-teams { display: grid; grid-template-columns: 1fr 130px 1fr; align-items: center; min-height: 112px; padding: 18px 20px; gap: 18px; }
+        .knockout-team { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+        .knockout-team.away { text-align: right; align-items: flex-end; }
+        .knockout-team-position { color: #61708d; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+        .knockout-team strong { color: #e7edf8; font-size: 15px; line-height: 1.25; word-break: break-word; }
+        .knockout-team.winner strong { color: #86efac; }
+        .knockout-score { text-align: center; padding: 10px 8px; border-left: 1px solid #202d46; border-right: 1px solid #202d46; }
+        .knockout-score span { display: block; color: #65738e; font-size: 9px; font-weight: 800; letter-spacing: .08em; margin-bottom: 6px; }
+        .knockout-score strong { color: #fff; font-size: 24px; letter-spacing: .02em; }
+        .knockout-card-footer { border-top: 1px solid #1e2a42; font-size: 10px; }
+        .knockout-winner { color: #6ee7a0; letter-spacing: 0; }
+        .phase-empty { min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border: 1px dashed #293650; border-radius: 12px; color: #7787a3; }
+        .phase-empty-icon { font-size: 25px; }
+        .phase-empty strong { color: #b9c5d8; font-size: 13px; }
+        .phase-empty span { font-size: 11px; }
         .standings-table tr.zone-next td { background: rgba(34, 197, 94, 0.16) !important; }
         .standings-table tr.zone-next td:first-child { box-shadow: inset 4px 0 0 #22c55e; color: #86efac !important; }
         .standings-table tr.zone-next .standing-team { color: #bbf7d0 !important; }
