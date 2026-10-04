@@ -188,14 +188,18 @@ export default function App() {
 
     const firstWinner = championship.firstTurnWinner;
     const secondWinner = championship.secondTurnWinner;
-    let champion: string | undefined = firstWinner;
+    let champion: string | undefined;
 
-    if (firstWinner && secondWinner && firstWinner !== secondWinner) {
-      const final = championship.phaseMatches?.["Final"]?.[0];
-      if (final?.homeScore !== undefined && final?.awayScore !== undefined) {
-        champion = final.homeScore >= final.awayScore ? final.home : final.away;
+    if (firstWinner && secondWinner) {
+      if (firstWinner === secondWinner) {
+        champion = firstWinner;
       } else {
-        champion = undefined;
+        const final = championship.phaseMatches?.["Final"]?.[0];
+        if (final?.penaltyWinner) {
+          champion = final.penaltyWinner;
+        } else if (final?.homeScore !== undefined && final?.awayScore !== undefined && final.homeScore !== final.awayScore) {
+          champion = final.homeScore > final.awayScore ? final.home : final.away;
+        }
       }
     }
 
@@ -571,7 +575,12 @@ export default function App() {
     if (firstWinner === secondWinner) return firstWinner;
 
     const final = championship.phaseMatches?.["Final"]?.[0];
-    if (!final || final.homeScore === undefined || final.awayScore === undefined) return undefined;
+    if (!final) return undefined;
+
+    // Final empatada: o campeão é definido pelo pênalti automático.
+    if (final.penaltyWinner) return final.penaltyWinner;
+
+    if (final.homeScore === undefined || final.awayScore === undefined) return undefined;
     if (final.homeScore === final.awayScore) return undefined;
 
     return final.homeScore > final.awayScore ? final.home : final.away;
@@ -622,7 +631,7 @@ export default function App() {
       }
 
       if (access.size !== 2) {
-        window.alert("Finalize os dois turnos e a final da 2ª Divisão do Acre antes de avançar a temporada.");
+        window.alert("Finalize os dois turnos e a definição do campeão da 2ª Divisão do Acre antes de avançar a temporada.");
         return;
       }
 
