@@ -498,6 +498,56 @@ export default function App() {
     setShowCreate(false);
   }
 
+  function goToNextSeason() {
+    const country = "Brasil";
+    const countryChampionships = championships.filter((championship) => championship.country === country);
+
+    if (!countryChampionships.length) {
+      window.alert("Não há campeonatos cadastrados para avançar de temporada.");
+      return;
+    }
+
+    const currentYear = Math.max(
+      ...countryChampionships.map((championship) => Number(championship.season) || 2026)
+    );
+    const nextYear = String(currentYear + 1);
+
+    const alreadyExists = countryChampionships.some(
+      (championship) => championship.season === nextYear
+    );
+
+    if (alreadyExists) {
+      window.alert(`A temporada ${nextYear} já foi criada.`);
+      return;
+    }
+
+    const nextSeason = countryChampionships.map((championship, index) => ({
+      ...championship,
+      id: Date.now() + index,
+      season: nextYear,
+      standings: undefined,
+      phaseStandings: undefined,
+      phaseMatches: undefined,
+      firstTurnWinner: undefined,
+      secondTurnWinner: undefined,
+    }));
+
+    const updated = [...championships, ...nextSeason];
+    setChampionships(updated);
+
+    const firstNew = nextSeason[0];
+    setSelectedId(firstNew?.id ?? null);
+
+    const nextPhases: Record<number, string> = {};
+    nextSeason.forEach((championship) => {
+      if (championship.phases?.length) {
+        nextPhases[championship.id] = championship.phases[0];
+      }
+    });
+    setSelectedPhase(nextPhases);
+    setSelectedSection({});
+  }
+
   function resetSeasonTo2026() {
     if (!window.confirm("Zerar todas as simulações e voltar todos os campeonatos para a temporada 2026?")) return;
 
@@ -664,8 +714,8 @@ export default function App() {
             </div>
             <h1>{selected ? selected.name : "Novo começo"}</h1>
           </div>
-          <button className="top-action" onClick={() => setShowCreate(true)}>
-            + Criar campeonato
+          <button className="top-action" onClick={goToNextSeason}>
+            → Próxima temporada
           </button>
         </header>
 
