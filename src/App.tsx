@@ -647,7 +647,6 @@ export default function App() {
 
     // ESTA É A MESMA ORDENAÇÃO USADA PELA TABELA NA TELA.
     const firstRanking = sortStandingTeams(firstTeams, firstTable);
-    const secondRanking = sortStandingTeams(secondTeams, secondGeneral);
 
     // 7º e 8º da 1ª Divisão descem.
     const relegated = firstRanking.slice(6, 8);
