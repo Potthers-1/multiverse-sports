@@ -69,6 +69,7 @@ const LS = {
   goiasV1: "sports-goias-v1",
   maranhaoV1: "sports-maranhao-v1",
   matoGrossoV1: "sports-mato-grosso-v1",
+  minasGeraisV1: "sports-minas-gerais-v1",
 };
 
 const A_CLUBS = [
