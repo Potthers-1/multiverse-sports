@@ -466,6 +466,32 @@ export default function App() {
     setShowCreate(false);
   }
 
+  function resetSeasonTo2026() {
+    if (!window.confirm("Zerar todas as simulações e voltar todos os campeonatos para a temporada 2026?")) return;
+
+    const resetChampionships = championships.map((championship) => ({
+      ...championship,
+      season: "2026",
+      standings: undefined,
+      phaseStandings: undefined,
+      phaseMatches: undefined,
+      firstTurnWinner: undefined,
+      secondTurnWinner: undefined,
+    }));
+
+    setChampionships(resetChampionships);
+
+    const resetPhases: Record<number, string> = {};
+    resetChampionships.forEach((championship) => {
+      if (championship.phases?.length) {
+        resetPhases[championship.id] = championship.phases[0];
+      }
+    });
+
+    setSelectedPhase(resetPhases);
+    setSelectedSection({});
+  }
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -595,6 +621,13 @@ export default function App() {
                 onClick={() => simulateCompleteCountrySeason("Brasil")}
               >
                 ▶ Simular temporada completa
+              </button>
+              <button
+                className="reset-season"
+                onClick={resetSeasonTo2026}
+                title="Apagar os resultados e voltar para 2026"
+              >
+                ↺ Zerar temporada
               </button>
             </div>
             <h1>{selected ? selected.name : "Novo começo"}</h1>
@@ -966,6 +999,8 @@ export default function App() {
         .country-heading { display: flex; align-items: center; gap: 12px; }
         .simulate-season { border: 1px solid #33466f; background: #14213b; color: #dce5ff; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; cursor: pointer; }
         .simulate-season:hover { background: #1b2c4d; border-color: #4b65a0; }
+        .reset-season { border: 1px solid #593c45; background: #21151b; color: #f0b5bf; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; cursor: pointer; }
+        .reset-season:hover { background: #2c1a22; border-color: #8b4b59; color: #ffd5dc; }
         .topbar { max-width: 1100px; margin: 0 auto 26px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
         .country-heading { display: flex; align-items: center; gap: 12px; }
         .simulate-season { border: 1px solid #33466f; background: #14213b; color: #dce5ff; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; }
