@@ -1433,6 +1433,19 @@ function App() {
         localStorage.setItem(LS.matoGrossoV1,"1");
       }
 
+      // Garantia de integridade: se um estadual estiver ausente do armazenamento local,
+      // ele é recriado mesmo que a flag de migração já esteja marcada.
+      const ensureMaranhao = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
+        if (cs.some(c=>c.name===name && c.season==="2026")) return;
+        const cid=Math.max(...cs.map(c=>c.id),0)+1;
+        const uid=Math.max(...cl.map(c=>c.id),0)+1;
+        const mid=Math.max(...ms.map(m=>m.id),0)+1;
+        const built=builder(cid,uid,mid);
+        cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+      };
+      ensureMaranhao("Campeonato Maranhense", buildMaranhaoFirstDivision);
+      ensureMaranhao("Campeonato Maranhense - 2ª Divisão", buildMaranhaoSecondDivision);
+
       if (!cs.length || !cl.length)      if (!cs.length || !cl.length) { seed(); return; }
 
       // Migração incremental: adiciona o primeiro estadual sem apagar
