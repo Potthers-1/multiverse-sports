@@ -30,7 +30,7 @@ const ACRE_CHAMPIONSHIPS: Championship[] = [
       "São Francisco - AC",
       "Vasco da Gama - AC",
     ],
-    phases: ["1ª Fase", "Semifinais", "Final"],
+    phases: ["Primeira fase", "Semi final", "Final"],
     rules: [
       "Primeira fase em turno único, com 7 rodadas.",
       "Os 4 primeiros colocados avançam ao mata-mata.",
@@ -51,7 +51,7 @@ const ACRE_CHAMPIONSHIPS: Championship[] = [
       "Nauás - AC",
       "Plácido de Castro - AC",
     ],
-    phases: ["1º Turno", "2º Turno", "Final"],
+    phases: ["Primeiro turno", "Segundo turno", "Final", "Classificação geral"],
     rules: [
       "1º turno: 4 times disputam entre si em 3 jogos; o melhor vai para a final.",
       "2º turno: 4 times disputam entre si em 3 jogos; o melhor vai para a final.",
@@ -131,11 +131,11 @@ export default function App() {
 
   function getRowClass(championship: Championship, phase: string, index: number) {
     if (championship.state !== "Acre") return "";
-    if (championship.division === "1ª Divisão" && phase === "1ª Fase") {
+    if (championship.division === "1ª Divisão" && phase === "Primeira fase") {
       if (index < 4) return "zone-next";
       if (index >= (championship.teams?.length ?? 0) - 2) return "zone-relegation";
     }
-    if (championship.division === "2ª Divisão" && (phase === "1º Turno" || phase === "2º Turno")) {
+    if (championship.division === "2ª Divisão" && (phase === "Primeiro turno" || phase === "Segundo turno")) {
       if (index === 0) return "zone-next";
     }
     return "";
@@ -398,7 +398,7 @@ export default function App() {
                         </table>
                         <div className="standings-legend">
                           <span><i className="legend-next" /> Classificado para a próxima fase</span>
-                          {selected.division === "1ª Divisão" && (selectedPhase[selected.id] ?? selected.phases?.[0]) === "1ª Fase" && (
+                          {selected.division === "1ª Divisão" && (selectedPhase[selected.id] ?? selected.phases?.[0]) === "Primeira fase" && (
                             <span><i className="legend-relegation" /> Rebaixado</span>
                           )}
                         </div>
