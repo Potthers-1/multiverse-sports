@@ -74,6 +74,7 @@ const LS = {
   paraibaV1: "sports-paraiba-v1",
   paranaV1: "sports-parana-v1",
   saoPauloV1: "sports-sao-paulo-v1",
+  saoPauloV2: "sports-sao-paulo-v2",
 };
 
 const A_CLUBS = [
@@ -1753,6 +1754,41 @@ function App() {
         cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
       };
       [1,2,3,4,5].forEach(ensureSaoPaulo);
+
+      // Migração São Paulo V2: corrige o mata-mata das divisões 1ª-4ª.
+      // Essas divisões começam nas quartas (8 classificados), não nas oitavas.
+      if (localStorage.getItem(LS.saoPauloV2) !== "1") {
+        const spTopNames = [
+          "Campeonato Paulista",
+          "Campeonato Paulista - 2ª Divisão",
+          "Campeonato Paulista - 3ª Divisão",
+          "Campeonato Paulista - 4ª Divisão",
+        ];
+        const spTop = cs.filter(c=>c.state==="São Paulo" && spTopNames.includes(c.name) && c.season==="2026");
+        for (const champ of spTop) {
+          for (let i=ms.length-1;i>=0;i--) {
+            if (ms[i].championshipId===champ.id && (ms[i].stage==="knockout" || ms[i].stage==="final")) ms.splice(i,1);
+          }
+          const champClubs=cl.filter(c=>c.championshipId===champ.id);
+          const regular=ms.filter(m=>m.championshipId===champ.id && m.stage==="regular");
+          if (regular.length===120 && regular.every(m=>m.played) && champClubs.length===16) {
+            const table=tableFor(champ,champClubs.map(c=>c.id),ms,"regular");
+            const qualified=table.slice(0,8).map(x=>x.clubId);
+            const pairs=[
+              [qualified[0],qualified[7]],
+              [qualified[1],qualified[6]],
+              [qualified[2],qualified[5]],
+              [qualified[3],qualified[4]],
+            ];
+            let mid=Math.max(...ms.map(m=>m.id),0)+1;
+            for (const [home,away] of pairs) {
+              ms.push({id:mid++,championshipId:champ.id,round:champ.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
+              ms.push({id:mid++,championshipId:champ.id,round:champ.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
+            }
+          }
+        }
+        localStorage.setItem(LS.saoPauloV2,"1");
+      }
 
       const ensureParana = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
         if (cs.some(c=>c.name===name && c.season==="2026")) return;
