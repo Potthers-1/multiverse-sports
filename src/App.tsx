@@ -241,131 +241,221 @@ export default function App() {
     ];
   }
 
-  function simulateSeason() {
-    if (!selected) return;
+  function simulateKnockoutMatch(home: string, away: string): Matchup {
+    return {
+      home,
+      away,
+      homeScore: Math.floor(Math.random() * 5),
+      awayScore: Math.floor(Math.random() * 5),
+    };
+  }
 
-    const teams = selected.teams ?? [];
-    if (!teams.length) {
-      window.alert("Este campeonato ainda não possui clubes cadastrados.");
+  function simulateAcreFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = [...teams].sort((a, b) => {
+      const A = firstStandings[a];
+      const B = firstStandings[b];
+      return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+    });
+
+    const qualified = ordered.slice(0, 4);
+    const semiPairs = [
+      [qualified[0], qualified[3]],
+      [qualified[1], qualified[2]],
+    ];
+
+    const semiMatches: Matchup[] = [];
+    const semiWinners: string[] = [];
+
+    for (const [teamA, teamB] of semiPairs) {
+      const leg1 = simulateKnockoutMatch(teamA, teamB);
+      const leg2 = simulateKnockoutMatch(teamB, teamA);
+      semiMatches.push(leg1, leg2);
+
+      const totalA = (leg1.homeScore ?? 0) + (leg2.awayScore ?? 0);
+      const totalB = (leg1.awayScore ?? 0) + (leg2.homeScore ?? 0);
+      semiWinners.push(totalA >= totalB ? teamA : teamB);
+    }
+
+    const finalMatch = semiWinners.length === 2
+      ? [simulateKnockoutMatch(semiWinners[0], semiWinners[1])]
+      : [];
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Semi final": semiMatches,
+        "Final": finalMatch,
+      },
+    };
+  }
+
+  function simulateAcreSecondDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+
+    const firstTurn = simulateRoundRobin(teams);
+    const firstOrder = [...teams].sort((a, b) => {
+      const A = firstTurn[a];
+      const B = firstTurn[b];
+      return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+    });
+    const firstWinner = firstOrder[0];
+
+    // O segundo turno começa com uma tabela completamente nova e independente.
+    const secondTurn = simulateRoundRobin(teams);
+    const secondOrder = [...teams].sort((a, b) => {
+      const A = secondTurn[a];
+      const B = secondTurn[b];
+      return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+    });
+    const secondWinner = secondOrder[0];
+
+    const phaseStandings = {
+      ...(championship.phaseStandings ?? {}),
+      "Primeiro turno": firstTurn,
+      "Segundo turno": secondTurn,
+    };
+
+    // Classificação geral soma os dois turnos.
+    const general: Record<string, Standing> = {};
+    teams.forEach((team) => {
+      const a = firstTurn[team];
+      const b = secondTurn[team];
+      general[team] = {
+        j: a.j + b.j,
+        v: a.v + b.v,
+        e: a.e + b.e,
+        d: a.d + b.d,
+        gp: a.gp + b.gp,
+        gc: a.gc + b.gc,
+        sg: a.sg + b.sg,
+        pts: a.pts + b.pts,
+      };
+    });
+
+    let finalMatches: Matchup[] = [];
+    if (firstWinner !== secondWinner) {
+      finalMatches = [simulateKnockoutMatch(firstWinner, secondWinner)];
+    }
+
+    return {
+      ...championship,
+      standings: general,
+      phaseStandings: {
+        ...phaseStandings,
+        "Classificação geral": general,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Final": finalMatches,
+      },
+      firstTurnWinner: firstWinner,
+      secondTurnWinner: secondWinner,
+    };
+  }
+
+  function simulateGenericChampionship(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (!teams.length) return championship;
+
+    const firstPhase = championship.phases?.[0] ?? "Classificação";
+    const standings = simulateRoundRobin(teams);
+
+    return {
+      ...championship,
+      standings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        [firstPhase]: standings,
+      },
+    };
+  }
+
+  function simulateCompleteCountrySeason(country: string) {
+    const countryChampionships = championships.filter(
+      (championship) => championship.country === country
+    );
+
+    if (!countryChampionships.length) {
+      window.alert("Não há campeonatos cadastrados para este país.");
       return;
     }
 
-    const phase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "Primeira fase";
-    const existingPhaseStandings = selected.phaseStandings ?? {};
+    const updated = championships.map((championship) => {
+      if (championship.country !== country) return championship;
+
+      if (championship.state === "Acre" && championship.division === "1ª Divisão") {
+        return simulateAcreFirstDivision(championship);
+      }
+
+      if (championship.state === "Acre" && championship.division === "2ª Divisão") {
+        return simulateAcreSecondDivision(championship);
+      }
+
+      return simulateGenericChampionship(championship);
+    });
+
+    setChampionships(updated);
+
+    // Após a simulação completa, a primeira fase continua sendo a tela inicial.
+    setSelectedPhase((current) => {
+      const next = { ...current };
+      updated
+        .filter((championship) => championship.country === country)
+        .forEach((championship) => {
+          if (championship.phases?.length) {
+            next[championship.id] = championship.phases[0];
+          }
+        });
+      return next;
+    });
+  }
+
+  function simulateSeason() {
+    if (!selected) return;
 
     if (selected.state === "Acre" && selected.division === "1ª Divisão") {
-      if (phase === "Primeira fase") {
-        const standings = simulateRoundRobin(teams);
-        const ordered = [...teams].sort((a, b) => {
-          const A = standings[a], B = standings[b];
-          return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
-        });
-        const semiFinals = generateSemiFinals(ordered.slice(0, 4));
-
-        setChampionships((current) =>
-          current.map((championship) =>
-            championship.id === selected.id
-              ? {
-                  ...championship,
-                  standings,
-                  phaseStandings: { ...existingPhaseStandings, "Primeira fase": standings },
-                  phaseMatches: { ...(championship.phaseMatches ?? {}), "Semi final": semiFinals },
-                }
-              : championship
-          )
-        );
-      } else if (phase === "Semi final") {
-        const matches = selected.phaseMatches?.["Semi final"] ?? [];
-        if (!matches.length) {
-          window.alert("Primeiro simule a Primeira fase para gerar as semifinais.");
-          return;
-        }
-        const played = matches.map((m) => ({
-          ...m,
-          homeScore: Math.floor(Math.random() * 5),
-          awayScore: Math.floor(Math.random() * 5),
-        }));
-        const winners = played.map((m) => (m.homeScore! >= m.awayScore! ? m.home : m.away));
-        const final = winners.length === 2 ? [{ home: winners[0], away: winners[1] }] : [];
-        setChampionships((current) =>
-          current.map((championship) =>
-            championship.id === selected.id
-              ? { ...championship, phaseMatches: { ...(championship.phaseMatches ?? {}), "Semi final": played, "Final": final } }
-              : championship
-          )
-        );
-      } else if (phase === "Final") {
-        const matches = selected.phaseMatches?.["Final"] ?? [];
-        if (!matches.length) {
-          window.alert("Primeiro conclua as semifinais para gerar a final.");
-          return;
-        }
-        const played = matches.map((m) => ({
-          ...m,
-          homeScore: Math.floor(Math.random() * 5),
-          awayScore: Math.floor(Math.random() * 5),
-        }));
-        setChampionships((current) =>
-          current.map((championship) =>
-            championship.id === selected.id
-              ? { ...championship, phaseMatches: { ...(championship.phaseMatches ?? {}), "Final": played } }
-              : championship
-          )
-        );
-      }
-    } else if (selected.state === "Acre" && selected.division === "2ª Divisão") {
-      if (phase === "Primeiro turno" || phase === "Segundo turno") {
-        const standings = simulateRoundRobin(teams);
-        const phaseStandings = { ...existingPhaseStandings, [phase]: standings };
-        const ordered = [...teams].sort((a, b) => {
-          const A = standings[a], B = standings[b];
-          return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
-        });
-        const winner = ordered[0];
-
-        setChampionships((current) =>
-          current.map((championship) =>
-            championship.id === selected.id
-              ? {
-                  ...championship,
-                  standings: phase === "Primeiro turno" ? standings : championship.standings,
-                  phaseStandings,
-                  firstTurnWinner: phase === "Primeiro turno" ? winner : championship.firstTurnWinner,
-                  secondTurnWinner: phase === "Segundo turno" ? winner : championship.secondTurnWinner,
-                }
-              : championship
-          )
-        );
-      } else if (phase === "Final") {
-        const first = selected.firstTurnWinner;
-        const second = selected.secondTurnWinner;
-        if (!first) {
-          window.alert("O Primeiro turno ainda não foi concluído.");
-          return;
-        }
-        if (!second || second === first) {
-          window.alert("O mesmo campeão dos dois turnos é campeão automaticamente.");
-          return;
-        }
-        const final = [{ home: first, away: second }];
-        setChampionships((current) =>
-          current.map((championship) =>
-            championship.id === selected.id
-              ? { ...championship, phaseMatches: { ...(championship.phaseMatches ?? {}), "Final": final } }
-              : championship
-          )
-        );
-      }
-    } else {
-      const standings = simulateRoundRobin(teams);
+      const updated = simulateAcreFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
-          championship.id === selected.id ? { ...championship, standings } : championship
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Acre" && selected.division === "2ª Divisão") {
+      const updated = simulateAcreSecondDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeiro turno",
+      }));
+    } else {
+      const updated = simulateGenericChampionship(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
         )
       );
     }
 
-    setSelectedSection((current) => ({ ...current, [selected.id]: "competition" }));
+    setSelectedSection((current) => ({
+      ...current,
+      [selected.id]: "competition",
+    }));
   }
 
   function resetEverything() {
@@ -502,7 +592,7 @@ export default function App() {
               <div className="eyebrow">BRASIL</div>
               <button
                 className="simulate-season"
-                onClick={simulateSeason}
+                onClick={() => simulateCompleteCountrySeason("Brasil")}
               >
                 ▶ Simular temporada completa
               </button>
