@@ -77,6 +77,7 @@ const LS = {
   saoPauloV2: "sports-sao-paulo-v2",
   saoPauloV3: "sports-sao-paulo-v3",
   saoPauloV4: "sports-sao-paulo-v4",
+  saoPauloV5: "sports-sao-paulo-v5",
 };
 
 const A_CLUBS = [
@@ -1773,6 +1774,33 @@ function App() {
         cl.push(...built.clubs);
         ms.push(...built.matches);
         localStorage.setItem(LS.saoPauloV4,"1");
+      }
+
+      // Garantia final do Estadual Paulista: se qualquer uma das 5 divisões
+      // estiver ausente, recria o pacote paulista completo.
+      if (localStorage.getItem(LS.saoPauloV5) !== "1") {
+        const names = [
+          "Campeonato Paulista",
+          "Campeonato Paulista - 2ª Divisão",
+          "Campeonato Paulista - 3ª Divisão",
+          "Campeonato Paulista - 4ª Divisão",
+          "Campeonato Paulista - 5ª Divisão",
+        ];
+        const present = names.filter(name=>cs.some(c=>c.name===name && c.season==="2026")).length;
+        if (present !== 5) {
+          const oldIds=new Set(cs.filter(c=>c.state==="São Paulo" || names.includes(c.name)).map(c=>c.id));
+          for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+          for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+          for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+          for(const division of [1,2,3,4,5]) {
+            const cid=Math.max(...cs.map(c=>c.id),0)+1;
+            const uid=Math.max(...cl.map(c=>c.id),0)+1;
+            const mid=Math.max(...ms.map(m=>m.id),0)+1;
+            const built=buildSaoPauloDivision(cid,uid,mid,division);
+            cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+          }
+        }
+        localStorage.setItem(LS.saoPauloV5,"1");
       }
 
       const ensureParana = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
