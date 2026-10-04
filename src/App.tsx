@@ -3064,7 +3064,7 @@ D → C: ${promotedD.length} promovidos`
       }
       if (state==="Amazonas" && name==="Campeonato Amazonense - 2ª Divisão") return position <= 4 ? "qualification" : "";
       if (state==="Rio Grande do Sul" && name==="Campeonato Gaúcho") {
-        if(position>=10) return "relegation";
+        if(position>=11) return "relegation";
         if(position<=8) return "qualification";
         return "";
       }
