@@ -139,11 +139,11 @@ export default function App() {
 
         <div className="sidebar-section">
           <div className="section-title">CAMPEONATOS</div>
-          {championships.filter((champ) => champ.division !== "Estadual").length === 0 ? (
+          {championships.filter((champ) => !champ.state && champ.division !== "Estadual").length === 0 ? (
             <div className="empty-sidebar">Nenhum campeonato criado.</div>
           ) : (
             championships
-              .filter((champ) => champ.division !== "Estadual")
+              .filter((champ) => !champ.state && champ.division !== "Estadual")
               .map((champ) => (
                 <button
                   key={champ.id}
