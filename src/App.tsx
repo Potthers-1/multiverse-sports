@@ -2188,6 +2188,53 @@ function App() {
     } catch { seed(); }
   }, []);
 
+  // Garantia permanente de São Paulo: o estadual nunca pode desaparecer da interface.
+  // Se alguma migração anterior tiver removido as competições, elas são reinstaladas
+  // sem apagar as demais competições/simulações.
+  useEffect(() => {
+    if (!championships.length) return;
+    const spNames = [
+      "Campeonato Paulista",
+      "Campeonato Paulista - 2ª Divisão",
+      "Campeonato Paulista - 3ª Divisão",
+      "Campeonato Paulista - 4ª Divisão",
+      "Campeonato Paulista - 5ª Divisão",
+    ];
+    const missing = spNames.some(name => !championships.some(c => c.name === name && c.season === "2026"));
+    if (!missing) return;
+
+    const cs=[...championships];
+    const cl=[...clubs];
+    const ms=[...matches];
+    const oldIds=new Set(cs.filter(c=>c.state==="São Paulo" || spNames.includes(c.name)).map(c=>c.id));
+    for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+    for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+    for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+
+    for(const division of [1,2,3,4,5]){
+      const cid=Math.max(...cs.map(c=>c.id),0)+1;
+      const uid=Math.max(...cl.map(c=>c.id),0)+1;
+      const mid=Math.max(...ms.map(m=>m.id),0)+1;
+      const built=buildSaoPauloDivision(cid,uid,mid,division);
+      cs.push(built.championship);
+      cl.push(...built.clubs);
+      ms.push(...built.matches);
+    }
+
+    localStorage.setItem(LS.championships,JSON.stringify(cs));
+    localStorage.setItem(LS.clubs,JSON.stringify(cl));
+    localStorage.setItem(LS.matches,JSON.stringify(ms));
+    setChampionships(cs);
+    setClubs(cl);
+    setMatches(ms);
+    const first=cs.find(c=>c.name==="Campeonato Paulista" && c.season==="2026");
+    if(first) {
+      setSelectedId(first.id);
+      setSection("Visão geral");
+      setSelectedClub(null);
+    }
+  }, [championships,clubs,matches]);
+
   // Garantia de instalação do Cearense: se o navegador já tinha dados antigos ou
   // uma migração anterior falhou, instala as três divisões sem apagar nenhuma simulação.
   useEffect(() => {
