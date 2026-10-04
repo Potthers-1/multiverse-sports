@@ -80,6 +80,7 @@ const LS = {
   saoPauloV5: "sports-sao-paulo-v5",
   saoPauloV6: "sports-sao-paulo-v6",
   saoPauloV7: "sports-sao-paulo-v7",
+  saoPauloV8: "sports-sao-paulo-v8",
 };
 
 const A_CLUBS = [
@@ -1859,6 +1860,21 @@ function App() {
         localStorage.setItem(LS.saoPauloV7,"1");
       }
 
+      // São Paulo V8: reconstrução limpa para aplicar o chaveamento definitivo.
+      if (localStorage.getItem(LS.saoPauloV8) !== "1") {
+        const names=["Campeonato Paulista","Campeonato Paulista - 2ª Divisão","Campeonato Paulista - 3ª Divisão","Campeonato Paulista - 4ª Divisão","Campeonato Paulista - 5ª Divisão"];
+        const oldIds=new Set(cs.filter(c=>c.state==="São Paulo" || names.includes(c.name)).map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+        for(const division of [1,2,3,4,5]){
+          const cid=Math.max(...cs.map(c=>c.id),0)+1, uid=Math.max(...cl.map(c=>c.id),0)+1, mid=Math.max(...ms.map(m=>m.id),0)+1;
+          const built=buildSaoPauloDivision(cid,uid,mid,division);
+          cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+        }
+        localStorage.setItem(LS.saoPauloV8,"1");
+      }
+
       const ensureParana = (name:string, builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]}) => {
         if (cs.some(c=>c.name===name && c.season==="2026")) return;
         const cid=Math.max(...cs.map(c=>c.id),0)+1;
@@ -2458,6 +2474,40 @@ function App() {
     let next = resolveAutomaticPenalties(matches);
     let id = nextId(next);
 
+
+    // Paulista 1ª–4ª: quartas 1x8, 2x7, 3x6, 4x5; todas as fases em ida e volta.
+    if (championship.division === "Estadual" && /^Campeonato Paulista(?: - [234]ª Divisão)?$/.test(championship.name)) {
+      const regular=next.filter(m=>m.championshipId===championship.id&&m.stage==="regular");
+      const quarters=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
+      const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
+      const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
+      const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+      if(regular.length===120 && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0){
+        if(table.length<8) return;
+        [[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+1,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+2,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"volta"});
+        });
+        setMatches(next); setSection("Quartas de final"); phaseAlert(`Quartas de final do ${championship.name} criadas em ida e volta.`); return;
+      }
+      if(quarters.length===8 && quarters.every(m=>m.played) && semis.length===0 && final.length===0){
+        const winners=knockoutWinner(next,8,championship.id);
+        if(winners.length!==4) return;
+        [[winners[0],winners[3]],[winners[1],winners[2]]].forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+3,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:championship.rounds+4,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next); setSection("Semifinais"); phaseAlert(`Semifinais do ${championship.name} criadas em ida e volta.`); return;
+      }
+      if(semis.length===4 && semis.every(m=>m.played) && final.length===0){
+        const winners=knockoutWinner(next,4,championship.id);
+        if(winners.length!==2) return;
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+5,home:winners[0],away:winners[1],homeScore:null,awayScore:null,played:false,stage:"final",group:"ida"});
+        next.push({id:id++,championshipId:championship.id,round:championship.rounds+6,home:winners[1],away:winners[0],homeScore:null,awayScore:null,played:false,stage:"final",group:"volta"});
+        setMatches(next); setSection("Final"); phaseAlert(`Final do ${championship.name} criada em ida e volta.`); return;
+      }
+      return;
+    }
 
     if (championship.division === "Estadual" && (
       championship.name==="Campeonato Maranhense" ||
