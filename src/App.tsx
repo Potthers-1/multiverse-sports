@@ -613,11 +613,6 @@ export default function App() {
     const currentYear = Math.max(...countryChampionships.map((c) => Number(c.season) || 2026));
     const nextYear = String(currentYear + 1);
 
-    if (countryChampionships.some((c) => c.season === nextYear)) {
-      window.alert(`A temporada ${nextYear} já existe.`);
-      return;
-    }
-
     const acreFirst = countryChampionships.find(
       (c) => c.state === "Acre" && c.division === "1ª Divisão"
     );
@@ -626,42 +621,41 @@ export default function App() {
     );
 
     if (acreFirst && acreSecond) {
+      // A classificação usada para o acesso/rebaixamento é a da Primeira fase.
       const firstTable = acreFirst.phaseStandings?.["Primeira fase"];
-      const access = getAcreAccessTeams(acreSecond);
-
-      if (!firstTable || Object.keys(firstTable).length !== (acreFirst.teams?.length ?? 0)) {
-        window.alert("Finalize a Primeira fase da 1ª Divisão do Acre antes de avançar a temporada.");
+      if (!firstTable || Object.keys(firstTable).length !== 8) {
+        window.alert("Finalize a temporada da 1ª Divisão do Acre antes de avançar.");
         return;
       }
 
+      // Acesso: campeão da 2ª + melhor colocado da classificação geral que não seja o campeão.
+      const access = getAcreAccessTeams(acreSecond);
       if (access.size !== 2) {
-        window.alert("Finalize os dois turnos e a final da 2ª Divisão do Acre antes de avançar a temporada.");
+        window.alert("Finalize a temporada da 2ª Divisão do Acre antes de avançar.");
         return;
       }
 
       const orderedFirst = Object.keys(firstTable).sort((a, b) => {
-        const A = firstTable[a], B = firstTable[b];
+        const A = firstTable[a];
+        const B = firstTable[b];
         return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
       });
 
-      // Regra do Acre:
-      // 7º e 8º da 1ª Divisão são rebaixados.
+      // Regra oficial: 7º e 8º são rebaixados.
       const relegatedTeams = orderedFirst.slice(6, 8);
 
       const firstTeams = acreFirst.teams ?? [];
       const secondTeams = acreSecond.teams ?? [];
 
-      // Campeão + melhor classificado que não seja o campeão sobem.
+      // Os nomes dos promovidos são retirados diretamente da 2ª divisão.
       const promotedTeams = secondTeams.filter((team) => access.has(team));
 
       if (relegatedTeams.length !== 2 || promotedTeams.length !== 2) {
-        window.alert("Não foi possível identificar exatamente os 2 rebaixados (7º e 8º) e os 2 promovidos da 2ª Divisão.");
+        window.alert("A troca não pôde ser concluída: são necessários exatamente 2 rebaixados e 2 promovidos.");
         return;
       }
 
-      // Acesso/rebaixamento é uma troca direta de vagas:
-      // 1ª Divisão: entram os 2 promovidos no lugar do 7º e 8º.
-      // 2ª Divisão: entram o 7º e 8º rebaixados no lugar dos 2 promovidos.
+      // Troca direta entre as divisões.
       const nextFirstTeams = [
         ...firstTeams.filter((team) => !relegatedTeams.includes(team)),
         ...promotedTeams,
@@ -672,10 +666,12 @@ export default function App() {
         ...relegatedTeams,
       ];
 
-      const nextSeason = countryChampionships.map((championship) => {
+      // O mesmo registro de cada campeonato avança de ano.
+      // Não é criada uma nova aba/temporada.
+      const updated = championships.map((championship) => {
         const base = {
           ...championship,
-          season: nextYear,
+          season: championship.country === country ? nextYear : championship.season,
           standings: undefined,
           phaseStandings: undefined,
           phaseMatches: undefined,
@@ -684,58 +680,46 @@ export default function App() {
         };
 
         if (championship.id === acreFirst.id) {
-          return { ...base, teams: nextFirstTeams };
+          return {
+            ...base,
+            teams: nextFirstTeams,
+          };
         }
 
         if (championship.id === acreSecond.id) {
-          return { ...base, teams: nextSecondTeams };
+          return {
+            ...base,
+            teams: nextSecondTeams,
+          };
         }
 
         return base;
       });
 
-      const updated = [
-        ...championships.filter((c) => c.country !== country),
-        ...nextSeason,
-      ];
-
       setChampionships(updated);
       setSelectedId(acreFirst.id);
-
-      const nextPhases: Record<number, string> = {};
-      nextSeason.forEach((c) => {
-        if (c.phases?.length) nextPhases[c.id] = c.phases[0];
+      setSelectedPhase({
+        [acreFirst.id]: acreFirst.phases?.[0] ?? "Primeira fase",
+        [acreSecond.id]: acreSecond.phases?.[0] ?? "Primeiro turno",
       });
-
-      setSelectedPhase(nextPhases);
       setSelectedSection({});
       return;
     }
 
-    const nextSeason = countryChampionships.map((championship) => ({
+    // Campeonatos que ainda não possuem uma mecânica de acesso/rebaixamento
+    // apenas avançam o ano no mesmo registro.
+    const updated = championships.map((championship) => ({
       ...championship,
-      season: nextYear,
-      standings: undefined,
-      phaseStandings: undefined,
-      phaseMatches: undefined,
-      firstTurnWinner: undefined,
-      secondTurnWinner: undefined,
+      season: championship.country === country ? nextYear : championship.season,
+      standings: championship.country === country ? undefined : championship.standings,
+      phaseStandings: championship.country === country ? undefined : championship.phaseStandings,
+      phaseMatches: championship.country === country ? undefined : championship.phaseMatches,
+      firstTurnWinner: championship.country === country ? undefined : championship.firstTurnWinner,
+      secondTurnWinner: championship.country === country ? undefined : championship.secondTurnWinner,
     }));
 
-    const updated = [
-      ...championships.filter((c) => c.country !== country),
-      ...nextSeason,
-    ];
-
     setChampionships(updated);
-    setSelectedId(nextSeason[0]?.id ?? null);
-
-    const nextPhases: Record<number, string> = {};
-    nextSeason.forEach((c) => {
-      if (c.phases?.length) nextPhases[c.id] = c.phases[0];
-    });
-
-    setSelectedPhase(nextPhases);
+    setSelectedId(countryChampionships[0]?.id ?? null);
     setSelectedSection({});
   }
 
