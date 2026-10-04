@@ -65,6 +65,7 @@ const LS = {
   cariocaV3: "sports-carioca-1d-v3",
   cariocaV4: "sports-carioca-1d-v4",
   cearaV7: "sports-ceara-v7",
+  gauchoV2: "sports-gaucho-v2",
 };
 
 const A_CLUBS = [
@@ -1251,6 +1252,27 @@ function App() {
         localStorage.setItem(LS.cearaV7,"1");
       }
 
+
+      // Recria somente o Rio Grande do Sul após a correção do fluxo da 3ª Divisão.
+      if (localStorage.getItem(LS.gauchoV2) !== "1") {
+        const oldIds=new Set(cs.filter(c=>c.state==="Rio Grande do Sul" || c.name==="Campeonato Gaúcho" || c.name==="Campeonato Gaúcho - 2ª Divisão" || c.name==="Campeonato Gaúcho - 3ª Divisão").map(c=>c.id));
+        for(let i=ms.length-1;i>=0;i--) if(oldIds.has(ms[i].championshipId)) ms.splice(i,1);
+        for(let i=cl.length-1;i>=0;i--) if(oldIds.has(cl[i].championshipId)) cl.splice(i,1);
+        for(let i=cs.length-1;i>=0;i--) if(oldIds.has(cs[i].id)) cs.splice(i,1);
+
+        const addGaucho=(builder:(championshipId:number,clubId:number,matchId:number)=>{championship:Championship;clubs:Club[];matches:Match[]})=>{
+          const cid=Math.max(...cs.map(c=>c.id),0)+1;
+          const uid=Math.max(...cl.map(c=>c.id),0)+1;
+          const mid=Math.max(...ms.map(m=>m.id),0)+1;
+          const built=builder(cid,uid,mid);
+          cs.push(built.championship); cl.push(...built.clubs); ms.push(...built.matches);
+        };
+        addGaucho(buildRioGrandeDoSulFirstDivision);
+        addGaucho(buildRioGrandeDoSulSecondDivision);
+        addGaucho(buildRioGrandeDoSulThirdDivision);
+        localStorage.setItem(LS.gauchoV2,"1");
+      }
+
       if (!cs.length || !cl.length) { seed(); return; }
 
       // Migração incremental: adiciona o primeiro estadual sem apagar
@@ -1793,18 +1815,29 @@ function App() {
       const quarters=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===8);
       const semis=next.filter(m=>m.championshipId===championship.id&&m.stage==="knockout"&&m.knockoutRound===4);
       const final=next.filter(m=>m.championshipId===championship.id&&m.stage==="final");
-      const expectedRegular=
-        championship.name==="Campeonato Gaúcho" ? 66 :
-        championship.name==="Campeonato Gaúcho - 2ª Divisão" ? 120 : 45;
+      const isThird=championship.name==="Campeonato Gaúcho - 3ª Divisão";
+      const expectedRegular=isThird ? 45 : championship.name==="Campeonato Gaúcho" ? 66 : 120;
 
-      if(regular.length===expectedRegular && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0) {
+      // 3ª Divisão: 4 classificados -> semifinais diretamente.
+      if(isThird && regular.length===expectedRegular && regular.every(m=>m.played) && semis.length===0 && final.length===0) {
         const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
-        const pairs=championship.name==="Campeonato Gaúcho"
-          ? [[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]]
-          : championship.name==="Campeonato Gaúcho - 2ª Divisão"
-          ? [[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]]
-          : [[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
+        if(table.length<4) return;
+        const pairs=[[table[0].clubId,table[3].clubId],[table[1].clubId,table[2].clubId]];
+        const baseRound=championship.rounds+1;
+        pairs.forEach(([home,away])=>{
+          next.push({id:id++,championshipId:championship.id,round:baseRound,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"ida"});
+          next.push({id:id++,championshipId:championship.id,round:baseRound+1,home:away,away:home,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:4,group:"volta"});
+        });
+        setMatches(next);setSection("Semifinais");
+        phaseAlert("Semifinais do Campeonato Gaúcho - 3ª Divisão criadas em ida e volta.");
+        return;
+      }
 
+      // 1ª e 2ª Divisões: 8 classificados -> quartas.
+      if(!isThird && regular.length===expectedRegular && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0) {
+        const table=tableFor(championship,myClubs.map(c=>c.id),next,"regular");
+        if(table.length<8) return;
+        const pairs=[[table[0].clubId,table[7].clubId],[table[1].clubId,table[6].clubId],[table[2].clubId,table[5].clubId],[table[3].clubId,table[4].clubId]];
         const baseRound=championship.rounds+1;
         pairs.forEach(([home,away])=>{
           next.push({id:id++,championshipId:championship.id,round:baseRound,home,away,homeScore:null,awayScore:null,played:false,stage:"knockout",knockoutRound:8,group:"ida"});
@@ -1815,7 +1848,7 @@ function App() {
         return;
       }
 
-      if(quarters.length>0 && quarters.every(m=>m.played) && semis.length===0 && final.length===0) {
+      if(!isThird && quarters.length===8 && quarters.every(m=>m.played) && semis.length===0 && final.length===0) {
         const winners=knockoutWinner(next,8,championship.id);
         if(winners.length!==4) {
           phaseAlert(`Não foi possível identificar os vencedores das quartas do ${championship.name}.`);
@@ -2715,14 +2748,24 @@ function App() {
       const quarters=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===8);
       const semis=own.filter(m=>m.stage==="knockout"&&m.knockoutRound===4);
       const final=own.filter(m=>m.stage==="final");
-      const expected=championship.name==="Campeonato Gaúcho" ? 55 :
-        championship.name==="Campeonato Gaúcho - 2ª Divisão" ? 120 : 45;
+      const isThird=championship.name==="Campeonato Gaúcho - 3ª Divisão";
+      const expected=isThird ? 45 : championship.name==="Campeonato Gaúcho" ? 66 : 120;
 
-      if(
-        (regular.length===expected && regular.every(m=>m.played) && quarters.length===0 && semis.length===0 && final.length===0) ||
-        (quarters.length>0 && quarters.every(m=>m.played) && semis.length===0 && final.length===0) ||
-        (semis.length===4 && semis.every(m=>m.played) && final.length===0)
-      ) prepareNextPhase();
+      const needsThirdSemis=isThird &&
+        regular.length===expected && regular.every(m=>m.played) &&
+        semis.length===0 && final.length===0;
+
+      const needsQuarters=!isThird &&
+        regular.length===expected && regular.every(m=>m.played) &&
+        quarters.length===0 && semis.length===0 && final.length===0;
+
+      const needsQuarterWinners=!isThird &&
+        quarters.length===8 && quarters.every(m=>m.played) &&
+        semis.length===0 && final.length===0;
+
+      const needsFinal=semis.length===4 && semis.every(m=>m.played) && final.length===0;
+
+      if(needsThirdSemis || needsQuarters || needsQuarterWinners || needsFinal) prepareNextPhase();
       return;
     }
 
