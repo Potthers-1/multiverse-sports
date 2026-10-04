@@ -36,6 +36,8 @@ type Championship = {
   phaseMatches?: Record<string, Matchup[]>;
   firstTurnWinner?: string;
   secondTurnWinner?: string;
+  accessTeams?: string[];
+  relegatedTeams?: string[];
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -184,39 +186,10 @@ export default function App() {
   }
 
   function getSecondDivisionAccessIds(championship: Championship) {
-    if (championship.state !== "Acre" || championship.division !== "2ª Divisão") return new Set<string>();
-
-    const firstWinner = championship.firstTurnWinner;
-    const secondWinner = championship.secondTurnWinner;
-    let champion: string | undefined;
-
-    if (firstWinner && secondWinner) {
-      if (firstWinner === secondWinner) {
-        champion = firstWinner;
-      } else {
-        const final = championship.phaseMatches?.["Final"]?.[0];
-        if (final?.penaltyWinner) {
-          champion = final.penaltyWinner;
-        } else if (final?.homeScore !== undefined && final?.awayScore !== undefined && final.homeScore !== final.awayScore) {
-          champion = final.homeScore > final.awayScore ? final.home : final.away;
-        }
-      }
+    if (championship.state !== "Acre" || championship.division !== "2ª Divisão") {
+      return new Set<string>();
     }
-
-    const general = championship.phaseStandings?.["Classificação geral"] ?? championship.standings ?? {};
-    const ordered = Object.keys(general).sort((a, b) => {
-      const A = general[a];
-      const B = general[b];
-      return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
-    });
-
-    const access = new Set<string>();
-    if (champion) access.add(champion);
-
-    const bestNonChampion = ordered.find((team) => team !== champion);
-    if (bestNonChampion) access.add(bestNonChampion);
-
-    return access;
+    return new Set(championship.accessTeams ?? []);
   }
 
   function simulateRoundRobin(teams: string[]) {
@@ -404,6 +377,7 @@ export default function App() {
         "Semi final": semiMatches,
         "Final": finalMatch,
       },
+      relegatedTeams: ordered.slice(6, 8),
     };
   }
 
@@ -455,6 +429,31 @@ export default function App() {
       finalMatches = [simulateSingleKnockoutMatch(firstWinner, secondWinner)];
     }
 
+    // Define os 2 acessos uma única vez e guarda os nomes no resultado
+    // da temporada. A interface e a troca de divisão usam exatamente esta lista.
+    let champion: string | undefined;
+    if (firstWinner === secondWinner) {
+      champion = firstWinner;
+    } else {
+      const final = finalMatches[0];
+      if (final?.penaltyWinner) {
+        champion = final.penaltyWinner;
+      } else if (
+        final?.homeScore !== undefined &&
+        final?.awayScore !== undefined &&
+        final.homeScore !== final.awayScore
+      ) {
+        champion = final.homeScore > final.awayScore ? final.home : final.away;
+      }
+    }
+
+    const generalOrder = sortStandingTeams(teams, general);
+    const secondPromoted = champion
+      ? generalOrder.find((team) => team !== champion)
+      : undefined;
+    const accessTeams =
+      champion && secondPromoted ? [champion, secondPromoted] : [];
+
     return {
       ...championship,
       standings: general,
@@ -468,6 +467,7 @@ export default function App() {
       },
       firstTurnWinner: firstWinner,
       secondTurnWinner: secondWinner,
+      accessTeams,
     };
   }
 
@@ -645,17 +645,10 @@ export default function App() {
       return;
     }
 
-    // ESTA É A MESMA ORDENAÇÃO USADA PELA TABELA NA TELA.
-    const firstRanking = sortStandingTeams(firstTeams, firstTable);
-
-    // 7º e 8º da 1ª Divisão descem.
-    const relegated = firstRanking.slice(6, 8);
-
-    // O acesso da 2ª Divisão é exatamente o que aparece em VERDE
-    // na aba "Classificação geral": campeão + melhor classificado
-    // além do campeão. Não recalculamos uma regra diferente aqui.
-    const accessIds = getSecondDivisionAccessIds(acreSecond);
-    const promoted = secondTeams.filter((team) => accessIds.has(team));
+    // Os resultados de acesso/rebaixamento já foram definidos no fim
+    // da simulação. Não tentamos descobrir os times novamente.
+    const relegated = acreFirst.relegatedTeams ?? [];
+    const promoted = acreSecond.accessTeams ?? [];
 
     if (promoted.length !== 2) {
       window.alert(
@@ -754,6 +747,8 @@ A troca foi aplicada nas duas divisões.`
         phaseMatches: undefined,
         firstTurnWinner: undefined,
         secondTurnWinner: undefined,
+        accessTeams: undefined,
+        relegatedTeams: undefined,
       };
     });
 
