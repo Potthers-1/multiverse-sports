@@ -66,6 +66,34 @@ const ACRE_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const AMAPA_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 3001,
+    name: "Amapá",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Amapá",
+    teams: [
+      "São José - AP",
+      "Oratório - AP",
+      "Santos - AP",
+      "Independente - AP",
+      "Trem - AP",
+      "Ypiranga - AP",
+      "Macapá - AP",
+      "Cristal - AP",
+    ],
+    phases: ["Primeira fase", "Semi final", "Final"],
+    rules: [
+      "Primeira fase em turno único, com 7 rodadas.",
+      "Os 4 primeiros colocados avançam ao mata-mata.",
+      "Semifinais em jogos de ida e volta.",
+      "Final em jogos de ida e volta.",
+    ],
+  },
+];
+
 const ALAGOAS_CHAMPIONSHIPS: Championship[] = [
   {
     id: 2001,
@@ -97,6 +125,7 @@ const ALAGOAS_CHAMPIONSHIPS: Championship[] = [
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
+  ...AMAPA_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -383,6 +412,49 @@ export default function App() {
     };
   }
 
+  function simulateAmapaFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const qualified = ordered.slice(0, 4);
+
+    const semiMatches: Matchup[] = [];
+    const semiWinners: string[] = [];
+    const semiPairs = [
+      [qualified[0], qualified[3]],
+      [qualified[1], qualified[2]],
+    ];
+
+    for (const [teamA, teamB] of semiPairs) {
+      const leg1 = simulateKnockoutMatch(teamA, teamB);
+      const leg2 = simulateKnockoutMatch(teamB, teamA);
+      semiMatches.push(leg1, leg2);
+      semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
+    }
+
+    const finalMatches: Matchup[] = [];
+    if (semiWinners.length === 2) {
+      const finalLeg1 = simulateKnockoutMatch(semiWinners[0], semiWinners[1]);
+      const finalLeg2 = simulateKnockoutMatch(semiWinners[1], semiWinners[0]);
+      resolveTwoLeggedTie(finalLeg1, finalLeg2);
+      finalMatches.push(finalLeg1, finalLeg2);
+    }
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Semi final": semiMatches,
+        "Final": finalMatches,
+      },
+    };
+  }
+
   function simulateAlagoasFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     const firstStandings = simulateRoundRobin(teams);
@@ -465,6 +537,10 @@ export default function App() {
         return simulateAlagoasFirstDivision(championship);
       }
 
+      if (championship.state === "Amapá" && championship.division === "1ª Divisão") {
+        return simulateAmapaFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
@@ -489,6 +565,17 @@ export default function App() {
 
     if (selected.state === "Acre" && selected.division === "1ª Divisão") {
       const updated = simulateAcreFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Amapá" && selected.division === "1ª Divisão") {
+      const updated = simulateAmapaFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
           championship.id === selected.id ? updated : championship
