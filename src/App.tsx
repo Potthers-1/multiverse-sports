@@ -235,6 +235,7 @@ export default function App() {
   function drawAmazonasGroups() {
     const championship = championships.find((item) => item.id === selectedId);
     if (!championship || championship.state !== "Amazonas") return;
+    const championshipId = championship.id;
 
     const teams = [...(championship.teams ?? [])];
     for (let i = teams.length - 1; i > 0; i--) {
@@ -262,11 +263,11 @@ export default function App() {
     );
     setSelectedPhase((current) => ({
       ...current,
-      [selectedId]: "1º Turno",
+      [championshipId]: "1º Turno",
     }));
     setSelectedSection((current) => ({
       ...current,
-      [selectedId]: "competition",
+      [championshipId]: "competition",
     }));
   }
 
