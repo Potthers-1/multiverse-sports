@@ -36,6 +36,7 @@ type Championship = {
   phaseMatches?: Record<string, Matchup[]>;
   firstTurnWinner?: string;
   secondTurnWinner?: string;
+  amazonasGroups?: { A: string[]; B: string[] };
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -141,13 +142,11 @@ const AMAZONAS_CHAMPIONSHIPS: Championship[] = [
       "São Raimundo - AM",
     ],
     phases: [
-      "1º Turno - Grupo A",
-      "1º Turno - Grupo B",
+      "1º Turno",
       "Quartas de final - 1º Turno",
       "Semi final - 1º Turno",
       "Final do 1º Turno",
-      "2º Turno - Grupo A",
-      "2º Turno - Grupo B",
+      "2º Turno",
       "Quartas de final - 2º Turno",
       "Semi final - 2º Turno",
       "Final do 2º Turno",
@@ -549,8 +548,24 @@ export default function App() {
     const teams = championship.teams ?? [];
     if (teams.length < 8) return championship;
 
-    const groupA = teams.slice(0, 4);
-    const groupB = teams.slice(4, 8);
+    const shuffle = (items: string[]) => {
+      const result = [...items];
+      for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    };
+
+    const drawnGroups = championship.amazonasGroups
+      ? championship.amazonasGroups
+      : (() => {
+          const drawn = shuffle(teams);
+          return { A: drawn.slice(0, 4), B: drawn.slice(4, 8) };
+        })();
+
+    const groupA = drawnGroups.A;
+    const groupB = drawnGroups.B;
 
     function simulateCrossGroup(firstGroup: string[], secondGroup: string[]) {
       const table: Record<string, Standing> = {};
@@ -620,8 +635,11 @@ export default function App() {
     return {
       ...championship,
       standings: firstTurn.table,
+      amazonasGroups: drawnGroups,
       phaseStandings: {
         ...(championship.phaseStandings ?? {}),
+        "1º Turno": firstTurn.table,
+        "2º Turno": secondTurn.table,
         "1º Turno - Grupo A": Object.fromEntries(groupA.map((team) => [team, firstTurn.table[team]])),
         "1º Turno - Grupo B": Object.fromEntries(groupB.map((team) => [team, firstTurn.table[team]])),
         "2º Turno - Grupo A": Object.fromEntries(groupA.map((team) => [team, secondTurn.table[team]])),
@@ -802,6 +820,7 @@ export default function App() {
           phaseStandings: undefined,
           phaseMatches: undefined,
           firstTurnWinner: undefined,
+          amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
           secondTurnWinner: undefined,
         };
       })
@@ -834,6 +853,7 @@ export default function App() {
         phaseStandings: undefined,
         phaseMatches: undefined,
         firstTurnWinner: undefined,
+        amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
         secondTurnWinner: undefined,
       };
     });
@@ -1139,6 +1159,56 @@ export default function App() {
                           );
                         }
 
+                        if (
+                          selected.state === "Amazonas" &&
+                          (currentPhase === "1º Turno" || currentPhase === "2º Turno")
+                        ) {
+                          const prefix = currentPhase === "1º Turno" ? "1º Turno" : "2º Turno";
+                          const groupATable = selected.phaseStandings?.[prefix + " - Grupo A"] ?? {};
+                          const groupBTable = selected.phaseStandings?.[prefix + " - Grupo B"] ?? {};
+                          const groupA = selected.amazonasGroups?.A ?? [];
+                          const groupB = selected.amazonasGroups?.B ?? [];
+
+                          const renderGroupTable = (title: string, group: string[], table: Record<string, Standing>) => {
+                            const ordered = sortStandingTeams(group, table);
+                            return (
+                              <div className="amazonas-group-table">
+                                <div className="amazonas-group-title">{title}</div>
+                                <div className="standings-wrap">
+                                  <table className="standings-table">
+                                    <thead>
+                                      <tr>
+                                        <th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {ordered.map((team, index) => {
+                                        const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                                        return (
+                                          <tr key={team} className={getRowClass(selected, currentPhase, index)}>
+                                            <td>{index + 1}</td>
+                                            <td className="standing-team">{team}</td>
+                                            <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
+                                            <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
+                                            <td className="standing-points">{row.pts}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          };
+
+                          return (
+                            <div className="amazonas-groups-grid">
+                              {renderGroupTable("GRUPO A", groupA, groupATable)}
+                              {renderGroupTable("GRUPO B", groupB, groupBTable)}
+                            </div>
+                          );
+                        }
+
                         const phaseTable = selected.phaseStandings?.[currentPhase] ?? selected.standings ?? {};
                         const phaseTeams = sortStandingTeams(selected.teams ?? [], phaseTable);
 
@@ -1349,7 +1419,29 @@ export default function App() {
         .standings-table tr.zone-relegation td { background: rgba(239, 68, 68, 0.16) !important; }
         .standings-table tr.zone-relegation td:first-child { box-shadow: inset 4px 0 0 #ef4444; color: #fca5a5 !important; }
         .standings-table tr.zone-relegation .standing-team { color: #fecaca !important; }
-        .standings-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; color: #8e9ab4; font-size: 10px; }
+        .amazonas-groups-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
+}
+.amazonas-group-table {
+  min-width: 0;
+}
+.amazonas-group-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #dce5f7;
+  margin-bottom: 8px;
+}
+@media (max-width: 900px) {
+  .amazonas-groups-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.standings-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; color: #8e9ab4; font-size: 10px; }
         .standings-legend span { display: inline-flex; align-items: center; gap: 6px; }
         .standings-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: 0 0 10px; }
         .standings-legend .legend-second-phase { background: #f97316; }
