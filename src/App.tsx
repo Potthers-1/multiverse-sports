@@ -1831,7 +1831,14 @@ export default function App() {
                                       {ordered.map((team, index) => {
                                         const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
                                         return (
-                                          <tr key={team}>
+                                          <tr
+                                            key={team}
+                                            className={
+                                              index < 4
+                                                ? "zone-second-phase"
+                                                : ""
+                                            }
+                                          >
                                             <td>{index + 1}</td>
                                             <td className="standing-team">{team}</td>
                                             <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
