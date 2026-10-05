@@ -550,16 +550,18 @@ export default function App() {
         const merged = parsed.map((champ) => {
           const definition = INITIAL_CHAMPIONSHIPS.find((item) => item.id === champ.id);
           return definition
-            ? {
-                ...champ,
-                name: definition.name,
-                country: definition.country,
-                state: definition.state,
-                division: definition.division,
-                teams: champ.teams?.length ? champ.teams : definition.teams,
-                phases: definition.phases,
-                rules: definition.rules,
-              }
+            ? champ.id === 14001
+              ? { ...definition }
+              : {
+                  ...champ,
+                  name: definition.name,
+                  country: definition.country,
+                  state: definition.state,
+                  division: definition.division,
+                  teams: champ.teams?.length ? champ.teams : definition.teams,
+                  phases: definition.phases,
+                  rules: definition.rules,
+                }
             : champ;
         });
 
