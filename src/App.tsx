@@ -469,11 +469,11 @@ const MARANHAO_CHAMPIONSHIPS: Championship[] = [
       "Imperatriz - MA",
       "ITZ Sport - MA",
     ],
-    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    phases: ["Primeira fase", "Semi final", "Final"],
     rules: [
       "8 clubes disputam a primeira fase em turno único, totalizando 7 rodadas.",
       "Os 4 melhores colocados avançam ao mata-mata.",
-      "Quartas de final, semifinais e final em jogos de ida e volta.",
+      "Semifinais e final em jogos de ida e volta.",
       "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
     ],
   },
@@ -1785,17 +1785,13 @@ export default function App() {
       return { matches, winners };
     };
 
-    const quarter = simulateTwoLeggedRound([
+    const semi = simulateTwoLeggedRound([
       [qualified[0], qualified[3]],
       [qualified[1], qualified[2]],
     ]);
 
-    const semi = simulateTwoLeggedRound([
-      [quarter.winners[0], quarter.winners[1]],
-    ]);
-
     const final = simulateTwoLeggedRound([
-      [semi.winners[0], semi.winners[0]],
+      [semi.winners[0], semi.winners[1]],
     ]);
 
     return {
@@ -1807,7 +1803,6 @@ export default function App() {
       },
       phaseMatches: {
         ...(championship.phaseMatches ?? {}),
-        "Quartas de final": quarter.matches,
         "Semi final": semi.matches,
         "Final": final.matches,
       },
