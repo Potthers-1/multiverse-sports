@@ -44,6 +44,7 @@ type Championship = {
   cearaGroups?: { A: string[]; B: string[] };
   cearaSecondGroups?: { C: string[]; D: string[] };
   rioGrandeDoSulGroups?: { A: string[]; B: string[] };
+  minasGeraisGroups?: { A: string[]; B: string[]; C: string[] };
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -479,6 +480,41 @@ const MARANHAO_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const MINAS_GERAIS_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 15001,
+    name: "Minas Gerais",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Minas Gerais",
+    teams: [
+      "Atlético - MG",
+      "URT - MG",
+      "Uberlândia - MG",
+      "Democrata GV - MG",
+      "América - MG",
+      "Pouso Alegre - MG",
+      "Tombense - MG",
+      "Betim Futebol - MG",
+      "Cruzeiro - MG",
+      "North - MG",
+      "Itabirito - MG",
+      "Athletic - MG",
+    ],
+    phases: ["Primeira fase", "Semi final", "Final"],
+    rules: [
+      "12 clubes são divididos por sorteio em 3 grupos de 4.",
+      "Na primeira fase, cada equipe enfrenta somente adversários dos outros grupos, sem enfrentar equipes do próprio grupo, totalizando 8 jogos por equipe.",
+      "O líder de cada grupo e o melhor segundo colocado geral avançam às semifinais.",
+      "Semifinais em jogos de ida e volta.",
+      "Final em jogo único.",
+      "Empate no placar agregado das semifinais gera pênaltis automaticamente.",
+      "Empate na final em jogo único gera pênaltis automaticamente.",
+    ],
+  },
+];
+
 const MATO_GROSSO_CHAMPIONSHIPS: Championship[] = [
   {
     id: 14001,
@@ -525,6 +561,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...RIO_GRANDE_DO_SUL_CHAMPIONSHIPS,
   ...GOIAS_CHAMPIONSHIPS,
   ...MARANHAO_CHAMPIONSHIPS,
+  ...MINAS_GERAIS_CHAMPIONSHIPS,
   ...MATO_GROSSO_CHAMPIONSHIPS,
 ];
 
@@ -563,9 +600,9 @@ export default function App() {
             : champ;
         });
 
-        for (const acre of INITIAL_CHAMPIONSHIPS) {
-          if (!merged.some((champ) => champ.id === acre.id)) {
-            merged.push(acre);
+        for (const definition of INITIAL_CHAMPIONSHIPS) {
+          if (!merged.some((champ) => champ.id === definition.id)) {
+            merged.push(definition);
           }
         }
 
@@ -809,6 +846,14 @@ export default function App() {
       index < 8
     ) {
       return "zone-second-phase";
+    }
+
+    if (
+      championship.state === "Minas Gerais" &&
+      championship.division === "1ª Divisão" &&
+      phase === "Primeira fase"
+    ) {
+      return "";
     }
 
     if (
@@ -1852,6 +1897,119 @@ export default function App() {
     };
   }
 
+  function simulateMinasGeraisFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 12) return championship;
+
+    const shuffle = (items: string[]) => {
+      const result = [...items];
+      for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    };
+
+    const groups = championship.minasGeraisGroups
+      ? championship.minasGeraisGroups
+      : (() => {
+          const drawn = shuffle(teams);
+          return {
+            A: drawn.slice(0, 4),
+            B: drawn.slice(4, 8),
+            C: drawn.slice(8, 12),
+          };
+        })();
+
+    const table: Record<string, Standing> = {};
+    [...groups.A, ...groups.B, ...groups.C].forEach((team) => {
+      table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    });
+
+    const play = (home: string, away: string) => {
+      const homeGoals = Math.floor(Math.random() * 5);
+      const awayGoals = Math.floor(Math.random() * 5);
+      const h = table[home];
+      const a = table[away];
+
+      h.j++; a.j++;
+      h.gp += homeGoals; h.gc += awayGoals; h.sg = h.gp - h.gc;
+      a.gp += awayGoals; a.gc += homeGoals; a.sg = a.gp - a.gc;
+
+      if (homeGoals > awayGoals) {
+        h.v++; a.d++; h.pts += 3;
+      } else if (homeGoals < awayGoals) {
+        a.v++; h.d++; a.pts += 3;
+      } else {
+        h.e++; a.e++; h.pts++; a.pts++;
+      }
+    };
+
+    // Cada clube enfrenta os 8 clubes dos outros dois grupos.
+    for (const home of groups.A) {
+      for (const away of [...groups.B, ...groups.C]) play(home, away);
+    }
+    for (const home of groups.B) {
+      for (const away of groups.C) play(home, away);
+    }
+
+    const groupAOrdered = sortStandingTeams(groups.A, table);
+    const groupBOrdered = sortStandingTeams(groups.B, table);
+    const groupCOrdered = sortStandingTeams(groups.C, table);
+
+    const leaders = [groupAOrdered[0], groupBOrdered[0], groupCOrdered[0]];
+    const seconds = [groupAOrdered[1], groupBOrdered[1], groupCOrdered[1]];
+    const bestSecond = sortStandingTeams(seconds, table)[0];
+
+    const semiTeams = leaders.filter((team) => team !== bestSecond);
+    const rankedLeaders = sortStandingTeams(semiTeams, table);
+
+    const semiPairs: [string, string][] = [
+      [rankedLeaders[0], bestSecond],
+      [rankedLeaders[1], rankedLeaders[2]],
+    ];
+
+    const semiMatches: Matchup[] = [];
+    const semiWinners: string[] = [];
+    for (const [teamA, teamB] of semiPairs) {
+      const leg1 = simulateKnockoutMatch(teamA, teamB);
+      const leg2 = simulateKnockoutMatch(teamB, teamA);
+      semiMatches.push(leg1, leg2);
+      semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
+    }
+
+    let finalMatches: Matchup[] = [];
+    let champion: string | undefined;
+    if (semiWinners.length === 2) {
+      const final = simulateSingleKnockoutMatch(semiWinners[0], semiWinners[1]);
+      finalMatches = [final];
+      champion = final.penaltyWinner ?? (
+        (final.homeScore ?? 0) > (final.awayScore ?? 0)
+          ? final.home
+          : final.away
+      );
+    }
+
+    return {
+      ...championship,
+      minasGeraisGroups: groups,
+      standings: table,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase - Grupo A": Object.fromEntries(groupAOrdered.map((team) => [team, table[team]])),
+        "Primeira fase - Grupo B": Object.fromEntries(groupBOrdered.map((team) => [team, table[team]])),
+        "Primeira fase - Grupo C": Object.fromEntries(groupCOrdered.map((team) => [team, table[team]])),
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Semi final": semiMatches,
+        "Final": finalMatches,
+      },
+      accessTeams: [leaders[0], leaders[1], leaders[2], bestSecond],
+      champion,
+    };
+  }
+
   function simulateMatoGrossoFirstDivision(championship: Championship): Championship {
   const teams = championship.teams ?? [];
   if (teams.length !== 10) return championship;
@@ -2094,6 +2252,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateMaranhaoFirstDivision(championship);
       }
 
+      if (championship.state === "Minas Gerais" && championship.division === "1ª Divisão") {
+        return simulateMinasGeraisFirstDivision(championship);
+      }
+
       if (championship.state === "Mato Grosso" && championship.division === "1ª Divisão") {
         return simulateMatoGrossoFirstDivision(championship);
       }
@@ -2210,6 +2372,17 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       }));
     } else if (selected.state === "Maranhão" && selected.division === "1ª Divisão") {
       const updated = simulateMaranhaoFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Minas Gerais" && selected.division === "1ª Divisão") {
+      const updated = simulateMinasGeraisFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
           championship.id === selected.id ? updated : championship
@@ -2860,6 +3033,76 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                         }
 
                         if (
+                          selected.state === "Minas Gerais" &&
+                          currentPhase === "Primeira fase"
+                        ) {
+                          const groups = selected.minasGeraisGroups;
+                          const tables = {
+                            A: selected.phaseStandings?.["Primeira fase - Grupo A"] ?? {},
+                            B: selected.phaseStandings?.["Primeira fase - Grupo B"] ?? {},
+                            C: selected.phaseStandings?.["Primeira fase - Grupo C"] ?? {},
+                          };
+
+                          const allSeconds = [
+                            groups?.A?.[1],
+                            groups?.B?.[1],
+                            groups?.C?.[1],
+                          ].filter(Boolean) as string[];
+                          const bestSecond = groups
+                            ? sortStandingTeams(allSeconds, {
+                                ...tables.A,
+                                ...tables.B,
+                                ...tables.C,
+                              })[0]
+                            : undefined;
+
+                          const renderMGGroup = (
+                            title: string,
+                            group: string[],
+                            table: Record<string, Standing>
+                          ) => {
+                            const ordered = sortStandingTeams(group, table);
+                            return (
+                              <div className="amazonas-group-table">
+                                <div className="amazonas-group-title">{title}</div>
+                                <div className="standings-wrap">
+                                  <table className="standings-table">
+                                    <thead>
+                                      <tr>
+                                        <th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {ordered.map((team, index) => {
+                                        const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                                        const qualified = index === 0 || team === bestSecond;
+                                        return (
+                                          <tr key={team} className={qualified ? "zone-second-phase" : ""}>
+                                            <td>{index + 1}</td>
+                                            <td className="standing-team">{team}</td>
+                                            <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
+                                            <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
+                                            <td className="standing-points">{row.pts}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          };
+
+                          return (
+                            <div className="amazonas-groups-grid minas-gerais-groups-grid">
+                              {renderMGGroup("GRUPO A", groups?.A ?? [], tables.A)}
+                              {renderMGGroup("GRUPO B", groups?.B ?? [], tables.B)}
+                              {renderMGGroup("GRUPO C", groups?.C ?? [], tables.C)}
+                            </div>
+                          );
+                        }
+
+                        if (
                           selected.state === "Santa Catarina" &&
                           currentPhase === "Primeira fase"
                         ) {
@@ -3212,6 +3455,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 }
 .amazonas-group-table {
   min-width: 0;
+}
+.minas-gerais-groups-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 1100px) {
+  .minas-gerais-groups-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .amazonas-group-title {
   font-size: 12px;
