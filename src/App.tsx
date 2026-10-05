@@ -418,7 +418,39 @@ const RIO_GRANDE_DO_SUL_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
-const INITIAL_CHAMPIONSHIPS: Championship[] = [
+
+const GOIAS_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 12001,
+    name: "Goiás",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Goiás",
+    teams: [
+      "Goiás - GO",
+      "Vila Nova FC - GO",
+      "Jataiense - GO",
+      "Atlético - GO",
+      "Ouvidorense - GO",
+      "Anapolina - GO",
+      "Anápolis - GO",
+      "CRAC - GO",
+      "Goiatuba - GO",
+      "Aparecidense - GO",
+      "Centro Oeste - GO",
+      "Inhumas - GO",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "12 clubes disputam a primeira fase em turno único, totalizando 11 rodadas.",
+      "Os 8 melhores colocados avançam às quartas de final.",
+      "Quartas de final, semifinais e final em jogos de ida e volta.",
+      "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+\nconst INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
   ...AMAPA_CHAMPIONSHIPS,
@@ -1634,7 +1666,62 @@ export default function App() {
     };
   }
 
-  function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
+
+  function simulateGoiasFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 8) return championship;
+
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const qualified = ordered.slice(0, 8);
+
+    const simulateTwoLeggedRound = (pairings: [string, string][]) => {
+      const matches: Matchup[] = [];
+      const winners: string[] = [];
+
+      for (const [teamA, teamB] of pairings) {
+        const leg1 = simulateKnockoutMatch(teamA, teamB);
+        const leg2 = simulateKnockoutMatch(teamB, teamA);
+        matches.push(leg1, leg2);
+        winners.push(resolveTwoLeggedTie(leg1, leg2));
+      }
+
+      return { matches, winners };
+    };
+
+    const quarter = simulateTwoLeggedRound([
+      [qualified[0], qualified[7]],
+      [qualified[1], qualified[6]],
+      [qualified[2], qualified[5]],
+      [qualified[3], qualified[4]],
+    ]);
+
+    const semi = simulateTwoLeggedRound([
+      [quarter.winners[0], quarter.winners[3]],
+      [quarter.winners[1], quarter.winners[2]],
+    ]);
+
+    const final = simulateTwoLeggedRound([
+      [semi.winners[0], semi.winners[1]],
+    ]);
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final": quarter.matches,
+        "Semi final": semi.matches,
+        "Final": final.matches,
+      },
+      champion: final.winners[0],
+    };
+  }
+\n  function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 12) return championship;
 
@@ -1920,7 +2007,7 @@ export default function App() {
         ...current,
         [selected.id]: "Primeira fase",
       }));
-    } else if (selected.state === "Ceará" && selected.division === "1ª Divisão") {
+    } else if (selected.state === "Goiás" && selected.division === "1ª Divisão") {\n      const updated = simulateGoiasFirstDivision(selected);\n      setChampionships((current) =>\n        current.map((championship) =>\n          championship.id === selected.id ? updated : championship\n        )\n      );\n      setSelectedPhase((current) => ({\n        ...current,\n        [selected.id]: "Primeira fase",\n      }));\n    } else if (selected.state === "Ceará" && selected.division === "1ª Divisão") {
       const updated = simulateCearaFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
