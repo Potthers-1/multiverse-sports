@@ -66,6 +66,39 @@ const ACRE_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const ALAGOAS_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 2001,
+    name: "Alagoas",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Alagoas",
+    teams: [
+      "ASA - AL",
+      "CSA - AL",
+      "CRB - AL",
+      "Murici - AL",
+      "Cruzeiro Arapiraca - AL",
+      "Coruripe - AL",
+      "SC Penedense - AL",
+      "CSE - AL",
+    ],
+    phases: ["Primeira fase", "Semi final", "Final"],
+    rules: [
+      "Primeira fase em turno único, com 7 rodadas.",
+      "Os 4 primeiros colocados avançam ao mata-mata.",
+      "Semifinais em jogos de ida e volta.",
+      "Final em jogos de ida e volta.",
+    ],
+  },
+];
+
+const INITIAL_CHAMPIONSHIPS: Championship[] = [
+  ...ACRE_CHAMPIONSHIPS,
+  ...ALAGOAS_CHAMPIONSHIPS,
+];
+
 const STORAGE_KEY = "football-manager-clean-v2";
 
 export default function App() {
@@ -101,7 +134,7 @@ export default function App() {
             : champ;
         });
 
-        for (const acre of ACRE_CHAMPIONSHIPS) {
+        for (const acre of INITIAL_CHAMPIONSHIPS) {
           if (!merged.some((champ) => champ.id === acre.id)) {
             merged.push(acre);
           }
@@ -110,7 +143,7 @@ export default function App() {
         setChampionships(merged);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       } else {
-        setChampionships(ACRE_CHAMPIONSHIPS);
+        setChampionships(INITIAL_CHAMPIONSHIPS);
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -345,6 +378,49 @@ export default function App() {
     };
   }
 
+  function simulateAlagoasFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const qualified = ordered.slice(0, 4);
+
+    const semiPairs = [
+      [qualified[0], qualified[3]],
+      [qualified[1], qualified[2]],
+    ];
+
+    const semiMatches: Matchup[] = [];
+    const semiWinners: string[] = [];
+
+    for (const [teamA, teamB] of semiPairs) {
+      const leg1 = simulateKnockoutMatch(teamA, teamB);
+      const leg2 = simulateKnockoutMatch(teamB, teamA);
+      semiMatches.push(leg1, leg2);
+      semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
+    }
+
+    const finalMatches: Matchup[] = [];
+    if (semiWinners.length === 2) {
+      const finalLeg1 = simulateKnockoutMatch(semiWinners[0], semiWinners[1]);
+      const finalLeg2 = simulateKnockoutMatch(semiWinners[1], semiWinners[0]);
+      finalMatches.push(finalLeg1, finalLeg2);
+    }
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Semi final": semiMatches,
+        "Final": finalMatches,
+      },
+    };
+  }
+
   function simulateGenericChampionship(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (!teams.length) return championship;
@@ -379,6 +455,9 @@ export default function App() {
         return simulateAcreFirstDivision(championship);
       }
 
+      if (championship.state === "Alagoas" && championship.division === "1ª Divisão") {
+        return simulateAlagoasFirstDivision(championship);
+      }
 
       return simulateGenericChampionship(championship);
     });
@@ -404,6 +483,17 @@ export default function App() {
 
     if (selected.state === "Acre" && selected.division === "1ª Divisão") {
       const updated = simulateAcreFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Alagoas" && selected.division === "1ª Divisão") {
+      const updated = simulateAlagoasFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
           championship.id === selected.id ? updated : championship
@@ -483,12 +573,12 @@ export default function App() {
     if (!window.confirm("Zerar todas as simulações e voltar todos os campeonatos para a temporada 2026?")) return;
 
     const resetChampionships = championships.map((championship) => {
-      const acreDefinition = ACRE_CHAMPIONSHIPS.find((acre) => acre.id === championship.id);
+      const definition = INITIAL_CHAMPIONSHIPS.find((item) => item.id === championship.id);
 
       return {
         ...championship,
         season: "2026",
-        teams: acreDefinition ? [...(acreDefinition.teams ?? [])] : championship.teams,
+        teams: definition ? [...(definition.teams ?? [])] : championship.teams,
         standings: undefined,
         phaseStandings: undefined,
         phaseMatches: undefined,
