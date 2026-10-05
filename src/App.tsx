@@ -232,6 +232,44 @@ export default function App() {
   const estadualChampionships = championships.filter((champ) => champ.state);
   const stateNames = [...new Set(estadualChampionships.map((champ) => champ.state!))];
 
+  function drawAmazonasGroups() {
+    const championship = championships.find((item) => item.id === selectedId);
+    if (!championship || championship.state !== "Amazonas") return;
+
+    const teams = [...(championship.teams ?? [])];
+    for (let i = teams.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [teams[i], teams[j]] = [teams[j], teams[i]];
+    }
+
+    const groups = {
+      A: teams.slice(0, 4),
+      B: teams.slice(4, 8),
+    };
+
+    const updated: Championship = {
+      ...championship,
+      amazonasGroups: groups,
+      standings: undefined,
+      phaseStandings: undefined,
+      phaseMatches: undefined,
+      firstTurnWinner: undefined,
+      secondTurnWinner: undefined,
+    };
+
+    setChampionships((current) =>
+      current.map((item) => (item.id === selectedId ? updated : item))
+    );
+    setSelectedPhase((current) => ({
+      ...current,
+      [selectedId]: "1º Turno",
+    }));
+    setSelectedSection((current) => ({
+      ...current,
+      [selectedId]: "competition",
+    }));
+  }
+
   function createChampionship() {
     const cleanName = name.trim();
     if (!cleanName) return;
@@ -1056,6 +1094,15 @@ export default function App() {
                 >
                   Regulamento
                 </button>
+
+                {selected.state === "Amazonas" && selected.division === "1ª Divisão" && (
+                  <button
+                    className="section-tab"
+                    onClick={drawAmazonasGroups}
+                  >
+                    🎲 Sortear grupos
+                  </button>
+                )}
               </div>
 
               {(selectedSection[selected.id] ?? "competition") === "competition" ? (
