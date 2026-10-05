@@ -501,12 +501,12 @@ const MATO_GROSSO_CHAMPIONSHIPS: Championship[] = [
     ],
     phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
     rules: [
-      "Primeira fase em turno único: 9 rodadas.",
+      "10 clubes disputam a primeira fase em turno único, com 9 rodadas.",
       "1º e 2º colocados avançam diretamente às semifinais.",
       "3º x 6º e 4º x 5º disputam as quartas de final em jogo único.",
       "Os vencedores das quartas enfrentam 1º e 2º colocados nas semifinais.",
-      "Semifinais e final em jogos de ida e volta.",
-      "Empate em jogo único ou no agregado: pênaltis automáticos.",
+      "Semifinais e final são disputadas em jogos de ida e volta.",
+      "Empate em jogo único ou no placar agregado é decidido automaticamente nos pênaltis.",
     ],
   },
 ];
@@ -550,18 +550,16 @@ export default function App() {
         const merged = parsed.map((champ) => {
           const definition = INITIAL_CHAMPIONSHIPS.find((item) => item.id === champ.id);
           return definition
-            ? champ.id === 14001
-              ? { ...definition }
-              : {
-                  ...champ,
-                  name: definition.name,
-                  country: definition.country,
-                  state: definition.state,
-                  division: definition.division,
-                  teams: champ.teams?.length ? champ.teams : definition.teams,
-                  phases: definition.phases,
-                  rules: definition.rules,
-                }
+            ? {
+                ...champ,
+                name: definition.name,
+                country: definition.country,
+                state: definition.state,
+                division: definition.division,
+                teams: champ.teams?.length ? champ.teams : definition.teams,
+                phases: definition.phases,
+                rules: definition.rules,
+              }
             : champ;
         });
 
@@ -1858,46 +1856,42 @@ export default function App() {
   const teams = championship.teams ?? [];
   if (teams.length !== 10) return championship;
 
-  const firstStandings = simulateRoundRobin(teams);
-  const ordered = sortStandingTeams(teams, firstStandings);
+  const standings = simulateRoundRobin(teams);
+  const ordered = sortStandingTeams(teams, standings);
 
-  // 3º x 6º e 4º x 5º — quartas em jogo único.
-  const quarterfinals = [
+  const quarters = [
     resolveKnockoutTie(simulateKnockoutMatch(ordered[2], ordered[5])),
     resolveKnockoutTie(simulateKnockoutMatch(ordered[3], ordered[4])),
   ];
 
-  const winnerOf = (match: Matchup) =>
-    match.penaltyWinner ??
-    ((match.homeScore ?? 0) >= (match.awayScore ?? 0)
+  const getWinner = (match: Matchup) => {
+    if (match.penaltyWinner) return match.penaltyWinner;
+    return (match.homeScore ?? 0) > (match.awayScore ?? 0)
       ? match.home
-      : match.away);
+      : match.away;
+  };
 
-  const q1Winner = winnerOf(quarterfinals[0]);
-  const q2Winner = winnerOf(quarterfinals[1]);
-
-  // 1º e 2º enfrentam os vencedores das quartas, em ida e volta.
-  const simulateTie = (firstTeam: string, secondTeam: string) => {
-    const firstLeg = simulateKnockoutMatch(firstTeam, secondTeam);
-    const secondLeg = simulateKnockoutMatch(secondTeam, firstTeam);
+  const playTwoLegs = (home: string, away: string) => {
+    const firstLeg = simulateKnockoutMatch(home, away);
+    const secondLeg = simulateKnockoutMatch(away, home);
     const winner = resolveTwoLeggedTie(firstLeg, secondLeg);
     return { matches: [firstLeg, secondLeg], winner };
   };
 
-  const semi1 = simulateTie(ordered[0], q1Winner);
-  const semi2 = simulateTie(ordered[1], q2Winner);
-  const final = simulateTie(semi1.winner, semi2.winner);
+  const semi1 = playTwoLegs(ordered[0], getWinner(quarters[0]));
+  const semi2 = playTwoLegs(ordered[1], getWinner(quarters[1]));
+  const final = playTwoLegs(semi1.winner, semi2.winner);
 
   return {
     ...championship,
-    standings: firstStandings,
+    standings,
     phaseStandings: {
       ...(championship.phaseStandings ?? {}),
-      "Primeira fase": firstStandings,
+      "Primeira fase": standings,
     },
     phaseMatches: {
       ...(championship.phaseMatches ?? {}),
-      "Quartas de final": quarterfinals,
+      "Quartas de final": quarters,
       "Semi final": [...semi1.matches, ...semi2.matches],
       "Final": final.matches,
     },
