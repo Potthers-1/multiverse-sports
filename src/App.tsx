@@ -229,6 +229,38 @@ const DISTRITO_FEDERAL_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const ESPIRITO_SANTO_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 7001,
+    name: "Espírito Santo",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Espírito Santo",
+    teams: [
+      "Vitória - ES",
+      "Serra - ES",
+      "Vilavelhense - ES",
+      "Rio Branco - ES",
+      "Porto Vitória - ES",
+      "Desportiva Ferroviária - ES",
+      "Real Noroeste - ES",
+      "Forte - ES",
+      "Capixava SC - ES",
+      "Rio Branco VN - ES",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "Primeira fase em turno único, com 9 rodadas.",
+      "Os 8 primeiros colocados avançam ao mata-mata.",
+      "Quartas de final em jogos de ida e volta: 1º x 8º, 2º x 7º, 3º x 6º e 4º x 5º.",
+      "Semifinais em jogos de ida e volta.",
+      "Final em jogos de ida e volta.",
+      "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
@@ -236,6 +268,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...AMAZONAS_CHAMPIONSHIPS,
   ...BAHIA_CHAMPIONSHIPS,
   ...DISTRITO_FEDERAL_CHAMPIONSHIPS,
+  ...ESPIRITO_SANTO_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -866,6 +899,61 @@ export default function App() {
     };
   }
 
+  function simulateEspiritoSantoFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 8) return championship;
+
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const qualified = ordered.slice(0, 8);
+
+    const simulateTwoLeggedRound = (pairings: [string, string][]) => {
+      const matches: Matchup[] = [];
+      const winners: string[] = [];
+
+      for (const [teamA, teamB] of pairings) {
+        const leg1 = simulateKnockoutMatch(teamA, teamB);
+        const leg2 = simulateKnockoutMatch(teamB, teamA);
+        matches.push(leg1, leg2);
+        winners.push(resolveTwoLeggedTie(leg1, leg2));
+      }
+
+      return { matches, winners };
+    };
+
+    const quarter = simulateTwoLeggedRound([
+      [qualified[0], qualified[7]],
+      [qualified[1], qualified[6]],
+      [qualified[2], qualified[5]],
+      [qualified[3], qualified[4]],
+    ]);
+
+    const semi = simulateTwoLeggedRound([
+      [quarter.winners[0], quarter.winners[3]],
+      [quarter.winners[1], quarter.winners[2]],
+    ]);
+
+    const final = simulateTwoLeggedRound([
+      [semi.winners[0], semi.winners[1]],
+    ]);
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final": quarter.matches,
+        "Semi final": semi.matches,
+        "Final": final.matches,
+      },
+      champion: final.winners[0],
+    };
+  }
+
   function simulateGenericChampionship(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (!teams.length) return championship;
@@ -918,6 +1006,10 @@ export default function App() {
 
       if (championship.state === "Distrito Federal" && championship.division === "1ª Divisão") {
         return simulateDistritoFederalFirstDivision(championship);
+      }
+
+      if (championship.state === "Espírito Santo" && championship.division === "1ª Divisão") {
+        return simulateEspiritoSantoFirstDivision(championship);
       }
 
       return simulateGenericChampionship(championship);
@@ -988,6 +1080,17 @@ export default function App() {
       }));
     } else if (selected.state === "Distrito Federal" && selected.division === "1ª Divisão") {
       const updated = simulateDistritoFederalFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Espírito Santo" && selected.division === "1ª Divisão") {
+      const updated = simulateEspiritoSantoFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
           championship.id === selected.id ? updated : championship
