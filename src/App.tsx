@@ -501,12 +501,12 @@ const MATO_GROSSO_CHAMPIONSHIPS: Championship[] = [
     ],
     phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
     rules: [
-      "10 clubes disputam a primeira fase em turno único, totalizando 9 rodadas.",
+      "Primeira fase em turno único: 9 rodadas.",
       "1º e 2º colocados avançam diretamente às semifinais.",
-      "3º, 4º, 5º e 6º colocados disputam as quartas de final em jogo único.",
-      "Os vencedores das quartas enfrentam os dois clubes já classificados às semifinais.",
+      "3º x 6º e 4º x 5º disputam as quartas de final em jogo único.",
+      "Os vencedores das quartas enfrentam 1º e 2º colocados nas semifinais.",
       "Semifinais e final em jogos de ida e volta.",
-      "Empate nas quartas em jogo único e empate no agregado das semifinais ou da final são decididos automaticamente nos pênaltis.",
+      "Empate em jogo único ou no agregado: pênaltis automáticos.",
     ],
   },
 ];
@@ -1854,43 +1854,38 @@ export default function App() {
 
   function simulateMatoGrossoFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
-    if (teams.length < 6) return championship;
+    if (teams.length !== 10) return championship;
 
     const firstStandings = simulateRoundRobin(teams);
     const ordered = sortStandingTeams(teams, firstStandings);
-    const directSemi = ordered.slice(0, 2);
-    const quarterTeams = ordered.slice(2, 6);
 
-    const quarter1 = resolveKnockoutTie(simulateKnockoutMatch(quarterTeams[0], quarterTeams[3]));
-    const quarter2 = resolveKnockoutTie(simulateKnockoutMatch(quarterTeams[1], quarterTeams[2]));
-    const quarterMatches = [quarter1, quarter2];
-    const quarterWinners = [
-      quarter1.penaltyWinner ?? (quarter1.homeScore! > quarter1.awayScore! ? quarter1.home : quarter1.away),
-      quarter2.penaltyWinner ?? (quarter2.homeScore! > quarter2.awayScore! ? quarter2.home : quarter2.away),
-    ];
+    const q1 = resolveKnockoutTie(
+      simulateKnockoutMatch(ordered[2], ordered[5])
+    );
+    const q2 = resolveKnockoutTie(
+      simulateKnockoutMatch(ordered[3], ordered[4])
+    );
 
-    const simulateTwoLeggedRound = (pairings: [string, string][]) => {
-      const matches: Matchup[] = [];
-      const winners: string[] = [];
-
-      for (const [teamA, teamB] of pairings) {
-        const leg1 = simulateKnockoutMatch(teamA, teamB);
-        const leg2 = simulateKnockoutMatch(teamB, teamA);
-        matches.push(leg1, leg2);
-        winners.push(resolveTwoLeggedTie(leg1, leg2));
-      }
-
-      return { matches, winners };
+    const winnerOf = (match: Matchup) => {
+      if (match.penaltyWinner) return match.penaltyWinner;
+      return (match.homeScore ?? 0) > (match.awayScore ?? 0)
+        ? match.home
+        : match.away;
     };
 
-    const semi = simulateTwoLeggedRound([
-      [directSemi[0], quarterWinners[1]],
-      [directSemi[1], quarterWinners[0]],
-    ]);
+    const q1Winner = winnerOf(q1);
+    const q2Winner = winnerOf(q2);
 
-    const final = simulateTwoLeggedRound([
-      [semi.winners[0], semi.winners[1]],
-    ]);
+    const simulateTwoLegs = (home: string, away: string) => {
+      const leg1 = simulateKnockoutMatch(home, away);
+      const leg2 = simulateKnockoutMatch(away, home);
+      const winner = resolveTwoLeggedTie(leg1, leg2);
+      return { matches: [leg1, leg2], winner };
+    };
+
+    const semi1 = simulateTwoLegs(ordered[0], q1Winner);
+    const semi2 = simulateTwoLegs(ordered[1], q2Winner);
+    const final = simulateTwoLegs(semi1.winner, semi2.winner);
 
     return {
       ...championship,
@@ -1901,15 +1896,15 @@ export default function App() {
       },
       phaseMatches: {
         ...(championship.phaseMatches ?? {}),
-        "Quartas de final": quarterMatches,
-        "Semi final": semi.matches,
+        "Quartas de final": [q1, q2],
+        "Semi final": [...semi1.matches, ...semi2.matches],
         "Final": final.matches,
       },
-      champion: final.winners[0],
+      champion: final.winner,
     };
   }
 
-  function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
+function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 12) return championship;
 
