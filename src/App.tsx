@@ -814,10 +814,10 @@ export default function App() {
     if (
       championship.state === "Mato Grosso" &&
       championship.division === "1ª Divisão" &&
-      phase === "Primeira fase" &&
-      index < 6
+      phase === "Primeira fase"
     ) {
-      return "zone-second-phase";
+      if (index < 2) return "mato-grosso-direct-semi";
+      if (index < 6) return "mato-grosso-quarterfinal";
     }
 
     // Nas primeiras divisões estaduais com 4 classificados, os 4 primeiros avançam ao mata-mata.
@@ -3189,6 +3189,12 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .standings-table tr.zone-second-phase td { background: rgba(249, 115, 22, 0.16) !important; }
         .standings-table tr.zone-second-phase td:first-child { box-shadow: inset 4px 0 0 #f97316; color: #fdba74 !important; }
         .standings-table tr.zone-second-phase .standing-team { color: #fed7aa !important; }
+        .standings-table tr.mato-grosso-direct-semi td { background: rgba(249, 115, 22, 0.28) !important; }
+        .standings-table tr.mato-grosso-direct-semi td:first-child { box-shadow: inset 4px 0 0 #f97316; color: #fdba74 !important; }
+        .standings-table tr.mato-grosso-direct-semi .standing-team { color: #fed7aa !important; }
+        .standings-table tr.mato-grosso-quarterfinal td { background: rgba(249, 115, 22, 0.12) !important; }
+        .standings-table tr.mato-grosso-quarterfinal td:first-child { box-shadow: inset 4px 0 0 #fb923c; color: #fdba74 !important; }
+        .standings-table tr.mato-grosso-quarterfinal .standing-team { color: #fed7aa !important; }
         .standings-table tr.zone-promotion td { background: rgba(34, 197, 94, 0.16) !important; }
         .standings-table tr.zone-promotion td:first-child { box-shadow: inset 4px 0 0 #22c55e; color: #86efac !important; }
         .standings-table tr.zone-promotion .standing-team { color: #bbf7d0 !important; }
