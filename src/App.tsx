@@ -182,11 +182,16 @@ export default function App() {
   }
 
   function getRowClass(championship: Championship, phase: string, index: number) {
-    if (championship.state !== "Acre") return "";
-    if (championship.division === "1ª Divisão" && phase === "Primeira fase") {
-      if (index < 4) return "zone-next";
-      if (index >= (championship.teams?.length ?? 0) - 2) return "zone-relegation";
+    // Nas primeiras divisões estaduais atuais, os 4 primeiros avançam ao mata-mata.
+    // A cor laranja identifica a vaga para a segunda fase.
+    if (
+      championship.division === "1ª Divisão" &&
+      phase === "Primeira fase" &&
+      index < 4
+    ) {
+      return "zone-second-phase";
     }
+
     return "";
   }
 
@@ -934,7 +939,10 @@ export default function App() {
                       })()}
 
                       <div className="standings-legend">
-                        <span><i className="legend-next" /> Classificado para a próxima fase</span>
+                        <span><i className="legend-second-phase" /> Classificado para a segunda fase</span>
+                        <span><i className="legend-promotion" /> Acesso direto</span>
+                        <span><i className="legend-playoff" /> Play-off de acesso</span>
+                        <span><i className="legend-relegation" /> Rebaixamento</span>
                       </div>
                     </div>
                   </div>
@@ -1084,13 +1092,25 @@ export default function App() {
         .phase-empty-icon { font-size: 25px; }
         .phase-empty strong { color: #b9c5d8; font-size: 13px; }
         .phase-empty span { font-size: 11px; }
-        .standings-table tr.zone-next td { background: rgba(34, 197, 94, 0.16) !important; }
-        .standings-table tr.zone-next td:first-child { box-shadow: inset 4px 0 0 #22c55e; color: #86efac !important; }
-        .standings-table tr.zone-next .standing-team { color: #bbf7d0 !important; }
+        .standings-table tr.zone-second-phase td { background: rgba(249, 115, 22, 0.16) !important; }
+        .standings-table tr.zone-second-phase td:first-child { box-shadow: inset 4px 0 0 #f97316; color: #fdba74 !important; }
+        .standings-table tr.zone-second-phase .standing-team { color: #fed7aa !important; }
+        .standings-table tr.zone-promotion td { background: rgba(34, 197, 94, 0.16) !important; }
+        .standings-table tr.zone-promotion td:first-child { box-shadow: inset 4px 0 0 #22c55e; color: #86efac !important; }
+        .standings-table tr.zone-promotion .standing-team { color: #bbf7d0 !important; }
+        .standings-table tr.zone-playoff td { background: rgba(234, 179, 8, 0.16) !important; }
+        .standings-table tr.zone-playoff td:first-child { box-shadow: inset 4px 0 0 #eab308; color: #fde047 !important; }
+        .standings-table tr.zone-playoff .standing-team { color: #fef08a !important; }
+        .standings-table tr.zone-relegation td { background: rgba(239, 68, 68, 0.16) !important; }
+        .standings-table tr.zone-relegation td:first-child { box-shadow: inset 4px 0 0 #ef4444; color: #fca5a5 !important; }
+        .standings-table tr.zone-relegation .standing-team { color: #fecaca !important; }
         .standings-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; color: #8e9ab4; font-size: 10px; }
         .standings-legend span { display: inline-flex; align-items: center; gap: 6px; }
         .standings-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: 0 0 10px; }
-        .standings-legend .legend-next { background: #22c55e; }
+        .standings-legend .legend-second-phase { background: #f97316; }
+        .standings-legend .legend-promotion { background: #22c55e; }
+        .standings-legend .legend-playoff { background: #eab308; }
+        .standings-legend .legend-relegation { background: #ef4444; }
 
         .rules-list { display: grid; gap: 10px; }
         .rule-item { color: #b5bfd4; font-size: 13px; line-height: 1.45; }
