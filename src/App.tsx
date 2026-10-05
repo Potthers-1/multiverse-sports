@@ -36,6 +36,7 @@ type Championship = {
   phaseMatches?: Record<string, Matchup[]>;
   firstTurnWinner?: string;
   secondTurnWinner?: string;
+  champion?: string;
   amazonasGroups?: { A: string[]; B: string[] };
 };
 
