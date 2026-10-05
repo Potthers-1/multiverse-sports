@@ -739,6 +739,16 @@ export default function App() {
       return "zone-second-phase";
     }
 
+    // Em Goiás, os 8 primeiros da primeira fase avançam às quartas de final.
+    if (
+      championship.state === "Goiás" &&
+      championship.division === "1ª Divisão" &&
+      phase === "Primeira fase" &&
+      index < 8
+    ) {
+      return "zone-second-phase";
+    }
+
     // Nas primeiras divisões estaduais com 4 classificados, os 4 primeiros avançam ao mata-mata.
     if (
       championship.division === "1ª Divisão" &&
