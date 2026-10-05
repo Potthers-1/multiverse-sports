@@ -38,6 +38,7 @@ type Championship = {
   secondTurnWinner?: string;
   champion?: string;
   amazonasGroups?: { A: string[]; B: string[] };
+  rioGroups?: { A: string[]; B: string[] };
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -261,6 +262,51 @@ const ESPIRITO_SANTO_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const RIO_DE_JANEIRO_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 8001,
+    name: "Rio de Janeiro",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Rio de Janeiro",
+    teams: [
+      "Fluminense - RJ",
+      "Vasco da Gama - RJ",
+      "Volta Redonda - RJ",
+      "Bangu - RJ",
+      "Portuguesa - RJ",
+      "Sampaio Corrêa - RJ",
+      "Botafogo - RJ",
+      "Madureira - RJ",
+      "Boavista - RJ",
+      "Flamengo - RJ",
+      "Nova Iguaçu - RJ",
+      "Maricá - RJ",
+    ],
+    phases: [
+      "Taça Guanabara",
+      "Quartas de final",
+      "Semi final - Taça Guanabara",
+      "Final - Taça Guanabara",
+      "Semi final - Taça Rio",
+      "Final - Taça Rio",
+    ],
+    rules: [
+      "Taça Guanabara com 12 equipes divididas em dois grupos de 6.",
+      "As equipes enfrentam os clubes do outro grupo, totalizando 6 rodadas.",
+      "O líder de cada grupo é comparado pelos pontos; o líder com mais pontos é o campeão da Taça Guanabara.",
+      "Os 4 primeiros de cada grupo avançam à fase final.",
+      "Quartas de final em jogo único: A1 x A4, A2 x A3, B1 x B4 e B2 x B3.",
+      "As semifinais da Taça Guanabara são definidas por sorteio e disputadas em ida e volta.",
+      "A final da Taça Guanabara é disputada em jogo único.",
+      "Os quatro derrotados das quartas disputam a Taça Rio, com confrontos definidos por sorteio, em ida e volta.",
+      "A final da Taça Rio é disputada em jogo único.",
+      "Em jogos únicos, empate gera pênaltis automaticamente. Em jogos de ida e volta, pênaltis somente se o agregado terminar empatado.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
@@ -269,6 +315,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...BAHIA_CHAMPIONSHIPS,
   ...DISTRITO_FEDERAL_CHAMPIONSHIPS,
   ...ESPIRITO_SANTO_CHAMPIONSHIPS,
+  ...RIO_DE_JANEIRO_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -362,6 +409,40 @@ export default function App() {
     setSelectedPhase((current) => ({
       ...current,
       [championshipId]: "1º Turno",
+    }));
+    setSelectedSection((current) => ({
+      ...current,
+      [championshipId]: "competition",
+    }));
+  }
+
+  function drawRioDeJaneiroGroups() {
+    const championship = championships.find((item) => item.id === selectedId);
+    if (!championship || championship.state !== "Rio de Janeiro") return;
+    const championshipId = championship.id;
+    const teams = [...(championship.teams ?? [])];
+    for (let i = teams.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [teams[i], teams[j]] = [teams[j], teams[i]];
+    }
+
+    const updated: Championship = {
+      ...championship,
+      rioGroups: { A: teams.slice(0, 6), B: teams.slice(6, 12) },
+      standings: undefined,
+      phaseStandings: undefined,
+      phaseMatches: undefined,
+      firstTurnWinner: undefined,
+      secondTurnWinner: undefined,
+      champion: undefined,
+    };
+
+    setChampionships((current) =>
+      current.map((item) => (item.id === championshipId ? updated : item))
+    );
+    setSelectedPhase((current) => ({
+      ...current,
+      [championshipId]: "Taça Guanabara",
     }));
     setSelectedSection((current) => ({
       ...current,
@@ -964,6 +1045,140 @@ export default function App() {
     };
   }
 
+  function simulateRioDeJaneiroFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 12) return championship;
+
+    const shuffle = (items: string[]) => {
+      const result = [...items];
+      for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    };
+
+    const groups = championship.rioGroups
+      ? championship.rioGroups
+      : (() => {
+          const drawn = shuffle(teams);
+          return { A: drawn.slice(0, 6), B: drawn.slice(6, 12) };
+        })();
+
+    const table: Record<string, Standing> = {};
+    [...groups.A, ...groups.B].forEach((team) => {
+      table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    });
+
+    for (const home of groups.A) {
+      for (const away of groups.B) {
+        const homeGoals = Math.floor(Math.random() * 5);
+        const awayGoals = Math.floor(Math.random() * 5);
+        const h = table[home];
+        const a = table[away];
+
+        h.j++; a.j++;
+        h.gp += homeGoals; h.gc += awayGoals; h.sg = h.gp - h.gc;
+        a.gp += awayGoals; a.gc += homeGoals; a.sg = a.gp - a.gc;
+
+        if (homeGoals > awayGoals) {
+          h.v++; a.d++; h.pts += 3;
+        } else if (homeGoals < awayGoals) {
+          a.v++; h.d++; a.pts += 3;
+        } else {
+          h.e++; a.e++; h.pts++; a.pts++;
+        }
+      }
+    }
+
+    const groupAOrdered = sortStandingTeams(groups.A, table);
+    const groupBOrdered = sortStandingTeams(groups.B, table);
+    const groupLeaders = [groupAOrdered[0], groupBOrdered[0]];
+    const tacaGuanabaraWinner = sortStandingTeams(groupLeaders, table)[0];
+
+    const quarterPairs: [string, string][] = [
+      [groupAOrdered[0], groupAOrdered[3]],
+      [groupAOrdered[1], groupAOrdered[2]],
+      [groupBOrdered[0], groupBOrdered[3]],
+      [groupBOrdered[1], groupBOrdered[2]],
+    ];
+
+    const quarterMatches: Matchup[] = [];
+    const quarterWinners: string[] = [];
+    const quarterLosers: string[] = [];
+
+    for (const [home, away] of quarterPairs) {
+      const match = simulateSingleKnockoutMatch(home, away);
+      quarterMatches.push(match);
+      const winner = match.penaltyWinner ?? (
+        (match.homeScore ?? 0) >= (match.awayScore ?? 0) ? home : away
+      );
+      quarterWinners.push(winner);
+      quarterLosers.push(winner === home ? away : home);
+    }
+
+    const semiTeams = shuffle(quarterWinners);
+    const semiMatches: Matchup[] = [];
+    const semiWinners: string[] = [];
+    for (const [teamA, teamB] of [
+      [semiTeams[0], semiTeams[1]],
+      [semiTeams[2], semiTeams[3]],
+    ] as [string, string][]) {
+      const leg1 = simulateKnockoutMatch(teamA, teamB);
+      const leg2 = simulateKnockoutMatch(teamB, teamA);
+      semiMatches.push(leg1, leg2);
+      semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
+    }
+
+    const guanabaraFinal = semiWinners.length === 2
+      ? [simulateSingleKnockoutMatch(semiWinners[0], semiWinners[1])]
+      : [];
+
+    const rioTeams = shuffle(quarterLosers);
+    const rioSemiMatches: Matchup[] = [];
+    const rioSemiWinners: string[] = [];
+    for (const [teamA, teamB] of [
+      [rioTeams[0], rioTeams[1]],
+      [rioTeams[2], rioTeams[3]],
+    ] as [string, string][]) {
+      const leg1 = simulateKnockoutMatch(teamA, teamB);
+      const leg2 = simulateKnockoutMatch(teamB, teamA);
+      rioSemiMatches.push(leg1, leg2);
+      rioSemiWinners.push(resolveTwoLeggedTie(leg1, leg2));
+    }
+
+    const rioFinal = rioSemiWinners.length === 2
+      ? [simulateSingleKnockoutMatch(rioSemiWinners[0], rioSemiWinners[1])]
+      : [];
+
+    return {
+      ...championship,
+      rioGroups: groups,
+      standings: table,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Taça Guanabara - Grupo A": Object.fromEntries(groupAOrdered.map((team) => [team, table[team]])),
+        "Taça Guanabara - Grupo B": Object.fromEntries(groupBOrdered.map((team) => [team, table[team]])),
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final": quarterMatches,
+        "Semi final - Taça Guanabara": semiMatches,
+        "Final - Taça Guanabara": guanabaraFinal,
+        "Semi final - Taça Rio": rioSemiMatches,
+        "Final - Taça Rio": rioFinal,
+      },
+      firstTurnWinner: tacaGuanabaraWinner,
+      champion: guanabaraFinal[0]?.penaltyWinner ?? (
+        guanabaraFinal[0]
+          ? ((guanabaraFinal[0].homeScore ?? 0) > (guanabaraFinal[0].awayScore ?? 0)
+            ? guanabaraFinal[0].home
+            : guanabaraFinal[0].away)
+          : undefined
+      ),
+    };
+  }
+
   function simulateGenericChampionship(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (!teams.length) return championship;
@@ -1020,6 +1235,10 @@ export default function App() {
 
       if (championship.state === "Espírito Santo" && championship.division === "1ª Divisão") {
         return simulateEspiritoSantoFirstDivision(championship);
+      }
+
+      if (championship.state === "Rio de Janeiro" && championship.division === "1ª Divisão") {
+        return simulateRioDeJaneiroFirstDivision(championship);
       }
 
       return simulateGenericChampionship(championship);
@@ -1109,6 +1328,17 @@ export default function App() {
       setSelectedPhase((current) => ({
         ...current,
         [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Rio de Janeiro" && selected.division === "1ª Divisão") {
+      const updated = simulateRioDeJaneiroFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Taça Guanabara",
       }));
     } else if (selected.state === "Alagoas" && selected.division === "1ª Divisão") {
       const updated = simulateAlagoasFirstDivision(selected);
@@ -1414,6 +1644,15 @@ export default function App() {
                     🎲 Sortear grupos
                   </button>
                 )}
+
+                {selected.state === "Rio de Janeiro" && selected.division === "1ª Divisão" && (
+                  <button
+                    className="section-tab"
+                    onClick={drawRioDeJaneiroGroups}
+                  >
+                    🎲 Sortear grupos
+                  </button>
+                )}
               </div>
 
               {(selectedSection[selected.id] ?? "competition") === "competition" ? (
@@ -1563,6 +1802,55 @@ export default function App() {
                             <div className="amazonas-groups-grid">
                               {renderGroupTable("GRUPO A", groupA, groupATable)}
                               {renderGroupTable("GRUPO B", groupB, groupBTable)}
+                            </div>
+                          );
+                        }
+
+                        if (
+                          selected.state === "Rio de Janeiro" &&
+                          currentPhase === "Taça Guanabara"
+                        ) {
+                          const groupATable = selected.phaseStandings?.["Taça Guanabara - Grupo A"] ?? {};
+                          const groupBTable = selected.phaseStandings?.["Taça Guanabara - Grupo B"] ?? {};
+                          const groupA = selected.rioGroups?.A ?? [];
+                          const groupB = selected.rioGroups?.B ?? [];
+
+                          const renderRioGroup = (title: string, group: string[], table: Record<string, Standing>) => {
+                            const ordered = sortStandingTeams(group, table);
+                            return (
+                              <div className="amazonas-group-table">
+                                <div className="amazonas-group-title">{title}</div>
+                                <div className="standings-wrap">
+                                  <table className="standings-table">
+                                    <thead>
+                                      <tr>
+                                        <th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {ordered.map((team, index) => {
+                                        const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                                        return (
+                                          <tr key={team}>
+                                            <td>{index + 1}</td>
+                                            <td className="standing-team">{team}</td>
+                                            <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
+                                            <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
+                                            <td className="standing-points">{row.pts}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          };
+
+                          return (
+                            <div className="amazonas-groups-grid">
+                              {renderRioGroup("GRUPO A", groupA, groupATable)}
+                              {renderRioGroup("GRUPO B", groupB, groupBTable)}
                             </div>
                           );
                         }
