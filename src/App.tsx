@@ -1921,6 +1921,10 @@ export default function App() {
         return simulateRioGrandeDoSulFirstDivision(championship);
       }
 
+      if (championship.state === "Goiás" && championship.division === "1ª Divisão") {
+        return simulateGoiasFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
