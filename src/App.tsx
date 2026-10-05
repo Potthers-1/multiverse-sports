@@ -450,7 +450,8 @@ const GOIAS_CHAMPIONSHIPS: Championship[] = [
     ],
   },
 ];
-\nconst INITIAL_CHAMPIONSHIPS: Championship[] = [
+
+const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
   ...AMAPA_CHAMPIONSHIPS,
@@ -1721,7 +1722,8 @@ export default function App() {
       champion: final.winners[0],
     };
   }
-\n  function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
+
+  function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 12) return championship;
 
@@ -2007,7 +2009,18 @@ export default function App() {
         ...current,
         [selected.id]: "Primeira fase",
       }));
-    } else if (selected.state === "Goiás" && selected.division === "1ª Divisão") {\n      const updated = simulateGoiasFirstDivision(selected);\n      setChampionships((current) =>\n        current.map((championship) =>\n          championship.id === selected.id ? updated : championship\n        )\n      );\n      setSelectedPhase((current) => ({\n        ...current,\n        [selected.id]: "Primeira fase",\n      }));\n    } else if (selected.state === "Ceará" && selected.division === "1ª Divisão") {
+    } else if (selected.state === "Goiás" && selected.division === "1ª Divisão") {
+      const updated = simulateGoiasFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Ceará" && selected.division === "1ª Divisão") {
       const updated = simulateCearaFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
