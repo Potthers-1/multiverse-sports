@@ -3203,12 +3203,23 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                             C: selected.phaseStandings?.["Primeira fase - Grupo C"] ?? {},
                           };
 
-                          const allSeconds = [
-                            groups?.A?.[1],
-                            groups?.B?.[1],
-                            groups?.C?.[1],
-                          ].filter(Boolean) as string[];
-                          const bestSecond = groups
+                          const orderedGroups = groups
+                            ? {
+                                A: sortStandingTeams(groups.A, tables.A),
+                                B: sortStandingTeams(groups.B, tables.B),
+                                C: sortStandingTeams(groups.C, tables.C),
+                              }
+                            : undefined;
+
+                          const allSeconds = orderedGroups
+                            ? [
+                                orderedGroups.A[1],
+                                orderedGroups.B[1],
+                                orderedGroups.C[1],
+                              ].filter(Boolean) as string[]
+                            : [];
+
+                          const bestSecond = orderedGroups
                             ? sortStandingTeams(allSeconds, {
                                 ...tables.A,
                                 ...tables.B,
