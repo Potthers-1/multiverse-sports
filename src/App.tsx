@@ -479,6 +479,38 @@ const MARANHAO_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const MATO_GROSSO_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 14001,
+    name: "Mato Grosso",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Mato Grosso",
+    teams: [
+      "Luverdense - MT",
+      "Mixto - MT",
+      "Operário VG - MT",
+      "Sport Sinop - MT",
+      "Cuiabá - MT",
+      "Nova Mutum - MT",
+      "Chapada - MT",
+      "União Rondonópolis - MT",
+      "Primavera AC - MT",
+      "Várzea Grande - MT",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "10 clubes disputam a primeira fase em turno único, totalizando 9 rodadas.",
+      "1º e 2º colocados avançam diretamente às semifinais.",
+      "3º, 4º, 5º e 6º colocados disputam as quartas de final em jogo único.",
+      "Os vencedores das quartas enfrentam os dois clubes já classificados às semifinais.",
+      "Semifinais e final em jogos de ida e volta.",
+      "Empate nas quartas em jogo único e empate no agregado das semifinais ou da final são decididos automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
@@ -493,6 +525,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...RIO_GRANDE_DO_SUL_CHAMPIONSHIPS,
   ...GOIAS_CHAMPIONSHIPS,
   ...MARANHAO_CHAMPIONSHIPS,
+  ...MATO_GROSSO_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -774,6 +807,15 @@ export default function App() {
       championship.division === "1ª Divisão" &&
       phase === "Primeira fase" &&
       index < 8
+    ) {
+      return "zone-second-phase";
+    }
+
+    if (
+      championship.state === "Mato Grosso" &&
+      championship.division === "1ª Divisão" &&
+      phase === "Primeira fase" &&
+      index < 6
     ) {
       return "zone-second-phase";
     }
@@ -1810,6 +1852,63 @@ export default function App() {
     };
   }
 
+  function simulateMatoGrossoFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 6) return championship;
+
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const directSemi = ordered.slice(0, 2);
+    const quarterTeams = ordered.slice(2, 6);
+
+    const quarter1 = resolveKnockoutTie(simulateKnockoutMatch(quarterTeams[0], quarterTeams[3]));
+    const quarter2 = resolveKnockoutTie(simulateKnockoutMatch(quarterTeams[1], quarterTeams[2]));
+    const quarterMatches = [quarter1, quarter2];
+    const quarterWinners = [
+      quarter1.penaltyWinner ?? (quarter1.homeScore! > quarter1.awayScore! ? quarter1.home : quarter1.away),
+      quarter2.penaltyWinner ?? (quarter2.homeScore! > quarter2.awayScore! ? quarter2.home : quarter2.away),
+    ];
+
+    const simulateTwoLeggedRound = (pairings: [string, string][]) => {
+      const matches: Matchup[] = [];
+      const winners: string[] = [];
+
+      for (const [teamA, teamB] of pairings) {
+        const leg1 = simulateKnockoutMatch(teamA, teamB);
+        const leg2 = simulateKnockoutMatch(teamB, teamA);
+        matches.push(leg1, leg2);
+        winners.push(resolveTwoLeggedTie(leg1, leg2));
+      }
+
+      return { matches, winners };
+    };
+
+    const semi = simulateTwoLeggedRound([
+      [directSemi[0], quarterWinners[1]],
+      [directSemi[1], quarterWinners[0]],
+    ]);
+
+    const final = simulateTwoLeggedRound([
+      [semi.winners[0], semi.winners[1]],
+    ]);
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final": quarterMatches,
+        "Semi final": semi.matches,
+        "Final": final.matches,
+      },
+      champion: final.winners[0],
+    };
+  }
+
   function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 12) return championship;
@@ -2005,6 +2104,10 @@ export default function App() {
         return simulateMaranhaoFirstDivision(championship);
       }
 
+      if (championship.state === "Mato Grosso" && championship.division === "1ª Divisão") {
+        return simulateMatoGrossoFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
@@ -2117,6 +2220,17 @@ export default function App() {
       }));
     } else if (selected.state === "Maranhão" && selected.division === "1ª Divisão") {
       const updated = simulateMaranhaoFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Mato Grosso" && selected.division === "1ª Divisão") {
+      const updated = simulateMatoGrossoFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
           championship.id === selected.id ? updated : championship
