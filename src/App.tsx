@@ -451,6 +451,34 @@ const GOIAS_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const MARANHAO_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 13001,
+    name: "Maranhão",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Maranhão",
+    teams: [
+      "Moto Club - MA",
+      "Maranhão - MA",
+      "Sampaio Correa - MA",
+      "IAPE - MA",
+      "Luminense - MA",
+      "Tuntum - MA",
+      "Imperatriz - MA",
+      "ITZ Sport - MA",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "8 clubes disputam a primeira fase em turno único, totalizando 7 rodadas.",
+      "Os 4 melhores colocados avançam ao mata-mata.",
+      "Quartas de final, semifinais e final em jogos de ida e volta.",
+      "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
@@ -464,6 +492,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...CEARA_CHAMPIONSHIPS,
   ...RIO_GRANDE_DO_SUL_CHAMPIONSHIPS,
   ...GOIAS_CHAMPIONSHIPS,
+  ...MARANHAO_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -1734,6 +1763,58 @@ export default function App() {
     };
   }
 
+  function simulateMaranhaoFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 4) return championship;
+
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const qualified = ordered.slice(0, 4);
+
+    const simulateTwoLeggedRound = (pairings: [string, string][]) => {
+      const matches: Matchup[] = [];
+      const winners: string[] = [];
+
+      for (const [teamA, teamB] of pairings) {
+        const leg1 = simulateKnockoutMatch(teamA, teamB);
+        const leg2 = simulateKnockoutMatch(teamB, teamA);
+        matches.push(leg1, leg2);
+        winners.push(resolveTwoLeggedTie(leg1, leg2));
+      }
+
+      return { matches, winners };
+    };
+
+    const quarter = simulateTwoLeggedRound([
+      [qualified[0], qualified[3]],
+      [qualified[1], qualified[2]],
+    ]);
+
+    const semi = simulateTwoLeggedRound([
+      [quarter.winners[0], quarter.winners[1]],
+    ]);
+
+    const final = simulateTwoLeggedRound([
+      [semi.winners[0], semi.winners[0]],
+    ]);
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final": quarter.matches,
+        "Semi final": semi.matches,
+        "Final": final.matches,
+      },
+      champion: final.winners[0],
+    };
+  }
+
   function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 12) return championship;
@@ -1925,6 +2006,10 @@ export default function App() {
         return simulateGoiasFirstDivision(championship);
       }
 
+      if (championship.state === "Maranhão" && championship.division === "1ª Divisão") {
+        return simulateMaranhaoFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
@@ -2026,6 +2111,17 @@ export default function App() {
       }));
     } else if (selected.state === "Goiás" && selected.division === "1ª Divisão") {
       const updated = simulateGoiasFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Maranhão" && selected.division === "1ª Divisão") {
+      const updated = simulateMaranhaoFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
           championship.id === selected.id ? updated : championship
