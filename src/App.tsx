@@ -1853,56 +1853,55 @@ export default function App() {
   }
 
   function simulateMatoGrossoFirstDivision(championship: Championship): Championship {
-    const teams = championship.teams ?? [];
-    if (teams.length !== 10) return championship;
+  const teams = championship.teams ?? [];
+  if (teams.length !== 10) return championship;
 
-    const firstStandings = simulateRoundRobin(teams);
-    const ordered = sortStandingTeams(teams, firstStandings);
+  const firstStandings = simulateRoundRobin(teams);
+  const ordered = sortStandingTeams(teams, firstStandings);
 
-    const q1 = resolveKnockoutTie(
-      simulateKnockoutMatch(ordered[2], ordered[5])
-    );
-    const q2 = resolveKnockoutTie(
-      simulateKnockoutMatch(ordered[3], ordered[4])
-    );
+  // 3º x 6º e 4º x 5º — quartas em jogo único.
+  const quarterfinals = [
+    resolveKnockoutTie(simulateKnockoutMatch(ordered[2], ordered[5])),
+    resolveKnockoutTie(simulateKnockoutMatch(ordered[3], ordered[4])),
+  ];
 
-    const winnerOf = (match: Matchup) => {
-      if (match.penaltyWinner) return match.penaltyWinner;
-      return (match.homeScore ?? 0) > (match.awayScore ?? 0)
-        ? match.home
-        : match.away;
-    };
+  const winnerOf = (match: Matchup) =>
+    match.penaltyWinner ??
+    ((match.homeScore ?? 0) >= (match.awayScore ?? 0)
+      ? match.home
+      : match.away);
 
-    const q1Winner = winnerOf(q1);
-    const q2Winner = winnerOf(q2);
+  const q1Winner = winnerOf(quarterfinals[0]);
+  const q2Winner = winnerOf(quarterfinals[1]);
 
-    const simulateTwoLegs = (home: string, away: string) => {
-      const leg1 = simulateKnockoutMatch(home, away);
-      const leg2 = simulateKnockoutMatch(away, home);
-      const winner = resolveTwoLeggedTie(leg1, leg2);
-      return { matches: [leg1, leg2], winner };
-    };
+  // 1º e 2º enfrentam os vencedores das quartas, em ida e volta.
+  const simulateTie = (firstTeam: string, secondTeam: string) => {
+    const firstLeg = simulateKnockoutMatch(firstTeam, secondTeam);
+    const secondLeg = simulateKnockoutMatch(secondTeam, firstTeam);
+    const winner = resolveTwoLeggedTie(firstLeg, secondLeg);
+    return { matches: [firstLeg, secondLeg], winner };
+  };
 
-    const semi1 = simulateTwoLegs(ordered[0], q1Winner);
-    const semi2 = simulateTwoLegs(ordered[1], q2Winner);
-    const final = simulateTwoLegs(semi1.winner, semi2.winner);
+  const semi1 = simulateTie(ordered[0], q1Winner);
+  const semi2 = simulateTie(ordered[1], q2Winner);
+  const final = simulateTie(semi1.winner, semi2.winner);
 
-    return {
-      ...championship,
-      standings: firstStandings,
-      phaseStandings: {
-        ...(championship.phaseStandings ?? {}),
-        "Primeira fase": firstStandings,
-      },
-      phaseMatches: {
-        ...(championship.phaseMatches ?? {}),
-        "Quartas de final": [q1, q2],
-        "Semi final": [...semi1.matches, ...semi2.matches],
-        "Final": final.matches,
-      },
-      champion: final.winner,
-    };
-  }
+  return {
+    ...championship,
+    standings: firstStandings,
+    phaseStandings: {
+      ...(championship.phaseStandings ?? {}),
+      "Primeira fase": firstStandings,
+    },
+    phaseMatches: {
+      ...(championship.phaseMatches ?? {}),
+      "Quartas de final": quarterfinals,
+      "Semi final": [...semi1.matches, ...semi2.matches],
+      "Final": final.matches,
+    },
+    champion: final.winner,
+  };
+}
 
 function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
