@@ -403,6 +403,7 @@ export default function App() {
     if (semiWinners.length === 2) {
       const finalLeg1 = simulateKnockoutMatch(semiWinners[0], semiWinners[1]);
       const finalLeg2 = simulateKnockoutMatch(semiWinners[1], semiWinners[0]);
+      resolveTwoLeggedTie(finalLeg1, finalLeg2);
       finalMatches.push(finalLeg1, finalLeg2);
     }
 
