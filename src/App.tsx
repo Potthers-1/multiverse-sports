@@ -166,11 +166,43 @@ const AMAZONAS_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const BAHIA_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 5001,
+    name: "Bahia",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Bahia",
+    teams: [
+      "Bahia - BA",
+      "Vitória - BA",
+      "Jacuipense - BA",
+      "Juazeirense - BA",
+      "Jequié - BA",
+      "Porto - BA",
+      "Barcelona - BA",
+      "Galícia - BA",
+      "Bahia de Feira - BA",
+      "Alagoinhas - BA",
+    ],
+    phases: ["Primeira fase", "Semi final", "Final"],
+    rules: [
+      "Primeira fase em turno único, com 9 rodadas.",
+      "Os 4 primeiros colocados avançam ao mata-mata.",
+      "Semifinais em jogos de ida e volta.",
+      "Final em jogos de ida e volta.",
+      "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
   ...AMAPA_CHAMPIONSHIPS,
   ...AMAZONAS_CHAMPIONSHIPS,
+  ...BAHIA_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -707,6 +739,53 @@ export default function App() {
     };
   }
 
+  function simulateBahiaFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 4) return championship;
+
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const qualified = ordered.slice(0, 4);
+
+    const semiMatches: Matchup[] = [];
+    const semiWinners: string[] = [];
+
+    for (const [teamA, teamB] of [
+      [qualified[0], qualified[3]],
+      [qualified[1], qualified[2]],
+    ]) {
+      const leg1 = simulateKnockoutMatch(teamA, teamB);
+      const leg2 = simulateKnockoutMatch(teamB, teamA);
+      semiMatches.push(leg1, leg2);
+      semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
+    }
+
+    const finalMatches: Matchup[] = [];
+    let champion: string | undefined;
+
+    if (semiWinners.length === 2) {
+      const finalLeg1 = simulateKnockoutMatch(semiWinners[0], semiWinners[1]);
+      const finalLeg2 = simulateKnockoutMatch(semiWinners[1], semiWinners[0]);
+      finalMatches.push(finalLeg1, finalLeg2);
+      champion = resolveTwoLeggedTie(finalLeg1, finalLeg2);
+    }
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Semi final": semiMatches,
+        "Final": finalMatches,
+      },
+      champion,
+    };
+  }
+
   function simulateGenericChampionship(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (!teams.length) return championship;
@@ -751,6 +830,10 @@ export default function App() {
 
       if (championship.state === "Amazonas" && championship.division === "1ª Divisão") {
         return simulateAmazonasFirstDivision(championship);
+      }
+
+      if (championship.state === "Bahia" && championship.division === "1ª Divisão") {
+        return simulateBahiaFirstDivision(championship);
       }
 
       return simulateGenericChampionship(championship);
@@ -807,6 +890,17 @@ export default function App() {
       setSelectedPhase((current) => ({
         ...current,
         [selected.id]: "1º Turno - Grupo A",
+      }));
+    } else if (selected.state === "Bahia" && selected.division === "1ª Divisão") {
+      const updated = simulateBahiaFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
       }));
     } else if (selected.state === "Alagoas" && selected.division === "1ª Divisão") {
       const updated = simulateAlagoasFirstDivision(selected);
