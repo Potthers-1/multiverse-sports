@@ -402,7 +402,17 @@ export default function App() {
       if (index === 1 || index === 2) return "amazonas-group-qualified";
     }
 
-    // Nas primeiras divisões estaduais atuais, os 4 primeiros avançam ao mata-mata.
+    // No Espírito Santo, os 8 primeiros avançam às quartas de final.
+    if (
+      championship.state === "Espírito Santo" &&
+      championship.division === "1ª Divisão" &&
+      phase === "Primeira fase" &&
+      index < 8
+    ) {
+      return "zone-second-phase";
+    }
+
+    // Nas primeiras divisões estaduais com 4 classificados, os 4 primeiros avançam ao mata-mata.
     if (
       championship.division === "1ª Divisão" &&
       phase === "Primeira fase" &&
