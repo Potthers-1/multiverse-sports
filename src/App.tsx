@@ -43,6 +43,7 @@ type Championship = {
   santaCatarinaGroups?: { A: string[]; B: string[] };
   cearaGroups?: { A: string[]; B: string[] };
   cearaSecondGroups?: { C: string[]; D: string[] };
+  rioGrandeDoSulGroups?: { A: string[]; B: string[] };
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -381,6 +382,42 @@ const CEARA_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const RIO_GRANDE_DO_SUL_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 11001,
+    name: "Rio Grande do Sul",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Rio Grande do Sul",
+    teams: [
+      "Internacional - RS",
+      "Juventude - RS",
+      "São José - RS",
+      "São Luiz - RS",
+      "Avenida - RS",
+      "Guarany de Bagé - RS",
+      "Grêmio - RS",
+      "Caxias - RS",
+      "Ypiranga de Erechim - RS",
+      "Novo Hamburgo - RS",
+      "Monsoon - RS",
+      "Inter de Santa Maria - RS",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "12 clubes divididos por sorteio em dois grupos de 6.",
+      "Na primeira fase, cada equipe enfrenta somente os clubes do outro grupo, em turno único, totalizando 6 rodadas.",
+      "Os 4 primeiros colocados de cada grupo avançam à fase final.",
+      "Quartas de final em jogo único.",
+      "Semifinais em jogos de ida e volta.",
+      "Final em jogos de ida e volta.",
+      "Empate nas quartas em jogo único gera pênaltis automaticamente.",
+      "Empate no agregado das semifinais ou da final gera pênaltis automaticamente.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
@@ -392,6 +429,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...RIO_DE_JANEIRO_CHAMPIONSHIPS,
   ...SANTA_CATARINA_CHAMPIONSHIPS,
   ...CEARA_CHAMPIONSHIPS,
+  ...RIO_GRANDE_DO_SUL_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -485,6 +523,38 @@ export default function App() {
     setSelectedPhase((current) => ({
       ...current,
       [championshipId]: "1º Turno",
+    }));
+    setSelectedSection((current) => ({
+      ...current,
+      [championshipId]: "competition",
+    }));
+  }
+
+  function drawRioGrandeDoSulGroups() {
+    const championship = championships.find((item) => item.id === selectedId);
+    if (!championship || championship.state !== "Rio Grande do Sul") return;
+    const championshipId = championship.id;
+    const teams = [...(championship.teams ?? [])];
+    for (let i = teams.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [teams[i], teams[j]] = [teams[j], teams[i]];
+    }
+
+    const updated: Championship = {
+      ...championship,
+      rioGrandeDoSulGroups: { A: teams.slice(0, 6), B: teams.slice(6, 12) },
+      standings: undefined,
+      phaseStandings: undefined,
+      phaseMatches: undefined,
+      champion: undefined,
+    };
+
+    setChampionships((current) =>
+      current.map((item) => (item.id === championshipId ? updated : item))
+    );
+    setSelectedPhase((current) => ({
+      ...current,
+      [championshipId]: "Primeira fase",
     }));
     setSelectedSection((current) => ({
       ...current,
@@ -1564,6 +1634,119 @@ export default function App() {
     };
   }
 
+  function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 12) return championship;
+
+    const shuffle = (items: string[]) => {
+      const result = [...items];
+      for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    };
+
+    const groups = championship.rioGrandeDoSulGroups
+      ? championship.rioGrandeDoSulGroups
+      : (() => {
+          const drawn = shuffle(teams);
+          return { A: drawn.slice(0, 6), B: drawn.slice(6, 12) };
+        })();
+
+    const table: Record<string, Standing> = {};
+    [...groups.A, ...groups.B].forEach((team) => {
+      table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    });
+
+    // Primeira fase: Grupo A x Grupo B, turno único.
+    for (const home of groups.A) {
+      for (const away of groups.B) {
+        const homeGoals = Math.floor(Math.random() * 5);
+        const awayGoals = Math.floor(Math.random() * 5);
+        const h = table[home];
+        const a = table[away];
+
+        h.j++; a.j++;
+        h.gp += homeGoals; h.gc += awayGoals; h.sg = h.gp - h.gc;
+        a.gp += awayGoals; a.gc += homeGoals; a.sg = a.gp - a.gc;
+
+        if (homeGoals > awayGoals) {
+          h.v++; a.d++; h.pts += 3;
+        } else if (homeGoals < awayGoals) {
+          a.v++; h.d++; a.pts += 3;
+        } else {
+          h.e++; a.e++; h.pts++; a.pts++;
+        }
+      }
+    }
+
+    const groupAOrdered = sortStandingTeams(groups.A, table);
+    const groupBOrdered = sortStandingTeams(groups.B, table);
+    const qualifiedA = groupAOrdered.slice(0, 4);
+    const qualifiedB = groupBOrdered.slice(0, 4);
+
+    // Quartas: jogo único. Confrontos entre equipes classificadas.
+    const quarterPairs: [string, string][] = [
+      [qualifiedA[0], qualifiedB[3]],
+      [qualifiedA[1], qualifiedB[2]],
+      [qualifiedB[0], qualifiedA[3]],
+      [qualifiedB[1], qualifiedA[2]],
+    ];
+
+    const quarterMatches: Matchup[] = [];
+    const quarterWinners: string[] = [];
+    for (const [home, away] of quarterPairs) {
+      const match = simulateSingleKnockoutMatch(home, away);
+      quarterMatches.push(match);
+      const winner = match.penaltyWinner ?? (
+        (match.homeScore ?? 0) > (match.awayScore ?? 0) ? home : away
+      );
+      quarterWinners.push(winner);
+    }
+
+    const semiPairs: [string, string][] = [
+      [quarterWinners[0], quarterWinners[3]],
+      [quarterWinners[1], quarterWinners[2]],
+    ];
+
+    const semiMatches: Matchup[] = [];
+    const semiWinners: string[] = [];
+    for (const [teamA, teamB] of semiPairs) {
+      const leg1 = simulateKnockoutMatch(teamA, teamB);
+      const leg2 = simulateKnockoutMatch(teamB, teamA);
+      semiMatches.push(leg1, leg2);
+      semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
+    }
+
+    const finalMatches: Matchup[] = [];
+    let champion: string | undefined;
+    if (semiWinners.length === 2) {
+      const leg1 = simulateKnockoutMatch(semiWinners[0], semiWinners[1]);
+      const leg2 = simulateKnockoutMatch(semiWinners[1], semiWinners[0]);
+      finalMatches.push(leg1, leg2);
+      champion = resolveTwoLeggedTie(leg1, leg2);
+    }
+
+    return {
+      ...championship,
+      rioGrandeDoSulGroups: groups,
+      standings: table,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase - Grupo A": Object.fromEntries(groupAOrdered.map((team) => [team, table[team]])),
+        "Primeira fase - Grupo B": Object.fromEntries(groupBOrdered.map((team) => [team, table[team]])),
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final": quarterMatches,
+        "Semi final": semiMatches,
+        "Final": finalMatches,
+      },
+      champion,
+    };
+  }
+
   function simulateGenericChampionship(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (!teams.length) return championship;
@@ -1632,6 +1815,10 @@ export default function App() {
 
       if (championship.state === "Ceará" && championship.division === "1ª Divisão") {
         return simulateCearaFirstDivision(championship);
+      }
+
+      if (championship.state === "Rio Grande do Sul" && championship.division === "1ª Divisão") {
+        return simulateRioGrandeDoSulFirstDivision(championship);
       }
 
       return simulateGenericChampionship(championship);
@@ -1713,6 +1900,17 @@ export default function App() {
       }));
     } else if (selected.state === "Espírito Santo" && selected.division === "1ª Divisão") {
       const updated = simulateEspiritoSantoFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Rio Grande do Sul" && selected.division === "1ª Divisão") {
+      const updated = simulateRioGrandeDoSulFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
           championship.id === selected.id ? updated : championship
@@ -2086,6 +2284,15 @@ export default function App() {
                     🎲 Sortear grupos
                   </button>
                 )}
+
+                {selected.state === "Rio Grande do Sul" && selected.division === "1ª Divisão" && (
+                  <button
+                    className="section-tab"
+                    onClick={drawRioGrandeDoSulGroups}
+                  >
+                    🎲 Sortear grupos
+                  </button>
+                )}
               </div>
 
               {(selectedSection[selected.id] ?? "competition") === "competition" ? (
@@ -2235,6 +2442,55 @@ export default function App() {
                             <div className="amazonas-groups-grid">
                               {renderGroupTable("GRUPO A", groupA, groupATable)}
                               {renderGroupTable("GRUPO B", groupB, groupBTable)}
+                            </div>
+                          );
+                        }
+
+                        if (
+                          selected.state === "Rio Grande do Sul" &&
+                          currentPhase === "Primeira fase"
+                        ) {
+                          const groupATable = selected.phaseStandings?.["Primeira fase - Grupo A"] ?? {};
+                          const groupBTable = selected.phaseStandings?.["Primeira fase - Grupo B"] ?? {};
+                          const groupA = selected.rioGrandeDoSulGroups?.A ?? [];
+                          const groupB = selected.rioGrandeDoSulGroups?.B ?? [];
+
+                          const renderRSGroup = (title: string, group: string[], table: Record<string, Standing>) => {
+                            const ordered = sortStandingTeams(group, table);
+                            return (
+                              <div className="amazonas-group-table">
+                                <div className="amazonas-group-title">{title}</div>
+                                <div className="standings-wrap">
+                                  <table className="standings-table">
+                                    <thead>
+                                      <tr>
+                                        <th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {ordered.map((team, index) => {
+                                        const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                                        return (
+                                          <tr key={team} className={index < 4 ? "zone-second-phase" : ""}>
+                                            <td>{index + 1}</td>
+                                            <td className="standing-team">{team}</td>
+                                            <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
+                                            <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
+                                            <td className="standing-points">{row.pts}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          };
+
+                          return (
+                            <div className="amazonas-groups-grid">
+                              {renderRSGroup("GRUPO A", groupA, groupATable)}
+                              {renderRSGroup("GRUPO B", groupB, groupBTable)}
                             </div>
                           );
                         }
