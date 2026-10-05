@@ -480,6 +480,38 @@ const MARANHAO_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const PARA_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 16001,
+    name: "Pará",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Pará",
+    teams: [
+      "Cametá - PA",
+      "Capitão Poço - PA",
+      "Paysandu - PA",
+      "Águia de Marabá - PA",
+      "Remo - PA",
+      "Tuna Luso - PA",
+      "Castanhal - PA",
+      "Santa Rosa - PA",
+      "São Raimundo - PA",
+      "Amazonia IFC - PA",
+      "Bragantino - PA",
+      "São Francisco - PA",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "12 clubes disputam a primeira fase em turno único, totalizando 11 rodadas.",
+      "Os 8 melhores colocados avançam ao mata-mata.",
+      "Quartas de final, semifinais e final são disputadas em jogos de ida e volta.",
+      "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const MINAS_GERAIS_CHAMPIONSHIPS: Championship[] = [
   {
     id: 15001,
@@ -562,6 +594,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...GOIAS_CHAMPIONSHIPS,
   ...MARANHAO_CHAMPIONSHIPS,
   ...MINAS_GERAIS_CHAMPIONSHIPS,
+  ...PARA_CHAMPIONSHIPS,
   ...MATO_GROSSO_CHAMPIONSHIPS,
 ];
 
@@ -901,6 +934,16 @@ export default function App() {
     ) {
       if (index < 2) return "mato-grosso-direct-semi";
       if (index < 6) return "mato-grosso-quarterfinal";
+    }
+
+    // No Pará, os 8 primeiros da primeira fase avançam às quartas de final.
+    if (
+      championship.state === "Pará" &&
+      championship.division === "1ª Divisão" &&
+      phase === "Primeira fase" &&
+      index < 8
+    ) {
+      return "zone-second-phase";
     }
 
     // Nas primeiras divisões estaduais com 4 classificados, os 4 primeiros avançam ao mata-mata.
@@ -1935,6 +1978,61 @@ export default function App() {
     };
   }
 
+  function simulateParaFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 8) return championship;
+
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const qualified = ordered.slice(0, 8);
+
+    const simulateTwoLeggedRound = (pairings: [string, string][]) => {
+      const matches: Matchup[] = [];
+      const winners: string[] = [];
+
+      for (const [teamA, teamB] of pairings) {
+        const leg1 = simulateKnockoutMatch(teamA, teamB);
+        const leg2 = simulateKnockoutMatch(teamB, teamA);
+        matches.push(leg1, leg2);
+        winners.push(resolveTwoLeggedTie(leg1, leg2));
+      }
+
+      return { matches, winners };
+    };
+
+    const quarter = simulateTwoLeggedRound([
+      [qualified[0], qualified[7]],
+      [qualified[1], qualified[6]],
+      [qualified[2], qualified[5]],
+      [qualified[3], qualified[4]],
+    ]);
+
+    const semi = simulateTwoLeggedRound([
+      [quarter.winners[0], quarter.winners[3]],
+      [quarter.winners[1], quarter.winners[2]],
+    ]);
+
+    const final = simulateTwoLeggedRound([
+      [semi.winners[0], semi.winners[1]],
+    ]);
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final": quarter.matches,
+        "Semi final": semi.matches,
+        "Final": final.matches,
+      },
+      champion: final.winners[0],
+    };
+  }
+
   function simulateMinasGeraisFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 12) return championship;
@@ -2290,6 +2388,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateMaranhaoFirstDivision(championship);
       }
 
+      if (championship.state === "Pará" && championship.division === "1ª Divisão") {
+        return simulateParaFirstDivision(championship);
+      }
+
       if (championship.state === "Minas Gerais" && championship.division === "1ª Divisão") {
         return simulateMinasGeraisFirstDivision(championship);
       }
@@ -2410,6 +2512,17 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       }));
     } else if (selected.state === "Maranhão" && selected.division === "1ª Divisão") {
       const updated = simulateMaranhaoFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Pará" && selected.division === "1ª Divisão") {
+      const updated = simulateParaFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
           championship.id === selected.id ? updated : championship
