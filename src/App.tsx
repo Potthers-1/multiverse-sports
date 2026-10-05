@@ -37,9 +37,11 @@ type Championship = {
   firstTurnWinner?: string;
   secondTurnWinner?: string;
   champion?: string;
+  accessTeams?: string[];
   amazonasGroups?: { A: string[]; B: string[] };
   rioGroups?: { A: string[]; B: string[] };
   santaCatarinaGroups?: { A: string[]; B: string[] };
+  cearaGroups?: { A: string[]; B: string[] };
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -342,6 +344,40 @@ const SANTA_CATARINA_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const CEARA_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 10001,
+    name: "Ceará",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Ceará",
+    teams: [
+      "Fortaleza - CE",
+      "Ferroviário - CE",
+      "Horizonte - CE",
+      "Quixadá - CE",
+      "Maracanã - CE",
+      "Ceará - CE",
+      "Floresta - CE",
+      "Iguatu - CE",
+      "Maranguape - CE",
+      "Tirol - CE",
+    ],
+    phases: ["Primeira fase", "Segunda fase", "Semi final"],
+    rules: [
+      "Primeira fase com 10 clubes divididos por sorteio em dois grupos de 5.",
+      "Cada equipe enfrenta as demais do próprio grupo em turno único, totalizando 4 jogos por equipe em 5 rodadas.",
+      "Os 3 melhores colocados de cada grupo avançam à segunda fase.",
+      "Na segunda fase, os três primeiros do Grupo A formam o Grupo C e os três primeiros do Grupo B formam o Grupo D.",
+      "Os grupos C e D se enfrentam em turno único, totalizando 3 jogos por equipe.",
+      "Os 2 primeiros colocados de cada grupo da segunda fase avançam às semifinais.",
+      "Semifinais em jogos de ida e volta.",
+      "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
@@ -352,6 +388,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ESPIRITO_SANTO_CHAMPIONSHIPS,
   ...RIO_DE_JANEIRO_CHAMPIONSHIPS,
   ...SANTA_CATARINA_CHAMPIONSHIPS,
+  ...CEARA_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -445,6 +482,39 @@ export default function App() {
     setSelectedPhase((current) => ({
       ...current,
       [championshipId]: "1º Turno",
+    }));
+    setSelectedSection((current) => ({
+      ...current,
+      [championshipId]: "competition",
+    }));
+  }
+
+  function drawCearaGroups() {
+    const championship = championships.find((item) => item.id === selectedId);
+    if (!championship || championship.state !== "Ceará") return;
+    const championshipId = championship.id;
+    const teams = [...(championship.teams ?? [])];
+    for (let i = teams.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [teams[i], teams[j]] = [teams[j], teams[i]];
+    }
+
+    const updated: Championship = {
+      ...championship,
+      cearaGroups: { A: teams.slice(0, 5), B: teams.slice(5, 10) },
+      standings: undefined,
+      phaseStandings: undefined,
+      phaseMatches: undefined,
+      champion: undefined,
+      accessTeams: undefined,
+    };
+
+    setChampionships((current) =>
+      current.map((item) => (item.id === championshipId ? updated : item))
+    );
+    setSelectedPhase((current) => ({
+      ...current,
+      [championshipId]: "Primeira fase",
     }));
     setSelectedSection((current) => ({
       ...current,
@@ -1347,6 +1417,136 @@ export default function App() {
     };
   }
 
+  function simulateCearaFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 10) return championship;
+
+    const shuffle = (items: string[]) => {
+      const result = [...items];
+      for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    };
+
+    const groups = championship.cearaGroups
+      ? championship.cearaGroups
+      : (() => {
+          const drawn = shuffle(teams);
+          return { A: drawn.slice(0, 5), B: drawn.slice(5, 10) };
+        })();
+
+    const simulateGroupRoundRobin = (group: string[]) => {
+      const table: Record<string, Standing> = {};
+      group.forEach((team) => {
+        table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+      });
+
+      for (let i = 0; i < group.length; i++) {
+        for (let j = i + 1; j < group.length; j++) {
+          const home = group[i];
+          const away = group[j];
+          const homeGoals = Math.floor(Math.random() * 5);
+          const awayGoals = Math.floor(Math.random() * 5);
+          const h = table[home];
+          const a = table[away];
+
+          h.j++; a.j++;
+          h.gp += homeGoals; h.gc += awayGoals; h.sg = h.gp - h.gc;
+          a.gp += awayGoals; a.gc += homeGoals; a.sg = a.gp - a.gc;
+
+          if (homeGoals > awayGoals) {
+            h.v++; a.d++; h.pts += 3;
+          } else if (homeGoals < awayGoals) {
+            a.v++; h.d++; a.pts += 3;
+          } else {
+            h.e++; a.e++; h.pts++; a.pts++;
+          }
+        }
+      }
+
+      return table;
+    };
+
+    const groupATable = simulateGroupRoundRobin(groups.A);
+    const groupBTable = simulateGroupRoundRobin(groups.B);
+    const groupAOrdered = sortStandingTeams(groups.A, groupATable);
+    const groupBOrdered = sortStandingTeams(groups.B, groupBTable);
+
+    const groupC = groupAOrdered.slice(0, 3);
+    const groupD = groupBOrdered.slice(0, 3);
+
+    const secondPhaseTable: Record<string, Standing> = {};
+    [...groupC, ...groupD].forEach((team) => {
+      secondPhaseTable[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    });
+
+    for (const home of groupC) {
+      for (const away of groupD) {
+        const homeGoals = Math.floor(Math.random() * 5);
+        const awayGoals = Math.floor(Math.random() * 5);
+        const h = secondPhaseTable[home];
+        const a = secondPhaseTable[away];
+
+        h.j++; a.j++;
+        h.gp += homeGoals; h.gc += awayGoals; h.sg = h.gp - h.gc;
+        a.gp += awayGoals; a.gc += homeGoals; a.sg = a.gp - a.gc;
+
+        if (homeGoals > awayGoals) {
+          h.v++; a.d++; h.pts += 3;
+        } else if (homeGoals < awayGoals) {
+          a.v++; h.d++; a.pts += 3;
+        } else {
+          h.e++; a.e++; h.pts++; a.pts++;
+        }
+      }
+    }
+
+    const groupCOrdered = sortStandingTeams(groupC, secondPhaseTable);
+    const groupDOrdered = sortStandingTeams(groupD, secondPhaseTable);
+
+    const semiTeams = [
+      groupCOrdered[0],
+      groupCOrdered[1],
+      groupDOrdered[0],
+      groupDOrdered[1],
+    ];
+
+    const semiPairs: [string, string][] = [
+      [semiTeams[0], semiTeams[3]],
+      [semiTeams[1], semiTeams[2]],
+    ];
+
+    const semiMatches: Matchup[] = [];
+    const semiWinners: string[] = [];
+    for (const [teamA, teamB] of semiPairs) {
+      const leg1 = simulateKnockoutMatch(teamA, teamB);
+      const leg2 = simulateKnockoutMatch(teamB, teamA);
+      semiMatches.push(leg1, leg2);
+      semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
+    }
+
+    return {
+      ...championship,
+      cearaGroups: groups,
+      standings: secondPhaseTable,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase - Grupo A": Object.fromEntries(groupAOrdered.map((team) => [team, groupATable[team]])),
+        "Primeira fase - Grupo B": Object.fromEntries(groupBOrdered.map((team) => [team, groupBTable[team]])),
+        "Segunda fase - Grupo C": Object.fromEntries(groupCOrdered.map((team) => [team, secondPhaseTable[team]])),
+        "Segunda fase - Grupo D": Object.fromEntries(groupDOrdered.map((team) => [team, secondPhaseTable[team]])),
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Semi final": semiMatches,
+      },
+      // O vencedor das semifinais fica registrado até a definição da final no regulamento.
+      accessTeams: semiWinners,
+    };
+  }
+
   function simulateGenericChampionship(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (!teams.length) return championship;
@@ -1411,6 +1611,10 @@ export default function App() {
 
       if (championship.state === "Santa Catarina" && championship.division === "1ª Divisão") {
         return simulateSantaCatarinaFirstDivision(championship);
+      }
+
+      if (championship.state === "Ceará" && championship.division === "1ª Divisão") {
+        return simulateCearaFirstDivision(championship);
       }
 
       return simulateGenericChampionship(championship);
@@ -1492,6 +1696,17 @@ export default function App() {
       }));
     } else if (selected.state === "Espírito Santo" && selected.division === "1ª Divisão") {
       const updated = simulateEspiritoSantoFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Ceará" && selected.division === "1ª Divisão") {
+      const updated = simulateCearaFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
           championship.id === selected.id ? updated : championship
@@ -1845,6 +2060,15 @@ export default function App() {
                     🎲 Sortear grupos
                   </button>
                 )}
+
+                {selected.state === "Ceará" && selected.division === "1ª Divisão" && (
+                  <button
+                    className="section-tab"
+                    onClick={drawCearaGroups}
+                  >
+                    🎲 Sortear grupos
+                  </button>
+                )}
               </div>
 
               {(selectedSection[selected.id] ?? "competition") === "competition" ? (
@@ -1994,6 +2218,60 @@ export default function App() {
                             <div className="amazonas-groups-grid">
                               {renderGroupTable("GRUPO A", groupA, groupATable)}
                               {renderGroupTable("GRUPO B", groupB, groupBTable)}
+                            </div>
+                          );
+                        }
+
+                        if (
+                          selected.state === "Ceará" &&
+                          (currentPhase === "Primeira fase" || currentPhase === "Segunda fase")
+                        ) {
+                          const isFirst = currentPhase === "Primeira fase";
+                          const groupKeys = isFirst
+                            ? ["Primeira fase - Grupo A", "Primeira fase - Grupo B"]
+                            : ["Segunda fase - Grupo C", "Segunda fase - Grupo D"];
+                          const groupTeams = isFirst
+                            ? [selected.cearaGroups?.A ?? [], selected.cearaGroups?.B ?? []]
+                            : [
+                                sortStandingTeams(selected.cearaGroups?.A ?? [], selected.phaseStandings?.["Primeira fase - Grupo A"] ?? {}).slice(0, 3),
+                                sortStandingTeams(selected.cearaGroups?.B ?? [], selected.phaseStandings?.["Primeira fase - Grupo B"] ?? {}).slice(0, 3),
+                              ];
+                          const renderCearaGroup = (title: string, group: string[], table: Record<string, Standing>, qualifiedCount: number) => {
+                            const ordered = sortStandingTeams(group, table);
+                            return (
+                              <div className="amazonas-group-table">
+                                <div className="amazonas-group-title">{title}</div>
+                                <div className="standings-wrap">
+                                  <table className="standings-table">
+                                    <thead>
+                                      <tr>
+                                        <th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {ordered.map((team, index) => {
+                                        const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                                        return (
+                                          <tr key={team} className={index < qualifiedCount ? "zone-second-phase" : ""}>
+                                            <td>{index + 1}</td>
+                                            <td className="standing-team">{team}</td>
+                                            <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
+                                            <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
+                                            <td className="standing-points">{row.pts}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          };
+
+                          return (
+                            <div className="amazonas-groups-grid">
+                              {renderCearaGroup(groupKeys[0], groupTeams[0], isFirst ? selected.phaseStandings?.[groupKeys[0]] ?? {} : selected.phaseStandings?.[groupKeys[0]] ?? {}, isFirst ? 3 : 2)}
+                              {renderCearaGroup(groupKeys[1], groupTeams[1], isFirst ? selected.phaseStandings?.[groupKeys[1]] ?? {} : selected.phaseStandings?.[groupKeys[1]] ?? {}, isFirst ? 3 : 2)}
                             </div>
                           );
                         }
