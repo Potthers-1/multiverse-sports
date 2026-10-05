@@ -729,6 +729,44 @@ export default function App() {
     }));
   }
 
+  function drawMinasGeraisGroups() {
+    const championship = championships.find((item) => item.id === selectedId);
+    if (!championship || championship.state !== "Minas Gerais") return;
+    const championshipId = championship.id;
+    const teams = [...(championship.teams ?? [])];
+
+    for (let i = teams.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [teams[i], teams[j]] = [teams[j], teams[i]];
+    }
+
+    const updated: Championship = {
+      ...championship,
+      minasGeraisGroups: {
+        A: teams.slice(0, 4),
+        B: teams.slice(4, 8),
+        C: teams.slice(8, 12),
+      },
+      standings: undefined,
+      phaseStandings: undefined,
+      phaseMatches: undefined,
+      champion: undefined,
+      accessTeams: undefined,
+    };
+
+    setChampionships((current) =>
+      current.map((item) => (item.id === championshipId ? updated : item))
+    );
+    setSelectedPhase((current) => ({
+      ...current,
+      [championshipId]: "Primeira fase",
+    }));
+    setSelectedSection((current) => ({
+      ...current,
+      [championshipId]: "competition",
+    }));
+  }
+
   function drawSantaCatarinaGroups() {
     const championship = championships.find((item) => item.id === selectedId);
     if (!championship || championship.state !== "Santa Catarina") return;
@@ -2745,6 +2783,15 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   <button
                     className="section-tab"
                     onClick={drawRioDeJaneiroGroups}
+                  >
+                    🎲 Sortear grupos
+                  </button>
+                )}
+
+                {selected.state === "Minas Gerais" && selected.division === "1ª Divisão" && (
+                  <button
+                    className="section-tab"
+                    onClick={drawMinasGeraisGroups}
                   >
                     🎲 Sortear grupos
                   </button>
