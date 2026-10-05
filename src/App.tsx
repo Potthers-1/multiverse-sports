@@ -66,7 +66,7 @@ const ACRE_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
-const STORAGE_KEY = "football-manager-clean-v1";
+const STORAGE_KEY = "football-manager-clean-v2";
 
 export default function App() {
   const [championships, setChampionships] = useState<Championship[]>([]);
@@ -84,7 +84,7 @@ export default function App() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = (JSON.parse(saved) as Championship[]).filter((champ) => champ.id !== 1002);
+        const parsed = (JSON.parse(saved) as Championship[]).filter((champ) => champ.id !== 1002 && !(champ.state === "Acre" && champ.division !== "1ª Divisão"));
         const merged = parsed.map((champ) => {
           const acreDefinition = ACRE_CHAMPIONSHIPS.find((acre) => acre.id === champ.id);
           return acreDefinition
