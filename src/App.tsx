@@ -122,10 +122,56 @@ const ALAGOAS_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const AMAZONAS_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 4001,
+    name: "Amazonas",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Amazonas",
+    teams: [
+      "Amazonas - AM",
+      "Itacoatiara - AM",
+      "Manauara - AM",
+      "Parintins - AM",
+      "Nacional - AM",
+      "Princesa do Solimões - AM",
+      "Manaus - AM",
+      "São Raimundo - AM",
+    ],
+    phases: [
+      "1º Turno - Grupo A",
+      "1º Turno - Grupo B",
+      "Quartas de final - 1º Turno",
+      "Semi final - 1º Turno",
+      "Final do 1º Turno",
+      "2º Turno - Grupo A",
+      "2º Turno - Grupo B",
+      "Quartas de final - 2º Turno",
+      "Semi final - 2º Turno",
+      "Final do 2º Turno",
+      "Final geral",
+    ],
+    rules: [
+      "1º turno: 2 grupos de 4 times; cada time enfrenta todos os times do outro grupo, totalizando 4 rodadas.",
+      "1º A e 1º B avançam diretamente às semifinais; 2º A, 3º A, 2º B e 3º B disputam as quartas.",
+      "Quartas, semifinais e final do turno são em jogo único, com pênaltis automáticos em caso de empate.",
+      "O campeão do 1º turno garante vaga na Final geral.",
+      "2º turno: 2 grupos de 4 times; os times jogam entre si dentro do próprio grupo, totalizando 3 rodadas.",
+      "1º A e 1º B avançam diretamente às semifinais; 2º A, 3º A, 2º B e 3º B disputam as quartas.",
+      "Quartas, semifinais e final do turno são em jogo único, com pênaltis automáticos em caso de empate.",
+      "O campeão do 2º turno garante vaga na Final geral.",
+      "Final geral em jogo único entre os campeões dos dois turnos. Se o mesmo time vencer os dois turnos, a final geral não é disputada.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
   ...AMAPA_CHAMPIONSHIPS,
+  ...AMAZONAS_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -148,17 +194,17 @@ export default function App() {
       if (saved) {
         const parsed = (JSON.parse(saved) as Championship[]).filter((champ) => champ.id !== 1002 && !(champ.state === "Acre" && champ.division !== "1ª Divisão"));
         const merged = parsed.map((champ) => {
-          const acreDefinition = ACRE_CHAMPIONSHIPS.find((acre) => acre.id === champ.id);
-          return acreDefinition
+          const definition = INITIAL_CHAMPIONSHIPS.find((item) => item.id === champ.id);
+          return definition
             ? {
                 ...champ,
-                name: acreDefinition.name,
-                country: acreDefinition.country,
-                state: acreDefinition.state,
-                division: acreDefinition.division,
-                teams: champ.teams?.length ? champ.teams : acreDefinition.teams,
-                phases: acreDefinition.phases,
-                rules: acreDefinition.rules,
+                name: definition.name,
+                country: definition.country,
+                state: definition.state,
+                division: definition.division,
+                teams: champ.teams?.length ? champ.teams : definition.teams,
+                phases: definition.phases,
+                rules: definition.rules,
               }
             : champ;
         });
@@ -499,6 +545,103 @@ export default function App() {
     };
   }
 
+  function simulateAmazonasFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 8) return championship;
+
+    const groupA = teams.slice(0, 4);
+    const groupB = teams.slice(4, 8);
+
+    function simulateCrossGroup(firstGroup: string[], secondGroup: string[]) {
+      const table: Record<string, Standing> = {};
+      [...firstGroup, ...secondGroup].forEach((team) => {
+        table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+      });
+      for (const home of firstGroup) {
+        for (const away of secondGroup) {
+          const match = simulateKnockoutMatch(home, away);
+          const hg = match.homeScore ?? 0;
+          const ag = match.awayScore ?? 0;
+          table[home].j++; table[away].j++;
+          table[home].gp += hg; table[home].gc += ag;
+          table[away].gp += ag; table[away].gc += hg;
+          if (hg > ag) { table[home].v++; table[away].d++; table[home].pts += 3; }
+          else if (hg < ag) { table[away].v++; table[home].d++; table[away].pts += 3; }
+          else { table[home].e++; table[away].e++; table[home].pts++; table[away].pts++; }
+        }
+      }
+      Object.values(table).forEach((row) => { row.sg = row.gp - row.gc; });
+      return table;
+    }
+
+    function winnerOf(match: Matchup) {
+      return match.penaltyWinner ?? (
+        (match.homeScore ?? 0) > (match.awayScore ?? 0) ? match.home : match.away
+      );
+    }
+
+    function simulateTurn(crossGroup: boolean) {
+      const table = crossGroup
+        ? simulateCrossGroup(groupA, groupB)
+        : { ...simulateRoundRobin(groupA), ...simulateRoundRobin(groupB) };
+      const orderedA = sortStandingTeams(groupA, table);
+      const orderedB = sortStandingTeams(groupB, table);
+
+      const quarterMatches = [
+        simulateSingleKnockoutMatch(orderedA[1], orderedB[2]),
+        simulateSingleKnockoutMatch(orderedB[1], orderedA[2]),
+      ];
+      const quarterWinners = quarterMatches.map(winnerOf);
+
+      const semiMatches = [
+        simulateSingleKnockoutMatch(orderedA[0], quarterWinners[0]),
+        simulateSingleKnockoutMatch(orderedB[0], quarterWinners[1]),
+      ];
+      const semiWinners = semiMatches.map(winnerOf);
+      const finalMatch = simulateSingleKnockoutMatch(semiWinners[0], semiWinners[1]);
+
+      return {
+        table,
+        quarterMatches,
+        semiMatches,
+        finalMatch,
+        winner: winnerOf(finalMatch),
+      };
+    }
+
+    const firstTurn = simulateTurn(true);
+    const secondTurn = simulateTurn(false);
+    const finalMatches: Matchup[] = [];
+
+    if (firstTurn.winner !== secondTurn.winner) {
+      finalMatches.push(simulateSingleKnockoutMatch(firstTurn.winner, secondTurn.winner));
+    }
+
+    return {
+      ...championship,
+      standings: firstTurn.table,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "1º Turno - Grupo A": Object.fromEntries(groupA.map((team) => [team, firstTurn.table[team]])),
+        "1º Turno - Grupo B": Object.fromEntries(groupB.map((team) => [team, firstTurn.table[team]])),
+        "2º Turno - Grupo A": Object.fromEntries(groupA.map((team) => [team, secondTurn.table[team]])),
+        "2º Turno - Grupo B": Object.fromEntries(groupB.map((team) => [team, secondTurn.table[team]])),
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final - 1º Turno": firstTurn.quarterMatches,
+        "Semi final - 1º Turno": firstTurn.semiMatches,
+        "Final do 1º Turno": [firstTurn.finalMatch],
+        "Quartas de final - 2º Turno": secondTurn.quarterMatches,
+        "Semi final - 2º Turno": secondTurn.semiMatches,
+        "Final do 2º Turno": [secondTurn.finalMatch],
+        "Final geral": finalMatches,
+      },
+      firstTurnWinner: firstTurn.winner,
+      secondTurnWinner: secondTurn.winner,
+    };
+  }
+
   function simulateGenericChampionship(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (!teams.length) return championship;
@@ -539,6 +682,10 @@ export default function App() {
 
       if (championship.state === "Amapá" && championship.division === "1ª Divisão") {
         return simulateAmapaFirstDivision(championship);
+      }
+
+      if (championship.state === "Amazonas" && championship.division === "1ª Divisão") {
+        return simulateAmazonasFirstDivision(championship);
       }
 
       return simulateGenericChampionship(championship);
@@ -584,6 +731,17 @@ export default function App() {
       setSelectedPhase((current) => ({
         ...current,
         [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Amazonas" && selected.division === "1ª Divisão") {
+      const updated = simulateAmazonasFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "1º Turno - Grupo A",
       }));
     } else if (selected.state === "Alagoas" && selected.division === "1ª Divisão") {
       const updated = simulateAlagoasFirstDivision(selected);
@@ -919,7 +1077,7 @@ export default function App() {
                         const currentPhase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
                         const matches = selected.phaseMatches?.[currentPhase] ?? [];
 
-                        if (currentPhase === "Semi final" || currentPhase === "Final") {
+                        if (currentPhase.includes("Quartas de final") || currentPhase.includes("Semi final") || currentPhase.includes("Final")) {
                           return (
                             <div className="knockout-list">
                               {matches.length === 0 ? (
@@ -945,7 +1103,7 @@ export default function App() {
                                   return (
                                     <div className="knockout-card" key={`${currentPhase}-${index}`}>
                                       <div className="knockout-card-header">
-                                        <span>{currentPhase === "Final" ? "FINAL" : `SEMIFINAL ${index + 1}`}</span>
+                                        <span>{currentPhase.includes("Quartas de final") ? "QUARTAS " + (index + 1) : currentPhase.includes("Semi final") ? "SEMIFINAL " + (index + 1) : "FINAL"}</span>
                                         <span>{played ? "ENCERRADO" : "A DEFINIR"}</span>
                                       </div>
                                       <div className="knockout-teams">
