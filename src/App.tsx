@@ -42,6 +42,7 @@ type Championship = {
   rioGroups?: { A: string[]; B: string[] };
   santaCatarinaGroups?: { A: string[]; B: string[] };
   cearaGroups?: { A: string[]; B: string[] };
+  cearaSecondGroups?: { C: string[]; D: string[] };
 };
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -364,15 +365,17 @@ const CEARA_CHAMPIONSHIPS: Championship[] = [
       "Maranguape - CE",
       "Tirol - CE",
     ],
-    phases: ["Primeira fase", "Segunda fase", "Semi final"],
+    phases: ["Primeira fase", "Segunda fase", "Semi final", "Final"],
     rules: [
       "Primeira fase com 10 clubes divididos por sorteio em dois grupos de 5.",
       "Cada equipe enfrenta as demais do próprio grupo em turno único, totalizando 4 jogos por equipe em 5 rodadas.",
       "Os 3 melhores colocados de cada grupo avançam à segunda fase.",
-      "Na segunda fase, os três primeiros do Grupo A formam o Grupo C e os três primeiros do Grupo B formam o Grupo D.",
+      "Na segunda fase, os seis classificados da primeira fase são sorteados automaticamente em dois novos grupos de 3, Grupos C e D.",
+      "Os grupos C e D se enfrentam em turno único, totalizando 3 jogos por equipe.",
       "Os grupos C e D se enfrentam em turno único, totalizando 3 jogos por equipe.",
       "Os 2 primeiros colocados de cada grupo da segunda fase avançam às semifinais.",
       "Semifinais em jogos de ida e volta.",
+      "Final em jogos de ida e volta.",
       "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
     ],
   },
@@ -502,6 +505,7 @@ export default function App() {
     const updated: Championship = {
       ...championship,
       cearaGroups: { A: teams.slice(0, 5), B: teams.slice(5, 10) },
+      cearaSecondGroups: undefined,
       standings: undefined,
       phaseStandings: undefined,
       phaseMatches: undefined,
@@ -1474,16 +1478,25 @@ export default function App() {
     const groupAOrdered = sortStandingTeams(groups.A, groupATable);
     const groupBOrdered = sortStandingTeams(groups.B, groupBTable);
 
-    const groupC = groupAOrdered.slice(0, 3);
-    const groupD = groupBOrdered.slice(0, 3);
+    // Os seis classificados da primeira fase são sorteados novamente,
+    // independentemente dos grupos A e B originais.
+    const qualified = [
+      ...groupAOrdered.slice(0, 3),
+      ...groupBOrdered.slice(0, 3),
+    ];
+    const secondDraw = shuffle(qualified);
+    const secondGroups = {
+      C: secondDraw.slice(0, 3),
+      D: secondDraw.slice(3, 6),
+    };
 
     const secondPhaseTable: Record<string, Standing> = {};
-    [...groupC, ...groupD].forEach((team) => {
+    [...secondGroups.C, ...secondGroups.D].forEach((team) => {
       secondPhaseTable[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
     });
 
-    for (const home of groupC) {
-      for (const away of groupD) {
+    for (const home of secondGroups.C) {
+      for (const away of secondGroups.D) {
         const homeGoals = Math.floor(Math.random() * 5);
         const awayGoals = Math.floor(Math.random() * 5);
         const h = secondPhaseTable[home];
@@ -1503,19 +1516,12 @@ export default function App() {
       }
     }
 
-    const groupCOrdered = sortStandingTeams(groupC, secondPhaseTable);
-    const groupDOrdered = sortStandingTeams(groupD, secondPhaseTable);
-
-    const semiTeams = [
-      groupCOrdered[0],
-      groupCOrdered[1],
-      groupDOrdered[0],
-      groupDOrdered[1],
-    ];
+    const groupCOrdered = sortStandingTeams(secondGroups.C, secondPhaseTable);
+    const groupDOrdered = sortStandingTeams(secondGroups.D, secondPhaseTable);
 
     const semiPairs: [string, string][] = [
-      [semiTeams[0], semiTeams[3]],
-      [semiTeams[1], semiTeams[2]],
+      [groupCOrdered[0], groupDOrdered[1]],
+      [groupDOrdered[0], groupCOrdered[1]],
     ];
 
     const semiMatches: Matchup[] = [];
@@ -1527,9 +1533,19 @@ export default function App() {
       semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
     }
 
+    const finalMatches: Matchup[] = [];
+    let champion: string | undefined;
+    if (semiWinners.length === 2) {
+      const finalLeg1 = simulateKnockoutMatch(semiWinners[0], semiWinners[1]);
+      const finalLeg2 = simulateKnockoutMatch(semiWinners[1], semiWinners[0]);
+      finalMatches.push(finalLeg1, finalLeg2);
+      champion = resolveTwoLeggedTie(finalLeg1, finalLeg2);
+    }
+
     return {
       ...championship,
       cearaGroups: groups,
+      cearaSecondGroups: secondGroups,
       standings: secondPhaseTable,
       phaseStandings: {
         ...(championship.phaseStandings ?? {}),
@@ -1541,8 +1557,9 @@ export default function App() {
       phaseMatches: {
         ...(championship.phaseMatches ?? {}),
         "Semi final": semiMatches,
+        "Final": finalMatches,
       },
-      // O vencedor das semifinais fica registrado até a definição da final no regulamento.
+      champion,
       accessTeams: semiWinners,
     };
   }
@@ -2233,8 +2250,8 @@ export default function App() {
                           const groupTeams = isFirst
                             ? [selected.cearaGroups?.A ?? [], selected.cearaGroups?.B ?? []]
                             : [
-                                sortStandingTeams(selected.cearaGroups?.A ?? [], selected.phaseStandings?.["Primeira fase - Grupo A"] ?? {}).slice(0, 3),
-                                sortStandingTeams(selected.cearaGroups?.B ?? [], selected.phaseStandings?.["Primeira fase - Grupo B"] ?? {}).slice(0, 3),
+                                selected.cearaSecondGroups?.C ?? [],
+                                selected.cearaSecondGroups?.D ?? [],
                               ];
                           const renderCearaGroup = (title: string, group: string[], table: Record<string, Standing>, qualifiedCount: number) => {
                             const ordered = sortStandingTeams(group, table);
