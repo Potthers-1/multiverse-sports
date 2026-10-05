@@ -295,8 +295,16 @@ export default function App() {
   }
 
   function getRowClass(championship: Championship, phase: string, index: number) {
+    if (
+      championship.state === "Amazonas" &&
+      championship.division === "1ª Divisão" &&
+      (phase === "1º Turno" || phase === "2º Turno")
+    ) {
+      if (index === 0) return "amazonas-group-first";
+      if (index === 1 || index === 2) return "amazonas-group-qualified";
+    }
+
     // Nas primeiras divisões estaduais atuais, os 4 primeiros avançam ao mata-mata.
-    // A cor laranja identifica a vaga para a segunda fase.
     if (
       championship.division === "1ª Divisão" &&
       phase === "Primeira fase" &&
@@ -1455,6 +1463,27 @@ export default function App() {
         .phase-empty-icon { font-size: 25px; }
         .phase-empty strong { color: #b9c5d8; font-size: 13px; }
         .phase-empty span { font-size: 11px; }
+        .standings-table tr.amazonas-group-first td {
+          background: rgba(249, 115, 22, 0.28) !important;
+        }
+        .standings-table tr.amazonas-group-first td:first-child {
+          box-shadow: inset 4px 0 0 #f97316;
+          color: #fb923c !important;
+        }
+        .standings-table tr.amazonas-group-first .standing-team {
+          color: #fdba74 !important;
+          font-weight: 700;
+        }
+        .standings-table tr.amazonas-group-qualified td {
+          background: rgba(249, 115, 22, 0.12) !important;
+        }
+        .standings-table tr.amazonas-group-qualified td:first-child {
+          box-shadow: inset 4px 0 0 #fdba74;
+          color: #fed7aa !important;
+        }
+        .standings-table tr.amazonas-group-qualified .standing-team {
+          color: #fed7aa !important;
+        }
         .standings-table tr.zone-second-phase td { background: rgba(249, 115, 22, 0.16) !important; }
         .standings-table tr.zone-second-phase td:first-child { box-shadow: inset 4px 0 0 #f97316; color: #fdba74 !important; }
         .standings-table tr.zone-second-phase .standing-team { color: #fed7aa !important; }
