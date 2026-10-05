@@ -3504,9 +3504,18 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
   min-width: 0;
 }
 .minas-gerais-groups-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
-@media (max-width: 1100px) {
+.minas-gerais-groups-grid .amazonas-group-table {
+  width: 100%;
+  min-width: 0;
+}
+.minas-gerais-groups-grid .standings-wrap {
+  width: 100%;
+  overflow-x: visible;
+}
+@media (max-width: 900px) {
   .minas-gerais-groups-grid {
     grid-template-columns: 1fr;
   }
