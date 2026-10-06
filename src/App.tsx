@@ -1537,16 +1537,24 @@ export default function App() {
       table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
     });
 
-    let round = 1;
-    for (let leg = 0; leg < 2; leg++) {
-      for (let i = 0; i < teams.length; i++) {
-        for (let j = i + 1; j < teams.length; j++) {
-          const home = leg === 0 ? teams[i] : teams[j];
-          const away = leg === 0 ? teams[j] : teams[i];
+    const buildLeg = (reverseHome: boolean, roundOffset: number) => {
+      const rotation = [...teams];
+      for (let r = 0; r < teams.length - 1; r++) {
+        for (let i = 0; i < teams.length / 2; i++) {
+          const first = rotation[i];
+          const second = rotation[teams.length - 1 - i];
+          const home = reverseHome ? second : first;
+          const away = reverseHome ? first : second;
           const homeGoals = Math.floor(Math.random() * 5);
           const awayGoals = Math.floor(Math.random() * 5);
 
-          matches.push({ home, away, homeScore: homeGoals, awayScore: awayGoals, round });
+          matches.push({
+            home,
+            away,
+            homeScore: homeGoals,
+            awayScore: awayGoals,
+            round: roundOffset + r + 1,
+          });
 
           table[home].j++;
           table[away].j++;
@@ -1570,9 +1578,16 @@ export default function App() {
             table[away].pts++;
           }
         }
-        round = round < 38 ? round + 1 : 1;
+
+        const fixed = rotation[0];
+        const rest = rotation.slice(1);
+        rest.unshift(rest.pop()!);
+        rotation.splice(0, rotation.length, fixed, ...rest);
       }
-    }
+    };
+
+    buildLeg(false, 0);
+    buildLeg(true, teams.length - 1);
 
     Object.values(table).forEach((row) => {
       row.sg = row.gp - row.gc;
