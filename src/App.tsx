@@ -39,6 +39,7 @@ type Championship = {
   secondTurnWinner?: string;
   champion?: string;
   accessTeams?: string[];
+  relegatedTeams?: string[];
   amazonasGroups?: { A: string[]; B: string[] };
   rioGroups?: { A: string[]; B: string[] };
   santaCatarinaGroups?: { A: string[]; B: string[] };
@@ -3732,6 +3733,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       },
       champion: ordered[0],
       accessTeams,
+      relegatedTeams: relegated,
       rules: [
         ...(championship.rules ?? []).filter((rule) => !rule.startsWith("Classificação final gerada")),
         `Classificação final gerada: acesso direto = ${directAccess.join(", ")}; play-off = ${playoffWinners.join(", ")}; rebaixados = ${relegated.join(", ")}.`,
@@ -3759,6 +3761,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       },
       champion,
       accessTeams: [],
+      relegatedTeams: relegated,
       rules: [
         ...(championship.rules ?? []).filter((rule) => !rule.startsWith("Classificação final gerada")),
         `Classificação final gerada: campeão = ${champion}; rebaixados = ${relegated.join(", ")}.`,
@@ -4325,6 +4328,20 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 >
                   Regulamento
                 </button>
+                {selected.country === "Brasil" && ["Série A", "Série B", "Série C", "Série D"].includes(selected.division) && (
+                  <button
+                    className={`section-tab ${selectedSection[selected.id] === "movement" ? "active" : ""}`}
+                    onClick={() =>
+                      setSelectedSection((current) => ({
+                        ...current,
+                        [selected.id]: "movement",
+                      }))
+                    }
+                  >
+                    Acessos / Rebaixamentos
+                  </button>
+                )}
+
                 {selected.state && (
                   <button
                     className={`section-tab ${selectedSection[selected.id] === "clubs" ? "active" : ""}`}
@@ -4404,7 +4421,62 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 )}
               </div>
 
-              {(selectedSection[selected.id] ?? "competition") === "clubs" ? (
+              {selectedSection[selected.id] === "movement" ? (
+                <div className="competition-block national-movement-panel">
+                  {(() => {
+                    const table = selected.standings ?? selected.phaseStandings?.["Primeira fase"] ?? {};
+                    const teams = selected.teams ?? [];
+                    const simulated = Object.keys(table).length > 0;
+                    const ordered = simulated ? sortStandingTeams(teams, table) : [];
+                    const relegated = selected.relegatedTeams ?? (
+                      simulated && selected.division === "Série A" ? ordered.slice(-4) :
+                      simulated && selected.division === "Série B" ? ordered.slice(-4) : []
+                    );
+                    const access = selected.accessTeams ?? [];
+                    const directAccess = selected.division === "Série B" && simulated ? access.filter((club) => ordered.slice(0, 2).includes(club)) : [];
+                    const playoffAccess = selected.division === "Série B" && simulated ? access.filter((club) => !directAccess.includes(club)) : [];
+                    const genericAccess = selected.division !== "Série B" ? access : [];
+
+                    if (!simulated) {
+                      return (
+                        <>
+                          <div className="block-title">MOVIMENTAÇÃO DA TEMPORADA {selected.season}</div>
+                          <div className="movement-empty">A temporada ainda não foi simulada. Os acessos e rebaixamentos aparecerão aqui automaticamente ao final da competição.</div>
+                        </>
+                      );
+                    }
+
+                    return (
+                      <>
+                        <div className="block-title">MOVIMENTAÇÃO DA TEMPORADA {selected.season}</div>
+                        <div className="movement-grid">
+                          <div className="movement-card movement-access">
+                            <div className="movement-card-title">🟢 ACESSO</div>
+                            <div className="movement-subtitle">Clubes que conquistaram vaga na divisão superior</div>
+                            {selected.division === "Série A" ? (
+                              <div className="movement-empty small">Não há acesso a partir da Série A.</div>
+                            ) : selected.division === "Série B" ? (
+                              <>
+                                <div className="movement-group-title">Acesso direto</div>
+                                {directAccess.length ? directAccess.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>1º/2º — acesso direto</span></div>) : <div className="movement-empty small">Nenhum definido.</div>}
+                                <div className="movement-group-title">Acesso via play-off</div>
+                                {playoffAccess.length ? playoffAccess.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>Vencedor do play-off</span></div>) : <div className="movement-empty small">Nenhum definido.</div>}
+                              </>
+                            ) : genericAccess.length ? genericAccess.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>Acesso conquistado</span></div>) : <div className="movement-empty small">Nenhum acesso registrado nesta divisão.</div>}
+                          </div>
+
+                          <div className="movement-card movement-relegation">
+                            <div className="movement-card-title">🔴 REBAIXAMENTO</div>
+                            <div className="movement-subtitle">Clubes que perderam a divisão nacional</div>
+                            {relegated.length ? relegated.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>Rebaixado para a divisão inferior</span></div>) : <div className="movement-empty small">Nenhum rebaixamento registrado nesta divisão.</div>}
+                          </div>
+                        </div>
+                        <div className="clubs-note"><strong>Atualização automática:</strong> esta aba mostra exclusivamente a movimentação da temporada vigente. Quando uma temporada for simulada, os clubes que conquistarem acesso ou forem rebaixados serão atualizados automaticamente.</div>
+                      </>
+                    );
+                  })()}
+                </div>
+              ) :               {(selectedSection[selected.id] ?? "competition") === "clubs" ? (
                 <div className="competition-block clubs-panel">
                   <div className="block-title">CLUBES DO ESTADO — ELEGIBILIDADE PARA A SÉRIE D</div>
                   {selected.state ? (() => {
@@ -5260,6 +5332,21 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .standings-legend .legend-promotion { background: #22c55e; }
         .standings-legend .legend-playoff { background: #eab308; }
         .standings-legend .legend-relegation { background: #ef4444; }
+
+        .national-movement-panel { width: 100%; }
+        .movement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+        .movement-card { border: 1px solid #26314a; border-radius: 12px; padding: 16px; background: #11192b; min-width: 0; }
+        .movement-card-title { font-size: 13px; font-weight: 900; letter-spacing: .04em; margin-bottom: 4px; }
+        .movement-access .movement-card-title { color: #86efac; }
+        .movement-relegation .movement-card-title { color: #fca5a5; }
+        .movement-subtitle { color: #71809f; font-size: 10px; margin-bottom: 14px; }
+        .movement-group-title { color: #cbd5e1; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .07em; margin: 13px 0 7px; }
+        .movement-club { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #1c2539; }
+        .movement-club strong { color: #eef2ff; font-size: 12px; }
+        .movement-club span { color: #8e9ab4; font-size: 10px; text-align: right; }
+        .movement-empty { color: #8e9ab4; font-size: 12px; line-height: 1.5; padding: 18px 0; }
+        .movement-empty.small { padding: 8px 0; font-size: 11px; }
+        @media (max-width: 760px) { .movement-grid { grid-template-columns: 1fr; } .movement-club { align-items: flex-start; flex-direction: column; gap: 4px; } .movement-club span { text-align: left; } }
 
         .clubs-panel { width: 100%; }
         .clubs-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
