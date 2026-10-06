@@ -536,11 +536,11 @@ const RORAIMA_CHAMPIONSHIPS: Championship[] = [
       "Náutico - RR",
       "Atlético - RR",
     ],
-    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    phases: ["Primeira fase", "Semi final", "Final"],
     rules: [
       "9 clubes disputam a primeira fase em turno e returno, totalizando 16 rodadas.",
       "Os 4 melhores colocados avançam ao mata-mata.",
-      "Quartas de final, semifinais e final são disputadas em jogos de ida e volta.",
+      "Semifinais e final são disputadas em jogos de ida e volta.",
       "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
     ],
   },
