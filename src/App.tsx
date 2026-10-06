@@ -517,6 +517,35 @@ const RIO_GRANDE_DO_NORTE_CHAMPIONSHIPS: Championship[] = [
 ];
 
 
+const RORAIMA_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 24001,
+    name: "Roraima",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Roraima",
+    teams: [
+      "São Raimundo - RR",
+      "Monte Roraima - RR",
+      "GAS - RR",
+      "Baré - RR",
+      "River - RR",
+      "Progresso - RR",
+      "Rio Negro - RR",
+      "Náutico - RR",
+      "Atlético - RR",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "9 clubes disputam a primeira fase em turno e returno, totalizando 16 rodadas.",
+      "Os 4 melhores colocados avançam ao mata-mata.",
+      "Quartas de final, semifinais e final são disputadas em jogos de ida e volta.",
+      "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const RONDONIA_CHAMPIONSHIPS: Championship[] = [
   {
     id: 23001,
@@ -784,6 +813,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...PIAUI_CHAMPIONSHIPS,
   ...RIO_GRANDE_DO_NORTE_CHAMPIONSHIPS,
   ...RONDONIA_CHAMPIONSHIPS,
+  ...RORAIMA_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -2505,7 +2535,84 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
   }
 
 
-  function simulateRondoniaFirstDivision(championship: Championship): Championship {
+  function simulateRoraimaFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length !== 9) return championship;
+
+    const standings: Record<string, Standing> = {};
+    teams.forEach((team) => {
+      standings[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    });
+
+    // Turno + returno: cada clube enfrenta os outros 8 duas vezes (16 jogos por clube).
+    for (let leg = 0; leg < 2; leg++) {
+      for (let i = 0; i < teams.length; i++) {
+        for (let j = i + 1; j < teams.length; j++) {
+          const home = leg === 0 ? teams[i] : teams[j];
+          const away = leg === 0 ? teams[j] : teams[i];
+          const homeGoals = Math.floor(Math.random() * 5);
+          const awayGoals = Math.floor(Math.random() * 5);
+
+          standings[home].j++;
+          standings[away].j++;
+          standings[home].gp += homeGoals;
+          standings[home].gc += awayGoals;
+          standings[away].gp += awayGoals;
+          standings[away].gc += homeGoals;
+
+          if (homeGoals > awayGoals) {
+            standings[home].v++;
+            standings[home].pts += 3;
+            standings[away].d++;
+          } else if (homeGoals < awayGoals) {
+            standings[away].v++;
+            standings[away].pts += 3;
+            standings[home].d++;
+          } else {
+            standings[home].e++;
+            standings[away].e++;
+            standings[home].pts++;
+            standings[away].pts++;
+          }
+        }
+      }
+    }
+
+    Object.values(standings).forEach((row) => {
+      row.sg = row.gp - row.gc;
+    });
+
+    const ordered = sortStandingTeams(teams, standings);
+    const qualified = ordered.slice(0, 4);
+
+    const playTwoLegs = (home: string, away: string) => {
+      const leg1 = simulateKnockoutMatch(home, away);
+      const leg2 = simulateKnockoutMatch(away, home);
+      const winner = resolveTwoLeggedTie(leg1, leg2);
+      return { matches: [leg1, leg2], winner };
+    };
+
+    const semi1 = playTwoLegs(qualified[0], qualified[3]);
+    const semi2 = playTwoLegs(qualified[1], qualified[2]);
+    const final = playTwoLegs(semi1.winner, semi2.winner);
+
+    return {
+      ...championship,
+      standings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": standings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Semi final": [...semi1.matches, ...semi2.matches],
+        "Final": final.matches,
+      },
+      champion: final.winner,
+    };
+  }
+
+function simulateRondoniaFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length !== 7) return championship;
 
@@ -3023,6 +3130,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateRondoniaFirstDivision(championship);
       }
 
+      if (championship.state === "Roraima" && championship.division === "1ª Divisão") {
+        return simulateRoraimaFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
@@ -3145,11 +3256,15 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         ...current,
         [selected.id]: "Primeira fase",
       }));
+    } else if (selected.state === "Roraima" && selected.division === "1ª Divisão") {
+      const updated = simulateRoraimaFirstDivision(selected);
+      setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
+      setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
     } else if (selected.state === "Rondônia" && selected.division === "1ª Divisão") {
       const updated = simulateRondoniaFirstDivision(selected);
       setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
       setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
-    }  else if (selected.state === "Piauí" && selected.division === "1ª Divisão") {
+    } else if (selected.state === "Piauí" && selected.division === "1ª Divisão") {
       const updated = simulatePiauiFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
