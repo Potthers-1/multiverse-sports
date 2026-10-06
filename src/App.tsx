@@ -517,6 +517,37 @@ const RIO_GRANDE_DO_NORTE_CHAMPIONSHIPS: Championship[] = [
 ];
 
 
+const MATO_GROSSO_DO_SUL_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 26001,
+    name: "Mato Grosso do Sul",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Mato Grosso do Sul",
+    teams: [
+      "Naviraiense - MS",
+      "Operário - MS",
+      "Corumbaense - MS",
+      "Ivinhema - MS",
+      "Bataguassu - MS",
+      "Dourados - MS",
+      "CR Aquidauana - MS",
+      "Pantanal - MS",
+      "Costa Rica - MS",
+      "Águia Negra - MS",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "10 clubes disputam a primeira fase em turno único, totalizando 9 rodadas.",
+      "Os 2 primeiros colocados se classificam diretamente para as semifinais.",
+      "Nas quartas de final: 3º x 6º e 4º x 5º, em jogo único.",
+      "As semifinais e a final são disputadas em jogos de ida e volta.",
+      "Em caso de empate em jogo único ou no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const SERGIPE_CHAMPIONSHIPS: Championship[] = [
   {
     id: 25001,
@@ -846,6 +877,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...RONDONIA_CHAMPIONSHIPS,
   ...RORAIMA_CHAMPIONSHIPS,
   ...SERGIPE_CHAMPIONSHIPS,
+  ...MATO_GROSSO_DO_SUL_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -2576,7 +2608,50 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
   }
 
 
-  function simulateSergipeFirstDivision(championship: Championship): Championship {
+  function simulateMatoGrossoDoSulFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length !== 10) return championship;
+
+    const standings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, standings);
+
+    const quarter1 = resolveKnockoutTie(simulateKnockoutMatch(ordered[2], ordered[5]));
+    const quarter2 = resolveKnockoutTie(simulateKnockoutMatch(ordered[3], ordered[4]));
+
+    const quarter1Winner = quarter1.penaltyWinner ?? (quarter1.homeScore! > quarter1.awayScore! ? quarter1.home : quarter1.away);
+    const quarter2Winner = quarter2.penaltyWinner ?? (quarter2.homeScore! > quarter2.awayScore! ? quarter2.home : quarter2.away);
+
+    const simulateTwoLegs = (home: string, away: string) => {
+      const leg1 = simulateKnockoutMatch(home, away);
+      const leg2 = simulateKnockoutMatch(away, home);
+      return {
+        matches: [leg1, leg2],
+        winner: resolveTwoLeggedTie(leg1, leg2),
+      };
+    };
+
+    const semi1 = simulateTwoLegs(ordered[0], quarter2Winner);
+    const semi2 = simulateTwoLegs(ordered[1], quarter1Winner);
+    const final = simulateTwoLegs(semi1.winner, semi2.winner);
+
+    return {
+      ...championship,
+      standings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": standings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final": [quarter1, quarter2],
+        "Semi final": [...semi1.matches, ...semi2.matches],
+        "Final": final.matches,
+      },
+      champion: final.winner,
+    };
+  }
+
+function simulateSergipeFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length !== 10) return championship;
 
@@ -3184,6 +3259,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateSergipeFirstDivision(championship);
       }
 
+      if (championship.state === "Mato Grosso do Sul" && championship.division === "1ª Divisão") {
+        return simulateMatoGrossoDoSulFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
@@ -3312,6 +3391,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
     } else if (selected.state === "Sergipe" && selected.division === "1ª Divisão") {
       const updated = simulateSergipeFirstDivision(selected);
+      setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
+      setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
+    } else if (selected.state === "Mato Grosso do Sul" && selected.division === "1ª Divisão") {
+      const updated = simulateMatoGrossoDoSulFirstDivision(selected);
       setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
       setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
     } else if (selected.state === "Rondônia" && selected.division === "1ª Divisão") {
