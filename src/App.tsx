@@ -1801,116 +1801,64 @@ function simulateSaoPauloFirstDivision(championship: Championship): Championship
 
   const pots = championship.saoPauloPots ?? (() => {
     const drawn = shuffle(teams);
-    return {
-      A: drawn.slice(0, 4),
-      B: drawn.slice(4, 8),
-      C: drawn.slice(8, 12),
-      D: drawn.slice(12, 16),
-    };
+    return { A: drawn.slice(0,4), B: drawn.slice(4,8), C: drawn.slice(8,12), D: drawn.slice(12,16) };
   })();
 
   const table: Record<string, Standing> = {};
-  teams.forEach(team => {
-    table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-  });
+  teams.forEach(team => table[team] = { j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0 });
 
   const played = new Set<string>();
-  const play = (home: string, away: string) => {
-    const key = [home, away].sort().join("|");
-    if (played.has(key)) return;
+  const play = (home:string, away:string) => {
+    const key=[home,away].sort().join("|");
+    if(played.has(key)) return;
     played.add(key);
-    const hg = Math.floor(Math.random() * 5);
-    const ag = Math.floor(Math.random() * 5);
-    const h = table[home], a = table[away];
-    h.j++; a.j++;
-    h.gp += hg; h.gc += ag; h.sg = h.gp - h.gc;
-    a.gp += ag; a.gc += hg; a.sg = a.gp - a.gc;
-    if (hg > ag) { h.v++; a.d++; h.pts += 3; }
-    else if (hg < ag) { a.v++; h.d++; a.pts += 3; }
-    else { h.e++; a.e++; h.pts++; a.pts++; }
+    const hg=Math.floor(Math.random()*5), ag=Math.floor(Math.random()*5);
+    const h=table[home], a=table[away];
+    h.j++; a.j++; h.gp+=hg; h.gc+=ag; h.sg=h.gp-h.gc; a.gp+=ag; a.gc+=hg; a.sg=a.gp-a.gc;
+    if(hg>ag){h.v++;a.d++;h.pts+=3;}else if(hg<ag){a.v++;h.d++;a.pts+=3;}else{h.e++;a.e++;h.pts++;a.pts++;}
   };
 
-  const potList = [pots.A, pots.B, pots.C, pots.D];
+  const potList=[pots.A,pots.B,pots.C,pots.D];
 
-  // Cada clube enfrenta todos os 3 adversários do próprio pote.
-  for (const pot of potList) {
-    for (let i = 0; i < pot.length; i++) {
-      for (let j = i + 1; j < pot.length; j++) play(pot[i], pot[j]);
+  // Os 3 rivais do próprio pote.
+  for(const pot of potList) for(let i=0;i<4;i++) for(let j=i+1;j<4;j++) play(pot[i],pot[j]);
+
+  // Cinco rodadas de confrontos entre potes. Em cada rodada todos os clubes
+  // disputam exatamente um jogo contra outro pote, garantindo 8 jogos por clube.
+  const potPairings = [
+    [[0,1],[2,3]], [[0,2],[1,3]], [[0,3],[1,2]],
+    [[0,1],[2,3]], [[0,2],[1,3]]
+  ] as [number,number][][];
+  for(let round=0;round<5;round++){
+    for(const [pa,pb] of potPairings[round]){
+      const left=potList[pa], right=potList[pb];
+      const offset=Math.floor(Math.random()*4);
+      for(let i=0;i<4;i++) play(left[i],right[(i+offset)%4]);
     }
   }
 
-  // Completa 5 adversários de outros potes para cada equipe.
-  // Primeiro, sorteia uma rede de confrontos entre potes e adiciona apenas
-  // partidas ainda necessárias, garantindo 8 jogos por equipe.
-  const counts: Record<string, number> = {};
-  teams.forEach(team => counts[team] = table[team].j);
+  const ordered=sortStandingTeams(teams,table);
+  const qualified=ordered.slice(0,8);
+  const single=(home:string,away:string)=>resolveKnockoutTie(simulateKnockoutMatch(home,away));
+  const winner=(m:Matchup)=>m.penaltyWinner ?? ((m.homeScore??0)>(m.awayScore??0)?m.home:m.away);
 
-  const candidates: [string, string][] = [];
-  for (let a = 0; a < potList.length; a++) {
-    for (let b = a + 1; b < potList.length; b++) {
-      for (const x of potList[a]) for (const y of potList[b]) candidates.push([x, y]);
-    }
-  }
-
-  const shuffledCandidates = shuffle(candidates.map(pair => pair.join("::"))).map(s => s.split("::") as [string,string]);
-  let progress = true;
-  while (progress && teams.some(team => counts[team] < 8)) {
-    progress = false;
-    for (const [home, away] of shuffledCandidates) {
-      if (counts[home] >= 8 || counts[away] >= 8) continue;
-      play(home, away);
-      counts[home]++; counts[away]++;
-      progress = true;
-      if (!teams.some(team => counts[team] < 8)) break;
-    }
-  }
-
-  // Segurança: caso a distribuição aleatória não complete exatamente,
-  // completa os pares restantes disponíveis até todos chegarem a 8.
-  for (const [home, away] of shuffledCandidates) {
-    if (counts[home] === 8 || counts[away] === 8) continue;
-    if (played.has([home, away].sort().join("|"))) continue;
-    play(home, away);
-    counts[home]++; counts[away]++;
-  }
-
-  const ordered = sortStandingTeams(teams, table);
-  const qualified = ordered.slice(0, 8);
-
-  const singleMatch = (home: string, away: string) =>
-    resolveKnockoutTie(simulateKnockoutMatch(home, away));
-
-  const q1 = singleMatch(qualified[0], qualified[7]);
-  const q2 = singleMatch(qualified[3], qualified[4]);
-  const q3 = singleMatch(qualified[1], qualified[6]);
-  const q4 = singleMatch(qualified[2], qualified[5]);
-
-  const winner = (match: Matchup) =>
-    match.penaltyWinner ??
-    ((match.homeScore ?? 0) > (match.awayScore ?? 0) ? match.home : match.away);
-
-  const s1 = singleMatch(winner(q1), winner(q2));
-  const s2 = singleMatch(winner(q3), winner(q4));
-
-  const final1 = simulateKnockoutMatch(winner(s1), winner(s2));
-  const final2 = simulateKnockoutMatch(winner(s2), winner(s1));
-  const finalWinner = resolveTwoLeggedTie(final1, final2);
+  const q1=single(qualified[0],qualified[7]);
+  const q2=single(qualified[3],qualified[4]);
+  const q3=single(qualified[1],qualified[6]);
+  const q4=single(qualified[2],qualified[5]);
+  const s1=single(winner(q1),winner(q2));
+  const s2=single(winner(q3),winner(q4));
+  const final1=simulateKnockoutMatch(winner(s1),winner(s2));
+  const final2=simulateKnockoutMatch(winner(s2),winner(s1));
+  const finalWinner=resolveTwoLeggedTie(final1,final2);
 
   return {
     ...championship,
-    saoPauloPots: pots,
-    standings: table,
-    phaseStandings: {
-      ...(championship.phaseStandings ?? {}),
-      "Primeira fase": table,
-    },
-    phaseMatches: {
-      ...(championship.phaseMatches ?? {}),
-      "Quartas de final": [q1, q2, q3, q4],
-      "Semi final": [s1, s2],
-      "Final": [final1, final2],
-    },
-    champion: finalWinner,
+    saoPauloPots:pots,
+    standings:table,
+    phaseStandings:{...(championship.phaseStandings??{}),"Primeira fase":table},
+    phaseMatches:{...(championship.phaseMatches??{}),"Quartas de final":[q1,q2,q3,q4],"Semi final":[s1,s2],"Final":[final1,final2]},
+    champion:finalWinner,
   };
 }
 
