@@ -3350,7 +3350,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                       <div className="block-title">
                         {(() => {
                           const currentPhase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
-                          return currentPhase === "Semi final" || currentPhase === "Final"
+                          return currentPhase.includes("Semi final") || currentPhase.includes("Semifinal") || currentPhase.includes("Final")
                             ? currentPhase.toUpperCase()
                             : `TABELA — ${currentPhase}`;
                         })()}
@@ -3373,7 +3373,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                           const groups=selected.pernambucoSecondGroups??{A:[],B:[]};const render=(letter:string)=>{const group=groups[letter as keyof typeof groups]??[],table=selected.phaseStandings?.[`2º Turno - Grupo ${letter}`]??{},ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{`GRUPO ${letter}`}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index===0?"zone-second-phase":index<3?"zone-playoff":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};return <div className="amazonas-groups-grid">{render("A")}{render("B")}</div>;
                         }
 
-                        if (currentPhase.includes("Oitavas de final") || currentPhase.includes("Quartas de final") || currentPhase.includes("Segunda fase") || currentPhase.includes("Semi final") || currentPhase.includes("Final")) {
+                        if (currentPhase.includes("Oitavas de final") || currentPhase.includes("Quartas de final") || currentPhase.includes("Segunda fase") || currentPhase.includes("Semi final") || currentPhase.includes("Semifinal") || currentPhase.includes("Final")) {
                           return (
                             <div className="knockout-list">
                               {matches.length === 0 ? (
