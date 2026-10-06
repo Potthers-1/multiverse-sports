@@ -1104,7 +1104,7 @@ export default function App() {
   const [season, setSeason] = useState("2026");
   const [division, setDivision] = useState("Estadual");
   const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
-  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs">>({});
+  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement">>({});
 
   useEffect(() => {
     try {
