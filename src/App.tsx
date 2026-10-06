@@ -45,6 +45,7 @@ type Championship = {
   cearaSecondGroups?: { C: string[]; D: string[] };
   rioGrandeDoSulGroups?: { A: string[]; B: string[] };
   paranaGroups?: { A: string[]; B: string[] };
+  saoPauloPots?: { A: string[]; B: string[]; C: string[]; D: string[] };
   minasGeraisGroups?: { A: string[]; B: string[]; C: string[] };
 };
 
@@ -513,6 +514,44 @@ const PARA_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const SAO_PAULO_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 19001,
+    name: "São Paulo",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "São Paulo",
+    teams: [
+      "Novorizontino - SP",
+      "Palmeiras - SP",
+      "Red Bull Bragantino - SP",
+      "Portuguesa - SP",
+      "Corinthians - SP",
+      "São Paulo - SP",
+      "Capivariano - SP",
+      "Santos - SP",
+      "Guarani - SP",
+      "Botafogo - SP",
+      "Mirassol - SP",
+      "Primavera - SP",
+      "São Bernardo - SP",
+      "Noroeste - SP",
+      "Velo Clube - SP",
+      "Ponte Preta - SP",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "16 clubes são divididos por sorteio em quatro potes de 4 equipes.",
+      "Cada clube enfrenta os 3 adversários do próprio pote e mais 5 adversários de outros potes, em turno único, totalizando 8 jogos.",
+      "Os 8 melhores colocados avançam às quartas de final.",
+      "Quartas de final e semifinais são disputadas em jogo único.",
+      "A final é disputada em jogos de ida e volta.",
+      "Empate em jogo único ou no agregado da final é decidido automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const PARANA_CHAMPIONSHIPS: Championship[] = [{
     id: 18001, name: "Paraná", season: "2026", division: "1ª Divisão", country: "Brasil", state: "Paraná",
     teams: ["Londrina - PR","Foz do Iguaçu - PR","Athletico - PR","São Joseense - PR","Maringá - PR","FC Cascavel - PR","Azuriz - PR","Coritiba - PR","Cianorte - PR","Operário - PR","Andraus - PR","Galo Maringá - PR"],
@@ -642,6 +681,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...PARA_CHAMPIONSHIPS,
   ...PARAIBA_CHAMPIONSHIPS,
   ...PARANA_CHAMPIONSHIPS,
+  ...SAO_PAULO_CHAMPIONSHIPS,
   ...MATO_GROSSO_CHAMPIONSHIPS,
 ];
 
@@ -845,6 +885,33 @@ export default function App() {
       ...current,
       [championshipId]: "competition",
     }));
+  }
+
+  function drawSaoPauloPots() {
+    const championship = championships.find(item => item.id === selectedId);
+    if (!championship || championship.state !== "São Paulo") return;
+    const teams = [...(championship.teams ?? [])];
+    for (let i = teams.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [teams[i], teams[j]] = [teams[j], teams[i]];
+    }
+    const updated: Championship = {
+      ...championship,
+      saoPauloPots: {
+        A: teams.slice(0, 4),
+        B: teams.slice(4, 8),
+        C: teams.slice(8, 12),
+        D: teams.slice(12, 16),
+      },
+      standings: undefined,
+      phaseStandings: undefined,
+      phaseMatches: undefined,
+      champion: undefined,
+      accessTeams: undefined,
+    };
+    setChampionships(current => current.map(item => item.id === championship.id ? updated : item));
+    setSelectedPhase(current => ({...current,[championship.id]:"Primeira fase"}));
+    setSelectedSection(current => ({...current,[championship.id]:"competition"}));
   }
 
   function drawParanaGroups() {
@@ -1719,6 +1786,134 @@ export default function App() {
     accessTeams:[...qa,...qb],champion:fin.winners[0]};
 }
 
+function simulateSaoPauloFirstDivision(championship: Championship): Championship {
+  const teams = championship.teams ?? [];
+  if (teams.length < 16) return championship;
+
+  const shuffle = (items: string[]) => {
+    const r = [...items];
+    for (let i = r.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [r[i], r[j]] = [r[j], r[i]];
+    }
+    return r;
+  };
+
+  const pots = championship.saoPauloPots ?? (() => {
+    const drawn = shuffle(teams);
+    return {
+      A: drawn.slice(0, 4),
+      B: drawn.slice(4, 8),
+      C: drawn.slice(8, 12),
+      D: drawn.slice(12, 16),
+    };
+  })();
+
+  const table: Record<string, Standing> = {};
+  teams.forEach(team => {
+    table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+  });
+
+  const played = new Set<string>();
+  const play = (home: string, away: string) => {
+    const key = [home, away].sort().join("|");
+    if (played.has(key)) return;
+    played.add(key);
+    const hg = Math.floor(Math.random() * 5);
+    const ag = Math.floor(Math.random() * 5);
+    const h = table[home], a = table[away];
+    h.j++; a.j++;
+    h.gp += hg; h.gc += ag; h.sg = h.gp - h.gc;
+    a.gp += ag; a.gc += hg; a.sg = a.gp - a.gc;
+    if (hg > ag) { h.v++; a.d++; h.pts += 3; }
+    else if (hg < ag) { a.v++; h.d++; a.pts += 3; }
+    else { h.e++; a.e++; h.pts++; a.pts++; }
+  };
+
+  const potList = [pots.A, pots.B, pots.C, pots.D];
+
+  // Cada clube enfrenta todos os 3 adversários do próprio pote.
+  for (const pot of potList) {
+    for (let i = 0; i < pot.length; i++) {
+      for (let j = i + 1; j < pot.length; j++) play(pot[i], pot[j]);
+    }
+  }
+
+  // Completa 5 adversários de outros potes para cada equipe.
+  // Primeiro, sorteia uma rede de confrontos entre potes e adiciona apenas
+  // partidas ainda necessárias, garantindo 8 jogos por equipe.
+  const counts: Record<string, number> = {};
+  teams.forEach(team => counts[team] = table[team].j);
+
+  const candidates: [string, string][] = [];
+  for (let a = 0; a < potList.length; a++) {
+    for (let b = a + 1; b < potList.length; b++) {
+      for (const x of potList[a]) for (const y of potList[b]) candidates.push([x, y]);
+    }
+  }
+
+  const shuffledCandidates = shuffle(candidates.map(pair => pair.join("::"))).map(s => s.split("::") as [string,string]);
+  let progress = true;
+  while (progress && teams.some(team => counts[team] < 8)) {
+    progress = false;
+    for (const [home, away] of shuffledCandidates) {
+      if (counts[home] >= 8 || counts[away] >= 8) continue;
+      play(home, away);
+      counts[home]++; counts[away]++;
+      progress = true;
+      if (!teams.some(team => counts[team] < 8)) break;
+    }
+  }
+
+  // Segurança: caso a distribuição aleatória não complete exatamente,
+  // completa os pares restantes disponíveis até todos chegarem a 8.
+  for (const [home, away] of shuffledCandidates) {
+    if (counts[home] === 8 || counts[away] === 8) continue;
+    if (played.has([home, away].sort().join("|"))) continue;
+    play(home, away);
+    counts[home]++; counts[away]++;
+  }
+
+  const ordered = sortStandingTeams(teams, table);
+  const qualified = ordered.slice(0, 8);
+
+  const singleMatch = (home: string, away: string) =>
+    resolveKnockoutTie(simulateKnockoutMatch(home, away));
+
+  const q1 = singleMatch(qualified[0], qualified[7]);
+  const q2 = singleMatch(qualified[3], qualified[4]);
+  const q3 = singleMatch(qualified[1], qualified[6]);
+  const q4 = singleMatch(qualified[2], qualified[5]);
+
+  const winner = (match: Matchup) =>
+    match.penaltyWinner ??
+    ((match.homeScore ?? 0) > (match.awayScore ?? 0) ? match.home : match.away);
+
+  const s1 = singleMatch(winner(q1), winner(q2));
+  const s2 = singleMatch(winner(q3), winner(q4));
+
+  const final1 = simulateKnockoutMatch(winner(s1), winner(s2));
+  const final2 = simulateKnockoutMatch(winner(s2), winner(s1));
+  const finalWinner = resolveTwoLeggedTie(final1, final2);
+
+  return {
+    ...championship,
+    saoPauloPots: pots,
+    standings: table,
+    phaseStandings: {
+      ...(championship.phaseStandings ?? {}),
+      "Primeira fase": table,
+    },
+    phaseMatches: {
+      ...(championship.phaseMatches ?? {}),
+      "Quartas de final": [q1, q2, q3, q4],
+      "Semi final": [s1, s2],
+      "Final": [final1, final2],
+    },
+    champion: finalWinner,
+  };
+}
+
 function simulateSantaCatarinaFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 12) return championship;
@@ -2514,6 +2709,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateRioGrandeDoSulFirstDivision(championship);
       }
 
+      if (championship.state === "São Paulo" && championship.division === "1ª Divisão") {
+        return simulateSaoPauloFirstDivision(championship);
+      }
+
       if (championship.state === "Paraná" && championship.division === "1ª Divisão") {
         return simulateParanaFirstDivision(championship);
       }
@@ -2641,6 +2840,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         ...current,
         [selected.id]: "Primeira fase",
       }));
+    } else if (selected.state === "São Paulo" && selected.division === "1ª Divisão") {
+      const updated = simulateSaoPauloFirstDivision(selected);
+      setChampionships(current => current.map(championship => championship.id === selected.id ? updated : championship));
+      setSelectedPhase(current => ({...current,[selected.id]:"Primeira fase"}));
     } else if (selected.state === "Paraná" && selected.division === "1ª Divisão") {
       const updated = simulateParanaFirstDivision(selected);
       setChampionships(current => current.map(championship => championship.id === selected.id ? updated : championship));
@@ -2805,6 +3008,8 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           firstTurnWinner: undefined,
           amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
           paranaGroups: championship.state === "Paraná" ? undefined : championship.paranaGroups,
+        saoPauloPots: championship.state === "São Paulo" ? undefined : championship.saoPauloPots,
+          saoPauloPots: championship.state === "São Paulo" ? undefined : championship.saoPauloPots,
           secondTurnWinner: undefined,
         };
       })
@@ -3087,6 +3292,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   </button>
                 )}
 
+                {selected.state === "São Paulo" && selected.division === "1ª Divisão" && (
+                  <button className="section-tab" onClick={drawSaoPauloPots}>🎲 Sortear potes</button>
+                )}
+
                 {selected.state === "Paraná" && selected.division === "1ª Divisão" && (
                   <button className="section-tab" onClick={drawParanaGroups}>🎲 Sortear grupos</button>
                 )}
@@ -3248,6 +3457,29 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                             <div className="amazonas-groups-grid">
                               {renderGroupTable("GRUPO A", groupA, groupATable)}
                               {renderGroupTable("GRUPO B", groupB, groupBTable)}
+                            </div>
+                          );
+                        }
+
+                        if (selected.state === "São Paulo" && currentPhase === "Primeira fase") {
+                          const pots = selected.saoPauloPots ?? {A:[],B:[],C:[],D:[]};
+                          const renderPot = (title:string, teams:string[]) => (
+                            <div className="amazonas-group-table">
+                              <div className="amazonas-group-title">{title}</div>
+                              <div className="standings-wrap">
+                                <div className="standing-note">Pote com 4 clubes — todos se enfrentam.</div>
+                                <div className="standings-table" style={{padding:"14px"}}>
+                                  {teams.map((team,index) => <div key={team} className="standing-team" style={{padding:"7px 0"}}>{index+1}. {team}</div>)}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                          return (
+                            <div className="amazonas-groups-grid">
+                              {renderPot("POTE A",pots.A)}
+                              {renderPot("POTE B",pots.B)}
+                              {renderPot("POTE C",pots.C)}
+                              {renderPot("POTE D",pots.D)}
                             </div>
                           );
                         }
