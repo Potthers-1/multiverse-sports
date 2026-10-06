@@ -44,6 +44,7 @@ type Championship = {
   cearaGroups?: { A: string[]; B: string[] };
   cearaSecondGroups?: { C: string[]; D: string[] };
   rioGrandeDoSulGroups?: { A: string[]; B: string[] };
+  paranaGroups?: { A: string[]; B: string[] };
   minasGeraisGroups?: { A: string[]; B: string[]; C: string[] };
 };
 
@@ -512,6 +513,19 @@ const PARA_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const PARANA_CHAMPIONSHIPS: Championship[] = [{
+    id: 18001, name: "Paraná", season: "2026", division: "1ª Divisão", country: "Brasil", state: "Paraná",
+    teams: ["Londrina - PR","Foz do Iguaçu - PR","Athletico - PR","São Joseense - PR","Maringá - PR","FC Cascavel - PR","Azuriz - PR","Coritiba - PR","Cianorte - PR","Operário - PR","Andraus - PR","Galo Maringá - PR"],
+    phases: ["Primeira fase","Quartas de final","Semi final","Final"],
+    rules: [
+      "12 clubes são divididos por sorteio em dois grupos de 6.",
+      "Cada equipe enfrenta exclusivamente as 6 equipes do outro grupo, em turno único, totalizando 6 jogos por equipe.",
+      "Os 4 melhores de cada grupo avançam ao mata-mata, totalizando 8 classificados.",
+      "Quartas de final, semifinais e final são disputadas em jogos de ida e volta.",
+      "Empate no placar agregado é decidido automaticamente nos pênaltis."
+    ]
+  }];
+
 const PARAIBA_CHAMPIONSHIPS: Championship[] = [
   {
     id: 17001,
@@ -627,6 +641,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...MINAS_GERAIS_CHAMPIONSHIPS,
   ...PARA_CHAMPIONSHIPS,
   ...PARAIBA_CHAMPIONSHIPS,
+  ...PARANA_CHAMPIONSHIPS,
   ...MATO_GROSSO_CHAMPIONSHIPS,
 ];
 
@@ -830,6 +845,17 @@ export default function App() {
       ...current,
       [championshipId]: "competition",
     }));
+  }
+
+  function drawParanaGroups() {
+    const championship=championships.find(item=>item.id===selectedId);
+    if(!championship || championship.state!=="Paraná") return;
+    const teams=[...(championship.teams??[])];
+    for(let i=teams.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[teams[i],teams[j]]=[teams[j],teams[i]];}
+    const updated={...championship,paranaGroups:{A:teams.slice(0,6),B:teams.slice(6,12)},standings:undefined,phaseStandings:undefined,phaseMatches:undefined,champion:undefined,accessTeams:undefined};
+    setChampionships(current=>current.map(item=>item.id===championship.id?updated:item));
+    setSelectedPhase(current=>({...current,[championship.id]:"Primeira fase"}));
+    setSelectedSection(current=>({...current,[championship.id]:"competition"}));
   }
 
   function drawSantaCatarinaGroups() {
@@ -1664,7 +1690,36 @@ export default function App() {
     };
   }
 
-  function simulateSantaCatarinaFirstDivision(championship: Championship): Championship {
+  function simulateParanaFirstDivision(championship: Championship): Championship {
+  const teams = championship.teams ?? [];
+  if (teams.length < 12) return championship;
+  const shuffle = (items: string[]) => {
+    const r=[...items]; for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];} return r;
+  };
+  const groups = championship.paranaGroups ?? (()=>{const d=shuffle(teams);return {A:d.slice(0,6),B:d.slice(6,12)};})();
+  const table: Record<string, Standing> = {};
+  [...groups.A,...groups.B].forEach(t=>table[t]={j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0});
+  for(const home of groups.A) for(const away of groups.B){
+    const hg=Math.floor(Math.random()*5), ag=Math.floor(Math.random()*5), h=table[home], a=table[away];
+    h.j++;a.j++;h.gp+=hg;h.gc+=ag;h.sg=h.gp-h.gc;a.gp+=ag;a.gc+=hg;a.sg=a.gp-a.gc;
+    if(hg>ag){h.v++;a.d++;h.pts+=3;}else if(hg<ag){a.v++;h.d++;a.pts+=3;}else{h.e++;a.e++;h.pts++;a.pts++;}
+  }
+  const A=sortStandingTeams(groups.A,table), B=sortStandingTeams(groups.B,table), qa=A.slice(0,4), qb=B.slice(0,4);
+  const twoLegs=(pairs:[string,string][])=>{
+    const matches:Matchup[]=[], winners:string[]=[];
+    for(const [x,y] of pairs){const l1=simulateKnockoutMatch(x,y),l2=simulateKnockoutMatch(y,x);matches.push(l1,l2);winners.push(resolveTwoLeggedTie(l1,l2));}
+    return {matches,winners};
+  };
+  const q=twoLegs([[qa[0],qb[3]],[qa[1],qb[2]],[qb[0],qa[3]],[qb[1],qa[2]]]);
+  const s=twoLegs([[q.winners[0],q.winners[3]],[q.winners[1],q.winners[2]]]);
+  const fin=twoLegs([[s.winners[0],s.winners[1]]]);
+  return {...championship,paranaGroups:groups,standings:table,
+    phaseStandings:{...(championship.phaseStandings??{}),"Primeira fase - Grupo A":Object.fromEntries(A.map(t=>[t,table[t]])),"Primeira fase - Grupo B":Object.fromEntries(B.map(t=>[t,table[t]]))},
+    phaseMatches:{...(championship.phaseMatches??{}),"Quartas de final":q.matches,"Semi final":s.matches,"Final":fin.matches},
+    accessTeams:[...qa,...qb],champion:fin.winners[0]};
+}
+
+function simulateSantaCatarinaFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 12) return championship;
 
@@ -2459,6 +2514,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateRioGrandeDoSulFirstDivision(championship);
       }
 
+      if (championship.state === "Paraná" && championship.division === "1ª Divisão") {
+        return simulateParanaFirstDivision(championship);
+      }
+
       if (championship.state === "Goiás" && championship.division === "1ª Divisão") {
         return simulateGoiasFirstDivision(championship);
       }
@@ -2582,6 +2641,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         ...current,
         [selected.id]: "Primeira fase",
       }));
+    } else if (selected.state === "Paraná" && selected.division === "1ª Divisão") {
+      const updated = simulateParanaFirstDivision(selected);
+      setChampionships(current => current.map(championship => championship.id === selected.id ? updated : championship));
+      setSelectedPhase(current => ({...current,[selected.id]:"Primeira fase"}));
     } else if (selected.state === "Goiás" && selected.division === "1ª Divisão") {
       const updated = simulateGoiasFirstDivision(selected);
       setChampionships((current) =>
@@ -2741,6 +2804,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           phaseMatches: undefined,
           firstTurnWinner: undefined,
           amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
+          paranaGroups: championship.state === "Paraná" ? undefined : championship.paranaGroups,
           secondTurnWinner: undefined,
         };
       })
@@ -2774,6 +2838,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         phaseMatches: undefined,
         firstTurnWinner: undefined,
         amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
+        paranaGroups: championship.state === "Paraná" ? undefined : championship.paranaGroups,
         secondTurnWinner: undefined,
       };
     });
@@ -3022,6 +3087,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   </button>
                 )}
 
+                {selected.state === "Paraná" && selected.division === "1ª Divisão" && (
+                  <button className="section-tab" onClick={drawParanaGroups}>🎲 Sortear grupos</button>
+                )}
+
                 {selected.state === "Rio Grande do Sul" && selected.division === "1ª Divisão" && (
                   <button
                     className="section-tab"
@@ -3181,6 +3250,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                               {renderGroupTable("GRUPO B", groupB, groupBTable)}
                             </div>
                           );
+                        }
+
+                        if (selected.state === "Paraná" && currentPhase === "Primeira fase") {
+                          const a=selected.paranaGroups?.A??[], b=selected.paranaGroups?.B??[];
+                          const ta=selected.phaseStandings?.["Primeira fase - Grupo A"]??{}, tb=selected.phaseStandings?.["Primeira fase - Grupo B"]??{};
+                          const renderGroup=(title:string,group:string[],table:Record<string,Standing>)=>{const ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{title}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index<4?"zone-second-phase":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};
+                          return <div className="amazonas-groups-grid">{renderGroup("GRUPO A",a,ta)}{renderGroup("GRUPO B",b,tb)}</div>;
                         }
 
                         if (
