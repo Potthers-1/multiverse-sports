@@ -1061,6 +1061,11 @@ export default function App() {
       if (index < 6) return "mato-grosso-quarterfinal";
     }
 
+    // Em São Paulo, os 8 primeiros da primeira fase avançam às quartas de final.
+    if (championship.state === "São Paulo" && championship.division === "1ª Divisão" && phase === "Primeira fase" && index < 8) {
+      return "zone-second-phase";
+    }
+
     // No Pará, os 8 primeiros da primeira fase avançam às quartas de final.
     if (
       championship.state === "Pará" &&
@@ -3421,12 +3426,41 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                               </div>
                             </div>
                           );
+                          const ordered = sortStandingTeams(selected.teams ?? [], selected.standings ?? {});
+                          const table = selected.standings ?? {};
                           return (
-                            <div className="amazonas-groups-grid">
-                              {renderPot("POTE A",pots.A)}
-                              {renderPot("POTE B",pots.B)}
-                              {renderPot("POTE C",pots.C)}
-                              {renderPot("POTE D",pots.D)}
+                            <div>
+                              <div className="amazonas-groups-grid">
+                                {renderPot("POTE A",pots.A)}
+                                {renderPot("POTE B",pots.B)}
+                                {renderPot("POTE C",pots.C)}
+                                {renderPot("POTE D",pots.D)}
+                              </div>
+                              <div style={{marginTop:"24px"}}>
+                                <div className="amazonas-group-title">CLASSIFICAÇÃO GERAL — PRIMEIRA FASE</div>
+                                <div className="standings-wrap">
+                                  <table className="standings-table">
+                                    <thead><tr>
+                                      <th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th>
+                                    </tr></thead>
+                                    <tbody>
+                                      {ordered.map((team,index) => {
+                                        const row = table[team] ?? {j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};
+                                        return (
+                                          <tr key={team} className={getRowClass(selected,currentPhase,index)}>
+                                            <td>{index+1}</td><td className="standing-team">{team}</td>
+                                            <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
+                                            <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                <div className="standings-legend">
+                                  <span><i className="legend-second-phase" /> Classificados para as quartas de final</span>
+                                </div>
+                              </div>
                             </div>
                           );
                         }
