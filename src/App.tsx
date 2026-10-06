@@ -484,6 +484,38 @@ const MARANHAO_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+
+const RIO_GRANDE_DO_NORTE_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 22001,
+    name: "Rio Grande do Norte",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Rio Grande do Norte",
+    teams: [
+      "América - RN",
+      "ABC - RN",
+      "QFC - RN",
+      "Potiguar de Mossoró - RN",
+      "Laguna - RN",
+      "Santa Cruz de Natal - RN",
+      "Potyguar Seridoense - RN",
+      "Globo - RN",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "8 clubes disputam a primeira fase em turno único, totalizando 7 rodadas.",
+      "Os 2 primeiros colocados avançam diretamente às semifinais.",
+      "3º, 4º, 5º e 6º colocados disputam as quartas de final em jogo único.",
+      "Os vencedores das quartas enfrentam os 2 primeiros colocados nas semifinais.",
+      "Semifinais e final são disputadas em jogos de ida e volta.",
+      "Em caso de empate no agregado das fases de ida e volta, a decisão é definida automaticamente nos pênaltis.",
+      "Em caso de empate nas quartas de final, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const PIAUI_CHAMPIONSHIPS: Championship[] = [
   {
     id: 21001,
@@ -722,6 +754,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...MATO_GROSSO_CHAMPIONSHIPS,
   ...PERNAMBUCO_CHAMPIONSHIPS,
   ...PIAUI_CHAMPIONSHIPS,
+  ...RIO_GRANDE_DO_NORTE_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -2389,6 +2422,50 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
     };
   }
 
+
+  function simulateRioGrandeDoNorteFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length !== 8) return championship;
+
+    const standings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, standings);
+
+    const getWinner = (match: Matchup) =>
+      match.penaltyWinner ?? ((match.homeScore ?? 0) > (match.awayScore ?? 0) ? match.home : match.away);
+
+    const quarterMatches = [
+      resolveKnockoutTie(simulateKnockoutMatch(ordered[2], ordered[5])),
+      resolveKnockoutTie(simulateKnockoutMatch(ordered[3], ordered[4])),
+    ];
+
+    const playTwoLegs = (home: string, away: string) => {
+      const leg1 = simulateKnockoutMatch(home, away);
+      const leg2 = simulateKnockoutMatch(away, home);
+      const winner = resolveTwoLeggedTie(leg1, leg2);
+      return { matches: [leg1, leg2], winner };
+    };
+
+    const semi1 = playTwoLegs(ordered[0], getWinner(quarterMatches[0]));
+    const semi2 = playTwoLegs(ordered[1], getWinner(quarterMatches[1]));
+    const final = playTwoLegs(semi1.winner, semi2.winner);
+
+    return {
+      ...championship,
+      standings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": standings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final": quarterMatches,
+        "Semi final": [...semi1.matches, ...semi2.matches],
+        "Final": final.matches,
+      },
+      champion: final.winner,
+    };
+  }
+
   function simulatePiauiFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 4) return championship;
@@ -2823,6 +2900,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulatePiauiFirstDivision(championship);
       }
 
+      if (championship.state === "Rio Grande do Norte" && championship.division === "1ª Divisão") {
+        return simulateRioGrandeDoNorteFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
@@ -2934,6 +3015,17 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       const updated=simulatePernambucoFirstDivision(selected);
       setChampionships(cur=>cur.map(x=>x.id===selected.id?updated:x));
       setSelectedPhase(cur=>({...cur,[selected.id]:"1º Turno - Fase de grupos"}));
+    } else if (selected.state === "Rio Grande do Norte" && selected.division === "1ª Divisão") {
+      const updated = simulateRioGrandeDoNorteFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
     } else if (selected.state === "Piauí" && selected.division === "1ª Divisão") {
       const updated = simulatePiauiFirstDivision(selected);
       setChampionships((current) =>
