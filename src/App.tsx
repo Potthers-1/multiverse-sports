@@ -51,6 +51,105 @@ type Championship = {
   minasGeraisGroups?: { A: string[]; B: string[]; C: string[] };
 };
 
+const SERIE_D_STATE_SLOTS: Record<string, number> = {
+  "São Paulo": 4,
+  "Rio de Janeiro": 3,
+  "Minas Gerais": 3,
+  "Rio Grande do Sul": 3,
+  "Paraná": 3,
+  "Ceará": 3,
+  "Goiás": 3,
+  "Santa Catarina": 3,
+  "Bahia": 3,
+  "Pernambuco": 2,
+  "Alagoas": 2,
+  "Pará": 2,
+  "Mato Grosso": 2,
+  "Amazonas": 2,
+  "Rio Grande do Norte": 2,
+  "Paraíba": 2,
+  "Maranhão": 2,
+  "Sergipe": 2,
+  "Distrito Federal": 2,
+  "Piauí": 2,
+  "Espírito Santo": 2,
+  "Tocantins": 2,
+  "Acre": 2,
+  "Rondônia": 2,
+  "Roraima": 2,
+  "Mato Grosso do Sul": 2,
+  "Amapá": 2,
+};
+
+type SerieDVacancy = {
+  state: string;
+  slots: number;
+  selected: string[];
+  skipped: string[];
+};
+
+function getStateChampionshipRanking(
+  championships: Championship[],
+  state: string,
+  season: string
+) {
+  const championship = championships.find(
+    (item) =>
+      item.country === "Brasil" &&
+      item.state === state &&
+      item.division === "1ª Divisão" &&
+      item.season === season
+  );
+
+  if (!championship) return [];
+
+  const teams = championship.teams ?? [];
+  const table =
+    championship.standings ??
+    championship.phaseStandings?.["Primeira fase"] ??
+    {};
+
+  return [...teams].sort((a, b) => {
+    const A = table[a] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    const B = table[b] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+  });
+}
+
+function calculateSerieDStateVacancies(
+  championships: Championship[],
+  season: string
+): SerieDVacancy[] {
+  const blocked = new Set(
+    championships
+      .filter(
+        (item) =>
+          item.country === "Brasil" &&
+          item.season === season &&
+          ["Série A", "Série B", "Série C"].includes(item.division)
+      )
+      .flatMap((item) => item.teams ?? [])
+  );
+
+  return Object.entries(SERIE_D_STATE_SLOTS).map(([state, slots]) => {
+    const ranking = getStateChampionshipRanking(championships, state, season);
+    const selected: string[] = [];
+    const skipped: string[] = [];
+
+    for (const club of ranking) {
+      if (blocked.has(club)) {
+        skipped.push(club);
+        continue;
+      }
+      if (selected.length < slots) {
+        selected.push(club);
+      }
+    }
+
+    return { state, slots, selected, skipped };
+  });
+}
+
 const ACRE_CHAMPIONSHIPS: Championship[] = [
   {
     id: 1001,
