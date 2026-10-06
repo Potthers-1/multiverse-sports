@@ -45,6 +45,8 @@ type Championship = {
   cearaSecondGroups?: { C: string[]; D: string[] };
   rioGrandeDoSulGroups?: { A: string[]; B: string[] };
   paranaGroups?: { A: string[]; B: string[] };
+  pernambucoGroups?: { A: string[]; B: string[]; C: string[]; D: string[] };
+  pernambucoSecondGroups?: { A: string[]; B: string[] };
   saoPauloPots?: { A: string[]; B: string[]; C: string[]; D: string[] };
   minasGeraisGroups?: { A: string[]; B: string[]; C: string[] };
 };
@@ -663,6 +665,13 @@ const MATO_GROSSO_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const PERNAMBUCO_CHAMPIONSHIPS: Championship[] = [{
+  id: 20001, name: "Pernambuco", season: "2026", division: "1ª Divisão", country: "Brasil", state: "Pernambuco",
+  teams: ["Afogados - PE","1° de Maio - PE","Petrolina - PE","Salgueiro - PE","Ferroviário do Cabo - PE","Facilnet - PE","Pesqueira - PE","Belo Jardim - PE","Central - PE","Ypiranga - PE","Porto - PE","Chã Grande - PE","Águia de Cumaru - PE","Centro Limoeirense - PE","Atlético Pernambucano - PE","Santa Fé - PE","Serrano - PE","Jaguar - PE","América - PE","Íbis - PE","Ipojuca - PE","Sete de Setembro - PE","Guarany de Camaragibe - PE","Vera Cruz - PE","Sport - PE","Retrô - PE","Decisão - PE","Náutico - PE","Santa Cruz - PE","Maguary - PE","Vitória das Tabocas - PE"],
+  phases: ["1º Turno - Fase de grupos","1º Turno - Oitavas de final","1º Turno - Quartas de final","1º Turno - Quadrangular final","2º Turno - Fase de grupos","2º Turno - Segunda fase","2º Turno - Semifinal","2º Turno - Final"],
+  rules: ["Torneio Frevo: 24 clubes em quatro grupos de 6, com jogos dentro do próprio grupo em turno único.","Os 4 melhores de cada grupo avançam às oitavas de final, em jogo único e em dois blocos: A/B e C/D.","Quartas de final em jogo único e regionalizadas. Empates nas oitavas e quartas são decididos automaticamente nos pênaltis.","Os quatro vencedores das quartas formam um quadrangular final em turno único. Os 3 melhores avançam ao Torneio Forró.","Torneio Forró: os 3 classificados do primeiro turno juntam-se a Sport, Retrô, Decisão, Náutico, Santa Cruz, Maguary e Vitória das Tabocas.","Na fase principal do segundo turno são dois grupos de 5, com cada clube enfrentando apenas os clubes do outro grupo.","Os líderes avançam diretamente às semifinais. 2º x 3º de cada grupo disputam a segunda fase em ida e volta dentro do próprio grupo.","Semifinais e final são disputadas em ida e volta. Empates no agregado são decididos automaticamente nos pênaltis."]
+}];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
@@ -683,6 +692,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...PARANA_CHAMPIONSHIPS,
   ...SAO_PAULO_CHAMPIONSHIPS,
   ...MATO_GROSSO_CHAMPIONSHIPS,
+  ...PERNAMBUCO_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -912,6 +922,14 @@ export default function App() {
     setChampionships(current => current.map(item => item.id === championship.id ? updated : item));
     setSelectedPhase(current => ({...current,[championship.id]:"Primeira fase"}));
     setSelectedSection(current => ({...current,[championship.id]:"competition"}));
+  }
+
+  function drawPernambucoGroups() {
+    const championship=championships.find(item=>item.id===selectedId); if(!championship||championship.state!=="Pernambuco") return;
+    const pre=["Sport - PE","Retrô - PE","Decisão - PE","Náutico - PE","Santa Cruz - PE","Maguary - PE","Vitória das Tabocas - PE"];
+    const t=(championship.teams??[]).filter(x=>!pre.includes(x)); for(let i=t.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[t[i],t[j]]=[t[j],t[i]];}
+    const updated={...championship,pernambucoGroups:{A:t.slice(0,6),B:t.slice(6,12),C:t.slice(12,18),D:t.slice(18,24)},pernambucoSecondGroups:undefined,standings:undefined,phaseStandings:undefined,phaseMatches:undefined,champion:undefined};
+    setChampionships(cur=>cur.map(x=>x.id===championship.id?updated:x));setSelectedPhase(cur=>({...cur,[championship.id]:"1º Turno - Fase de grupos"}));setSelectedSection(cur=>({...cur,[championship.id]:"competition"}));
   }
 
   function drawParanaGroups() {
@@ -1760,6 +1778,33 @@ export default function App() {
           : undefined
       ),
     };
+  }
+
+  function simulatePernambucoFirstDivision(championship: Championship): Championship {
+    const pre = ["Sport - PE","Retrô - PE","Decisão - PE","Náutico - PE","Santa Cruz - PE","Maguary - PE","Vitória das Tabocas - PE"];
+    const first = (championship.teams??[]).filter(t=>!pre.includes(t)).slice(0,24);
+    if(first.length!==24) return championship;
+    const shuffle=(a:string[])=>{const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;};
+    const groups=championship.pernambucoGroups??(()=>{const d=shuffle(first);return {A:d.slice(0,6),B:d.slice(6,12),C:d.slice(12,18),D:d.slice(18,24)}})();
+    const sim=(list:string[])=>{const table:Record<string,Standing>={};const matches:Matchup[]=[];list.forEach(t=>table[t]={j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0});for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){const home=list[i],away=list[j],hg=Math.floor(Math.random()*5),ag=Math.floor(Math.random()*5),h=table[home],a=table[away];h.j++;a.j++;h.gp+=hg;h.gc+=ag;h.sg=h.gp-h.gc;a.gp+=ag;a.gc+=hg;a.sg=a.gp-a.gc;if(hg>ag){h.v++;a.d++;h.pts+=3}else if(hg<ag){a.v++;h.d++;a.pts+=3}else{h.e++;a.e++;h.pts++;a.pts++}matches.push({home,away,homeScore:hg,awayScore:ag})}return {table,matches};};
+    const ps:Record<string,Record<string,Standing>>={},pm:Record<string,Matchup[]>={};
+    for(const l of ["A","B","C","D"] as const){const r=sim(groups[l]);ps[`1º Turno - Grupo ${l}`]=r.table;pm["1º Turno - Fase de grupos"]=[...(pm["1º Turno - Fase de grupos"]??[]),...r.matches];}
+    const g={A:sortStandingTeams(groups.A,ps["1º Turno - Grupo A"]),B:sortStandingTeams(groups.B,ps["1º Turno - Grupo B"]),C:sortStandingTeams(groups.C,ps["1º Turno - Grupo C"]),D:sortStandingTeams(groups.D,ps["1º Turno - Grupo D"])};
+    const win=(m:Matchup)=>m.penaltyWinner??((m.homeScore??0)>(m.awayScore??0)?m.home:m.away);
+    const ko=(pairs:[string,string][])=>pairs.map(([h,a])=>resolveKnockoutTie(simulateKnockoutMatch(h,a)));
+    const oit=ko([[g.A[0],g.B[3]],[g.A[1],g.B[2]],[g.A[2],g.B[1]],[g.A[3],g.B[0]],[g.C[0],g.D[3]],[g.C[1],g.D[2]],[g.C[2],g.D[1]],[g.C[3],g.D[0]]]);
+    pm["1º Turno - Oitavas de final"]=oit;
+    const q=ko([[win(oit[0]),win(oit[3])],[win(oit[1]),win(oit[2])],[win(oit[4]),win(oit[7])],[win(oit[5]),win(oit[6])]]);
+    pm["1º Turno - Quartas de final"]=q;
+    const qr=q.map(win), quad=sim(qr); ps["1º Turno - Quadrangular final"]=quad.table;pm["1º Turno - Quadrangular final"]=quad.matches;
+    const qord=sortStandingTeams(qr,quad.table), second=shuffle([...qord.slice(0,3),...pre]), sg={A:second.slice(0,5),B:second.slice(5,10)};
+    ps["2º Turno - Grupo A"]={};ps["2º Turno - Grupo B"]={};const sm:Matchup[]=[];
+    for(const h of sg.A)for(const a of sg.B){const hg=Math.floor(Math.random()*5),ag=Math.floor(Math.random()*5),ht=(ps["2º Turno - Grupo A"][h]??={j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0}),at=(ps["2º Turno - Grupo B"][a]??={j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0});ht.j++;at.j++;ht.gp+=hg;ht.gc+=ag;ht.sg=ht.gp-ht.gc;at.gp+=ag;at.gc+=hg;at.sg=at.gp-at.gc;if(hg>ag){ht.v++;at.d++;ht.pts+=3}else if(hg<ag){at.v++;ht.d++;at.pts+=3}else{ht.e++;at.e++;ht.pts++;at.pts++}sm.push({home:h,away:a,homeScore:hg,awayScore:ag})}
+    pm["2º Turno - Fase de grupos"]=sm;
+    const A=sortStandingTeams(sg.A,ps["2º Turno - Grupo A"]),B=sortStandingTeams(sg.B,ps["2º Turno - Grupo B"]),sp=ko([[A[1],A[2]],[B[1],B[2]]]);pm["2º Turno - Segunda fase"]=sp;
+    const l11=simulateKnockoutMatch(A[0],win(sp[0])),l12=simulateKnockoutMatch(win(sp[0]),A[0]),l21=simulateKnockoutMatch(B[0],win(sp[1])),l22=simulateKnockoutMatch(win(sp[1]),B[0]);pm["2º Turno - Semifinal"]=[l11,l12,l21,l22];
+    const sw1=resolveTwoLeggedTie(l11,l12),sw2=resolveTwoLeggedTie(l21,l22),f1=simulateKnockoutMatch(sw1,sw2),f2=simulateKnockoutMatch(sw2,sw1),champion=resolveTwoLeggedTie(f1,f2);pm["2º Turno - Final"]=[f1,f2];
+    return {...championship,pernambucoGroups:groups,pernambucoSecondGroups:sg,standings:quad.table,phaseStandings:ps,phaseMatches:pm,champion};
   }
 
   function simulateParanaFirstDivision(championship: Championship): Championship {
@@ -2801,6 +2846,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       const updated = simulateParanaFirstDivision(selected);
       setChampionships(current => current.map(championship => championship.id === selected.id ? updated : championship));
       setSelectedPhase(current => ({...current,[selected.id]:"Primeira fase"}));
+    } else if (selected.state === "Pernambuco" && selected.division === "1ª Divisão") {
+      const updated=simulatePernambucoFirstDivision(selected);
+      setChampionships(cur=>cur.map(x=>x.id===selected.id?updated:x));
+      setSelectedPhase(cur=>({...cur,[selected.id]:"1º Turno - Fase de grupos"}));
     } else if (selected.state === "Goiás" && selected.division === "1ª Divisão") {
       const updated = simulateGoiasFirstDivision(selected);
       setChampionships((current) =>
@@ -2961,6 +3010,8 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           firstTurnWinner: undefined,
           amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
           paranaGroups: championship.state === "Paraná" ? undefined : championship.paranaGroups,
+          pernambucoGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoGroups,
+          pernambucoSecondGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoSecondGroups,
         saoPauloPots: championship.state === "São Paulo" ? undefined : championship.saoPauloPots,
           secondTurnWinner: undefined,
         };
@@ -2996,6 +3047,8 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         firstTurnWinner: undefined,
         amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
         paranaGroups: championship.state === "Paraná" ? undefined : championship.paranaGroups,
+        pernambucoGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoGroups,
+        pernambucoSecondGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoSecondGroups,
         secondTurnWinner: undefined,
       };
     });
@@ -3248,6 +3301,8 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   <button className="section-tab" onClick={drawSaoPauloPots}>🎲 Sortear potes</button>
                 )}
 
+                {selected.state === "Pernambuco" && selected.division === "1ª Divisão" && (<button className="section-tab" onClick={drawPernambucoGroups}>🎲 Sortear grupos</button>)}
+
                 {selected.state === "Paraná" && selected.division === "1ª Divisão" && (
                   <button className="section-tab" onClick={drawParanaGroups}>🎲 Sortear grupos</button>
                 )}
@@ -3301,7 +3356,20 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                         const currentPhase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
                         const matches = selected.phaseMatches?.[currentPhase] ?? [];
 
-                        if (currentPhase.includes("Quartas de final") || currentPhase.includes("Semi final") || currentPhase.includes("Final")) {
+                        if (selected.state === "Pernambuco" && currentPhase === "1º Turno - Fase de grupos") {
+                          const groups=selected.pernambucoGroups??{A:[],B:[],C:[],D:[]};
+                          const render=(letter:string)=>{const group=groups[letter as keyof typeof groups]??[],table=selected.phaseStandings?.[`1º Turno - Grupo ${letter}`]??{},ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{`GRUPO ${letter}`}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index<4?"zone-second-phase":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};return <div className="amazonas-groups-grid">{render("A")}{render("B")}{render("C")}{render("D")}</div>;
+                        }
+
+                        if (selected.state === "Pernambuco" && currentPhase === "1º Turno - Quadrangular final") {
+                          const table=selected.phaseStandings?.["1º Turno - Quadrangular final"]??{},ordered=sortStandingTeams(Object.keys(table),table);return <div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team];return <tr key={team} className={index<3?"zone-second-phase":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table><div className="standings-legend"><span><i className="legend-second-phase"/> Classificados para o segundo turno</span></div></div>;
+                        }
+
+                        if (selected.state === "Pernambuco" && currentPhase === "2º Turno - Fase de grupos") {
+                          const groups=selected.pernambucoSecondGroups??{A:[],B:[]};const render=(letter:string)=>{const group=groups[letter as keyof typeof groups]??[],table=selected.phaseStandings?.[`2º Turno - Grupo ${letter}`]??{},ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{`GRUPO ${letter}`}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index===0?"zone-second-phase":index<3?"zone-playoff":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};return <div className="amazonas-groups-grid">{render("A")}{render("B")}</div>;
+                        }
+
+                        if (currentPhase.includes("Oitavas de final") || currentPhase.includes("Quartas de final") || currentPhase.includes("Segunda fase") || currentPhase.includes("Semi final") || currentPhase.includes("Final")) {
                           return (
                             <div className="knockout-list">
                               {matches.length === 0 ? (
@@ -3327,7 +3395,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                   return (
                                     <div className="knockout-card" key={`${currentPhase}-${index}`}>
                                       <div className="knockout-card-header">
-                                        <span>{currentPhase.includes("Quartas de final") ? "QUARTAS " + (index + 1) : currentPhase.includes("Semi final") ? "SEMIFINAL " + (index + 1) : "FINAL"}</span>
+                                        <span>{currentPhase.includes("Oitavas de final") ? "OITAVAS " + (index + 1) : currentPhase.includes("Quartas de final") ? "QUARTAS " + (index + 1) : currentPhase.includes("Segunda fase") ? "SEGUNDA FASE " + (index + 1) : currentPhase.includes("Semi final") ? "SEMIFINAL " + (index + 1) : "FINAL"}</span>
                                         <span>{played ? "ENCERRADO" : "A DEFINIR"}</span>
                                       </div>
                                       <div className="knockout-teams">
