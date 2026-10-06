@@ -1442,6 +1442,16 @@ export default function App() {
   }
 
   function getRowClass(championship: Championship, phase: string, index: number) {
+    // Na Série A, os 4 últimos da classificação final são rebaixados para a Série B.
+    if (
+      championship.country === "Brasil" &&
+      championship.division === "Série A" &&
+      phase === "Primeira fase" &&
+      index >= 16
+    ) {
+      return "zone-relegation";
+    }
+
     if (
       championship.state === "Amazonas" &&
       championship.division === "1ª Divisão" &&
