@@ -517,6 +517,34 @@ const RIO_GRANDE_DO_NORTE_CHAMPIONSHIPS: Championship[] = [
 ];
 
 
+const TOCANTINS_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 27001,
+    name: "Tocantins",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Tocantins",
+    teams: [
+      "Tocantinópolis - TO",
+      "União Carmolandense - TO",
+      "Gurupi - TO",
+      "Capital - TO",
+      "Araguaina - TO",
+      "Bela Vista - TO",
+      "Palmas - TO",
+      "Guarai - TO",
+    ],
+    phases: ["Primeira fase", "Semi final", "Final"],
+    rules: [
+      "8 clubes disputam a primeira fase em turno único, totalizando 7 rodadas.",
+      "Os 4 melhores colocados avançam ao mata-mata.",
+      "As semifinais e a final são disputadas em jogos de ida e volta.",
+      "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const MATO_GROSSO_DO_SUL_CHAMPIONSHIPS: Championship[] = [
   {
     id: 26001,
@@ -878,6 +906,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...RORAIMA_CHAMPIONSHIPS,
   ...SERGIPE_CHAMPIONSHIPS,
   ...MATO_GROSSO_DO_SUL_CHAMPIONSHIPS,
+  ...TOCANTINS_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -2617,7 +2646,44 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
   }
 
 
-  function simulateMatoGrossoDoSulFirstDivision(championship: Championship): Championship {
+  function simulateTocantinsFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length !== 8) return championship;
+
+    const standings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, standings);
+    const qualified = ordered.slice(0, 4);
+
+    const playTwoLegs = (home: string, away: string) => {
+      const leg1 = simulateKnockoutMatch(home, away);
+      const leg2 = simulateKnockoutMatch(away, home);
+      return {
+        matches: [leg1, leg2],
+        winner: resolveTwoLeggedTie(leg1, leg2),
+      };
+    };
+
+    const semi1 = playTwoLegs(qualified[0], qualified[3]);
+    const semi2 = playTwoLegs(qualified[1], qualified[2]);
+    const final = playTwoLegs(semi1.winner, semi2.winner);
+
+    return {
+      ...championship,
+      standings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": standings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Semi final": [...semi1.matches, ...semi2.matches],
+        "Final": final.matches,
+      },
+      champion: final.winner,
+    };
+  }
+
+function simulateMatoGrossoDoSulFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length !== 10) return championship;
 
@@ -3272,6 +3338,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateMatoGrossoDoSulFirstDivision(championship);
       }
 
+      if (championship.state === "Tocantins" && championship.division === "1ª Divisão") {
+        return simulateTocantinsFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
@@ -3404,6 +3474,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
     } else if (selected.state === "Mato Grosso do Sul" && selected.division === "1ª Divisão") {
       const updated = simulateMatoGrossoDoSulFirstDivision(selected);
+      setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
+      setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
+    } else if (selected.state === "Tocantins" && selected.division === "1ª Divisão") {
+      const updated = simulateTocantinsFirstDivision(selected);
       setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
       setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
     } else if (selected.state === "Rondônia" && selected.division === "1ª Divisão") {
