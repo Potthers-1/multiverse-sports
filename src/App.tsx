@@ -2933,7 +2933,8 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     } else if (selected.state === "Pernambuco" && selected.division === "1ª Divisão") {
       const updated=simulatePernambucoFirstDivision(selected);
       setChampionships(cur=>cur.map(x=>x.id===selected.id?updated:x));
-      setSelectedPhase(cur=>({...cur,[selected.id]:"1º Turno - Fase de grupos"})); else if (selected.state === "Piauí" && selected.division === "1ª Divisão") {
+      setSelectedPhase(cur=>({...cur,[selected.id]:"1º Turno - Fase de grupos"}));
+    } else if (selected.state === "Piauí" && selected.division === "1ª Divisão") {
       const updated = simulatePiauiFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
