@@ -1394,6 +1394,15 @@ export default function App() {
     });
     const stateChampionship = stateChampionships.find((item) => (item.teams ?? []).includes(club));
     const nationalChampionship = championships.find((item) => item.country === "Brasil" && item.season === season && ["Série A", "Série B", "Série C", "Série D"].includes(item.division) && (item.teams ?? []).includes(club));
+    const nationalRanking = nationalChampionship
+      ? sortStandingTeams(nationalChampionship.teams ?? [], nationalChampionship.standings ?? nationalChampionship.phaseStandings?.["Primeira fase"] ?? {})
+      : [];
+    const nationalFinalTableReady = Boolean(nationalChampionship && (nationalChampionship.standings || nationalChampionship.phaseStandings?.["Primeira fase"]));
+    const serieARelegated = Boolean(
+      nationalChampionship?.division === "Série A" &&
+      nationalFinalTableReady &&
+      nationalRanking.slice(-4).includes(club)
+    );
     const vacancy = calculateSerieDStateVacancies(championships, season).find((item) => item.state === state);
     const firstDivision = stateChampionships.find((item) => item.division === "1ª Divisão");
     const firstDivisionRanking = firstDivision ? getStateChampionshipRanking(championships, state, season) : [];
@@ -1404,6 +1413,9 @@ export default function App() {
     if (nationalChampionship?.division === "Série D") {
       serieDStatus = "JÁ ESTÁ NA SÉRIE D";
       serieDReason = "O clube já está inscrito na divisão nacional.";
+    } else if (serieARelegated) {
+      serieDStatus = "NÃO APTO";
+      serieDReason = "Rebaixado da Série A para a Série B. A mudança valerá para a próxima temporada.";
     } else if (nationalChampionship?.division) {
       serieDStatus = "NÃO APTO";
       serieDReason = "Está na " + nationalChampionship.division + ".";
