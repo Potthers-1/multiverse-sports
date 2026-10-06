@@ -484,6 +484,34 @@ const MARANHAO_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const PIAUI_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 21001,
+    name: "Piauí",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Piauí",
+    teams: [
+      "Atlético - PI",
+      "Piauí - PI",
+      "Fluminense - PI",
+      "AE Altos - PI",
+      "Oeirense - PI",
+      "TEC - PI",
+      "Corisabba - PI",
+      "Parnahhyba - PI",
+    ],
+    phases: ["Primeira fase", "Semi final", "Final"],
+    rules: [
+      "8 clubes disputam a primeira fase em turno único, totalizando 7 rodadas.",
+      "Os 4 melhores colocados avançam ao mata-mata.",
+      "Semifinais e final são disputadas em jogos de ida e volta.",
+      "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const PARA_CHAMPIONSHIPS: Championship[] = [
   {
     id: 16001,
@@ -693,6 +721,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...SAO_PAULO_CHAMPIONSHIPS,
   ...MATO_GROSSO_CHAMPIONSHIPS,
   ...PERNAMBUCO_CHAMPIONSHIPS,
+  ...PIAUI_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -2360,6 +2389,53 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
     };
   }
 
+  function simulatePiauiFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 4) return championship;
+
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const qualified = ordered.slice(0, 4);
+
+    const simulateTwoLeggedRound = (pairings: [string, string][]) => {
+      const matches: Matchup[] = [];
+      const winners: string[] = [];
+
+      for (const [teamA, teamB] of pairings) {
+        const leg1 = simulateKnockoutMatch(teamA, teamB);
+        const leg2 = simulateKnockoutMatch(teamB, teamA);
+        matches.push(leg1, leg2);
+        winners.push(resolveTwoLeggedTie(leg1, leg2));
+      }
+
+      return { matches, winners };
+    };
+
+    const semi = simulateTwoLeggedRound([
+      [qualified[0], qualified[3]],
+      [qualified[1], qualified[2]],
+    ]);
+
+    const final = simulateTwoLeggedRound([
+      [semi.winners[0], semi.winners[1]],
+    ]);
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Semi final": semi.matches,
+        "Final": final.matches,
+      },
+      champion: final.winners[0],
+    };
+  }
+
   function simulateMinasGeraisFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 12) return championship;
@@ -2743,6 +2819,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulatePernambucoFirstDivision(championship);
       }
 
+      if (championship.state === "Piauí" && championship.division === "1ª Divisão") {
+        return simulatePiauiFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
@@ -2853,7 +2933,18 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     } else if (selected.state === "Pernambuco" && selected.division === "1ª Divisão") {
       const updated=simulatePernambucoFirstDivision(selected);
       setChampionships(cur=>cur.map(x=>x.id===selected.id?updated:x));
-      setSelectedPhase(cur=>({...cur,[selected.id]:"1º Turno - Fase de grupos"}));
+      setSelectedPhase(cur=>({...cur,[selected.id]:"1º Turno - Fase de grupos"})); else if (selected.state === "Piauí" && selected.division === "1ª Divisão") {
+      const updated = simulatePiauiFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+
     } else if (selected.state === "Goiás" && selected.division === "1ª Divisão") {
       const updated = simulateGoiasFirstDivision(selected);
       setChampionships((current) =>
