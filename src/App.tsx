@@ -538,7 +538,7 @@ const RORAIMA_CHAMPIONSHIPS: Championship[] = [
     ],
     phases: ["Primeira fase", "Semi final", "Final"],
     rules: [
-      "9 clubes disputam a primeira fase em turno e returno, totalizando 16 rodadas.",
+      "9 clubes disputam a primeira fase em turno único, totalizando 8 rodadas.",
       "Os 4 melhores colocados avançam ao mata-mata.",
       "Semifinais e final são disputadas em jogos de ida e volta.",
       "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
@@ -2539,48 +2539,7 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
     const teams = championship.teams ?? [];
     if (teams.length !== 9) return championship;
 
-    const standings: Record<string, Standing> = {};
-    teams.forEach((team) => {
-      standings[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-    });
-
-    // Turno + returno: cada clube enfrenta os outros 8 duas vezes (16 jogos por clube).
-    for (let leg = 0; leg < 2; leg++) {
-      for (let i = 0; i < teams.length; i++) {
-        for (let j = i + 1; j < teams.length; j++) {
-          const home = leg === 0 ? teams[i] : teams[j];
-          const away = leg === 0 ? teams[j] : teams[i];
-          const homeGoals = Math.floor(Math.random() * 5);
-          const awayGoals = Math.floor(Math.random() * 5);
-
-          standings[home].j++;
-          standings[away].j++;
-          standings[home].gp += homeGoals;
-          standings[home].gc += awayGoals;
-          standings[away].gp += awayGoals;
-          standings[away].gc += homeGoals;
-
-          if (homeGoals > awayGoals) {
-            standings[home].v++;
-            standings[home].pts += 3;
-            standings[away].d++;
-          } else if (homeGoals < awayGoals) {
-            standings[away].v++;
-            standings[away].pts += 3;
-            standings[home].d++;
-          } else {
-            standings[home].e++;
-            standings[away].e++;
-            standings[home].pts++;
-            standings[away].pts++;
-          }
-        }
-      }
-    }
-
-    Object.values(standings).forEach((row) => {
-      row.sg = row.gp - row.gc;
-    });
+    const standings = simulateRoundRobin(teams);
 
     const ordered = sortStandingTeams(teams, standings);
     const qualified = ordered.slice(0, 4);
