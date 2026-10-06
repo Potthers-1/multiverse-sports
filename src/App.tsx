@@ -2957,7 +2957,6 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
           paranaGroups: championship.state === "Paraná" ? undefined : championship.paranaGroups,
         saoPauloPots: championship.state === "São Paulo" ? undefined : championship.saoPauloPots,
-          saoPauloPots: championship.state === "São Paulo" ? undefined : championship.saoPauloPots,
           secondTurnWinner: undefined,
         };
       })
