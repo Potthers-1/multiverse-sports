@@ -4193,6 +4193,19 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 >
                   Regulamento
                 </button>
+                {selected.state && (
+                  <button
+                    className={`section-tab ${selectedSection[selected.id] === "clubs" ? "active" : ""}`}
+                    onClick={() =>
+                      setSelectedSection((current) => ({
+                        ...current,
+                        [selected.id]: "clubs",
+                      }))
+                    }
+                  >
+                    Clubes / Série D
+                  </button>
+                )}
 
                 {selected.state === "Amazonas" && selected.division === "1ª Divisão" && (
                   <button
@@ -4299,7 +4312,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                     );
                   })() : null}
                 </div>
-              ) :  "competition") === "competition" ? (
+              ) : (selectedSection[selected.id] ?? "competition") === "competition" ? (
                 <>
                   {selected.phases && selected.phases.length > 1 && (
                     <div className="phase-tabs">
