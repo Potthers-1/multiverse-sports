@@ -3339,11 +3339,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 <div className="state-empty">Nenhum estadual criado.</div>
               ) : (
                 stateNames.map((stateName) => {
-                  const stateDivisions = [...new Set(
-                    estadualChampionships
+                  const stateDivisions = [...new Set([
+                    ...estadualChampionships
                       .filter((champ) => champ.state === stateName)
-                      .map((champ) => champ.division)
-                  )];
+                      .map((champ) => champ.division),
+                    ...INITIAL_CHAMPIONSHIPS
+                      .filter((champ) => champ.state === stateName)
+                      .map((champ) => champ.division),
+                  ])].sort((a, b) => a.localeCompare(b, "pt-BR"));
 
                   return (
                     <div key={stateName} className="state-group">
@@ -3364,17 +3367,23 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                       {openStates[stateName] && (
                         <div className="division-menu">
                           {stateDivisions.map((divisionName) => {
-                            const divisionSeasons = estadualChampionships
-                              .filter(
+                            const divisionSeasons = [
+                              ...estadualChampionships.filter(
                                 (champ) =>
                                   champ.state === stateName &&
                                   champ.division === divisionName
-                              )
-                              .sort(
-                                (a, b) =>
-                                  Number(b.season) - Number(a.season) ||
-                                  b.id - a.id
-                              );
+                              ),
+                              ...INITIAL_CHAMPIONSHIPS.filter(
+                                (champ) =>
+                                  champ.state === stateName &&
+                                  champ.division === divisionName &&
+                                  !estadualChampionships.some((saved) => saved.id === champ.id)
+                              ),
+                            ].sort(
+                              (a, b) =>
+                                Number(b.season) - Number(a.season) ||
+                                b.id - a.id
+                            );
                             const latest = divisionSeasons[0];
 
                             return (
