@@ -2739,6 +2739,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateMatoGrossoFirstDivision(championship);
       }
 
+      if (championship.state === "Pernambuco" && championship.division === "1ª Divisão") {
+        return simulatePernambucoFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
