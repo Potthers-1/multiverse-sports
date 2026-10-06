@@ -1018,8 +1018,50 @@ const SERIE_A_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const SERIE_B_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 29001,
+    name: "Série B",
+    season: "2026",
+    division: "Série B",
+    country: "Brasil",
+    teams: [
+      "Vila Nova - GO",
+      "Juventude - RS",
+      "Novorizontino - SP",
+      "Criciúma - SC",
+      "Fortaleza - CE",
+      "Atlético - GO",
+      "CRB - AL",
+      "Operário - PR",
+      "Sport - PE",
+      "Cuiabá - MT",
+      "São Bernardo - SP",
+      "Goiás - GO",
+      "Náutico - PE",
+      "Athletic - MG",
+      "Ceará - CE",
+      "Botafogo - SP",
+      "Avaí - SC",
+      "Londrina - PR",
+      "América - MG",
+      "Ponte Preta - SP",
+    ],
+    phases: ["Primeira fase", "Play-off de acesso"],
+    rules: [
+      "20 clubes disputam a competição em turno e returno, totalizando 38 rodadas e 380 partidas.",
+      "Os 2 primeiros colocados ao final da 38ª rodada sobem diretamente para a Série A.",
+      "O 3º enfrenta o 6º e o 4º enfrenta o 5º em play-offs de ida e volta pelas 2 últimas vagas de acesso.",
+      "Os 4 últimos colocados da classificação final são rebaixados para a Série C.",
+      "Os jogos do play-off não alteram a classificação da primeira fase.",
+      "Empates no agregado dos play-offs são decididos automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...SERIE_A_CHAMPIONSHIPS,
+  ...SERIE_B_CHAMPIONSHIPS,
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
   ...AMAPA_CHAMPIONSHIPS,
@@ -1442,6 +1484,16 @@ export default function App() {
   }
 
   function getRowClass(championship: Championship, phase: string, index: number) {
+    if (
+      championship.country === "Brasil" &&
+      championship.division === "Série B" &&
+      phase === "Primeira fase"
+    ) {
+      if (index < 2) return "zone-promotion";
+      if (index < 6) return "zone-playoff";
+      if (index >= 16) return "zone-relegation";
+    }
+
     // Na Série A, os 4 últimos da classificação final são rebaixados para a Série B.
     if (
       championship.country === "Brasil" &&
@@ -3510,6 +3562,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateSerieA(championship);
       }
 
+      if (championship.division === "Série B" && championship.country === "Brasil") {
+        return simulateSerieB(championship);
+      }
+
       if (championship.state === "Acre" && championship.division === "1ª Divisão") {
         return simulateAcreFirstDivision(championship);
       }
@@ -3636,6 +3692,53 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     });
   }
 
+  function simulateSerieB(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    const result = simulateDoubleRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, result.table);
+    const directAccess = ordered.slice(0, 2);
+    const playoffSeeds = ordered.slice(2, 6);
+    const relegated = ordered.slice(-4);
+
+    const playoffPairs = [
+      [playoffSeeds[0], playoffSeeds[3]],
+      [playoffSeeds[1], playoffSeeds[2]],
+    ];
+
+    const playoffMatches: Matchup[] = [];
+    const playoffWinners: string[] = [];
+
+    for (const [higher, lower] of playoffPairs) {
+      const leg1 = simulateKnockoutMatch(higher, lower);
+      const leg2 = simulateKnockoutMatch(lower, higher);
+      const winner = resolveTwoLeggedTie(leg1, leg2);
+      playoffMatches.push(leg1, leg2);
+      playoffWinners.push(winner);
+    }
+
+    const accessTeams = [...directAccess, ...playoffWinners];
+
+    return {
+      ...championship,
+      standings: result.table,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": result.table,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Primeira fase": result.matches,
+        "Play-off de acesso": playoffMatches,
+      },
+      champion: ordered[0],
+      accessTeams,
+      rules: [
+        ...(championship.rules ?? []).filter((rule) => !rule.startsWith("Classificação final gerada")),
+        `Classificação final gerada: acesso direto = ${directAccess.join(", ")}; play-off = ${playoffWinners.join(", ")}; rebaixados = ${relegated.join(", ")}.`,
+      ],
+    };
+  }
+
   function simulateSerieA(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     const result = simulateDoubleRoundRobin(teams);
@@ -3668,6 +3771,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
     if (selected.division === "Série A" && selected.country === "Brasil") {
       const updated = simulateSerieA(selected);
+      setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
+      setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
+      return;
+    }
+
+    if (selected.division === "Série B" && selected.country === "Brasil") {
+      const updated = simulateSerieB(selected);
       setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
       setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
       return;
@@ -4386,7 +4496,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                           const groups=selected.pernambucoSecondGroups??{A:[],B:[]};const render=(letter:string)=>{const group=groups[letter as keyof typeof groups]??[],table=selected.phaseStandings?.[`2º Turno - Grupo ${letter}`]??{},ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{`GRUPO ${letter}`}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index===0?"zone-second-phase":index<3?"zone-playoff":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};return <div className="amazonas-groups-grid">{render("A")}{render("B")}</div>;
                         }
 
-                        if (currentPhase.includes("Oitavas de final") || currentPhase.includes("Quartas de final") || currentPhase.includes("Segunda fase") || currentPhase.includes("Semi final") || currentPhase.includes("Semifinal") || currentPhase.includes("Final")) {
+                        if (currentPhase.includes("Oitavas de final") || currentPhase.includes("Quartas de final") || currentPhase.includes("Segunda fase") || currentPhase.includes("Play-off de acesso") || currentPhase.includes("Semi final") || currentPhase.includes("Semifinal") || currentPhase.includes("Final")) {
                           return (
                             <div className="knockout-list">
                               {matches.length === 0 ? (
@@ -4412,7 +4522,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                   return (
                                     <div className="knockout-card" key={`${currentPhase}-${index}`}>
                                       <div className="knockout-card-header">
-                                        <span>{currentPhase.includes("Oitavas de final") ? "OITAVAS " + (index + 1) : currentPhase.includes("Quartas de final") ? "QUARTAS " + (index + 1) : currentPhase.includes("Segunda fase") ? "SEGUNDA FASE " + (index + 1) : currentPhase.includes("Semi final") ? "SEMIFINAL " + (index + 1) : "FINAL"}</span>
+                                        <span>{currentPhase.includes("Oitavas de final") ? "OITAVAS " + (index + 1) : currentPhase.includes("Quartas de final") ? "QUARTAS " + (index + 1) : currentPhase.includes("Segunda fase") ? "SEGUNDA FASE " + (index + 1) : currentPhase.includes("Play-off de acesso") ? "PLAY-OFF " + (index < 2 ? "3º × 6º" : "4º × 5º") + " — " + (index % 2 === 0 ? "IDA" : "VOLTA") : currentPhase.includes("Semi final") ? "SEMIFINAL " + (index + 1) : "FINAL"}</span>
                                         <span>{played ? "ENCERRADO" : "A DEFINIR"}</span>
                                       </div>
                                       <div className="knockout-teams">
