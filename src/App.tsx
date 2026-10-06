@@ -517,6 +517,37 @@ const RIO_GRANDE_DO_NORTE_CHAMPIONSHIPS: Championship[] = [
 ];
 
 
+const SERGIPE_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 25001,
+    name: "Sergipe",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Sergipe",
+    teams: [
+      "Sergipe - SE",
+      "Itabaiana - SE",
+      "Lagarto - SE",
+      "Confiança - SE",
+      "Guarany - SE",
+      "America - SE",
+      "Falcon - SE",
+      "Atlético Gloriense - SE",
+      "Dorense - SE",
+      "Desportiva Aracaju - SE",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "10 clubes disputam a primeira fase em turno único, totalizando 9 rodadas.",
+      "O líder da primeira fase se classifica diretamente para as semifinais.",
+      "Nas quartas de final: 2º x 7º, 3º x 6º e 4º x 5º, em jogo único.",
+      "As semifinais e a final são disputadas em jogos de ida e volta.",
+      "Em caso de empate em jogo único ou no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const RORAIMA_CHAMPIONSHIPS: Championship[] = [
   {
     id: 24001,
@@ -814,6 +845,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...RIO_GRANDE_DO_NORTE_CHAMPIONSHIPS,
   ...RONDONIA_CHAMPIONSHIPS,
   ...RORAIMA_CHAMPIONSHIPS,
+  ...SERGIPE_CHAMPIONSHIPS,
 ];
 
 const STORAGE_KEY = "football-manager-clean-v2";
@@ -2535,7 +2567,53 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
   }
 
 
-  function simulateRoraimaFirstDivision(championship: Championship): Championship {
+  function simulateSergipeFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length !== 10) return championship;
+
+    const standings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, standings);
+    const leader = ordered[0];
+
+    const simulateTwoLegs = (home: string, away: string) => {
+      const leg1 = simulateKnockoutMatch(home, away);
+      const leg2 = simulateKnockoutMatch(away, home);
+      return {
+        matches: [leg1, leg2],
+        winner: resolveTwoLeggedTie(leg1, leg2),
+      };
+    };
+
+    const quarter1 = resolveKnockoutTie(simulateKnockoutMatch(ordered[1], ordered[6]));
+    const quarter2 = resolveKnockoutTie(simulateKnockoutMatch(ordered[2], ordered[5]));
+    const quarter3 = resolveKnockoutTie(simulateKnockoutMatch(ordered[3], ordered[4]));
+
+    const semi1 = simulateTwoLegs(leader, quarter3.penaltyWinner ?? (quarter3.homeScore! > quarter3.awayScore! ? quarter3.home : quarter3.away));
+    const semi2 = simulateTwoLegs(
+      quarter1.penaltyWinner ?? (quarter1.homeScore! > quarter1.awayScore! ? quarter1.home : quarter1.away),
+      quarter2.penaltyWinner ?? (quarter2.homeScore! > quarter2.awayScore! ? quarter2.home : quarter2.away)
+    );
+
+    const final = simulateTwoLegs(semi1.winner, semi2.winner);
+
+    return {
+      ...championship,
+      standings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": standings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Quartas de final": [quarter1, quarter2, quarter3],
+        "Semi final": [...semi1.matches, ...semi2.matches],
+        "Final": final.matches,
+      },
+      champion: final.winner,
+    };
+  }
+
+function simulateRoraimaFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length !== 9) return championship;
 
@@ -3093,6 +3171,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateRoraimaFirstDivision(championship);
       }
 
+      if (championship.state === "Sergipe" && championship.division === "1ª Divisão") {
+        return simulateSergipeFirstDivision(championship);
+      }
+
       return simulateGenericChampionship(championship);
     });
 
@@ -3217,6 +3299,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       }));
     } else if (selected.state === "Roraima" && selected.division === "1ª Divisão") {
       const updated = simulateRoraimaFirstDivision(selected);
+      setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
+      setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
+    } else if (selected.state === "Sergipe" && selected.division === "1ª Divisão") {
+      const updated = simulateSergipeFirstDivision(selected);
       setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
       setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
     } else if (selected.state === "Rondônia" && selected.division === "1ª Divisão") {
