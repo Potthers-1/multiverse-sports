@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 type Matchup = {
   home: string;
+  round?: number;
   away: string;
   homeScore?: number;
   awayScore?: number;
@@ -978,7 +979,47 @@ const PERNAMBUCO_CHAMPIONSHIPS: Championship[] = [{
   rules: ["Torneio Frevo: 24 clubes em quatro grupos de 6, com jogos dentro do próprio grupo em turno único.","Os 4 melhores de cada grupo avançam às oitavas de final, em jogo único e em dois blocos: A/B e C/D.","Quartas de final em jogo único e regionalizadas. Empates nas oitavas e quartas são decididos automaticamente nos pênaltis.","Os quatro vencedores das quartas formam um quadrangular final em turno único. Os 3 melhores avançam ao Torneio Forró.","Torneio Forró: os 3 classificados do primeiro turno juntam-se a Sport, Retrô, Decisão, Náutico, Santa Cruz, Maguary e Vitória das Tabocas.","Na fase principal do segundo turno são dois grupos de 5, com cada clube enfrentando apenas os clubes do outro grupo.","Os líderes avançam diretamente às semifinais. 2º x 3º de cada grupo disputam a segunda fase em ida e volta dentro do próprio grupo.","Semifinais e final são disputadas em ida e volta. Empates no agregado são decididos automaticamente nos pênaltis."]
 }];
 
+const SERIE_A_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 28001,
+    name: "Série A",
+    season: "2026",
+    division: "Série A",
+    country: "Brasil",
+    teams: [
+      "Flamengo - RJ",
+      "Palmeiras - SP",
+      "Athletico - PR",
+      "Fluminense - RJ",
+      "Bahia - BA",
+      "Cruzeiro - MG",
+      "Atlético - MG",
+      "Santos - SP",
+      "Coritiba - PR",
+      "São Paulo - SP",
+      "Red Bull Bragantino - SP",
+      "Botafogo - RJ",
+      "Vitória - BA",
+      "Corinthians - SP",
+      "Mirassol - SP",
+      "Vasco da Gama - RJ",
+      "Grêmio - RS",
+      "Internacional - RS",
+      "Remo - PA",
+      "Chapecoense - SC",
+    ],
+    phases: ["Primeira fase"],
+    rules: [
+      "20 clubes disputam a competição em turno e returno, totalizando 38 rodadas e 380 partidas.",
+      "O campeão é o clube que terminar a 38ª rodada com mais pontos na classificação geral.",
+      "Os 4 últimos colocados da classificação final são rebaixados para a Série B.",
+      "Os resultados são gerados automaticamente pelo sistema quando a temporada é simulada.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
+  ...SERIE_A_CHAMPIONSHIPS,
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
   ...AMAPA_CHAMPIONSHIPS,
@@ -1487,6 +1528,57 @@ export default function App() {
       row.sg = row.gp - row.gc;
     });
     return table;
+  }
+
+  function simulateDoubleRoundRobin(teams: string[]) {
+    const table: Record<string, Standing> = {};
+    const matches: Matchup[] = [];
+    teams.forEach((team) => {
+      table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    });
+
+    let round = 1;
+    for (let leg = 0; leg < 2; leg++) {
+      for (let i = 0; i < teams.length; i++) {
+        for (let j = i + 1; j < teams.length; j++) {
+          const home = leg === 0 ? teams[i] : teams[j];
+          const away = leg === 0 ? teams[j] : teams[i];
+          const homeGoals = Math.floor(Math.random() * 5);
+          const awayGoals = Math.floor(Math.random() * 5);
+
+          matches.push({ home, away, homeScore: homeGoals, awayScore: awayGoals, round });
+
+          table[home].j++;
+          table[away].j++;
+          table[home].gp += homeGoals;
+          table[home].gc += awayGoals;
+          table[away].gp += awayGoals;
+          table[away].gc += homeGoals;
+
+          if (homeGoals > awayGoals) {
+            table[home].v++;
+            table[home].pts += 3;
+            table[away].d++;
+          } else if (homeGoals < awayGoals) {
+            table[away].v++;
+            table[away].pts += 3;
+            table[home].d++;
+          } else {
+            table[home].e++;
+            table[away].e++;
+            table[home].pts++;
+            table[away].pts++;
+          }
+        }
+        round = round < 38 ? round + 1 : 1;
+      }
+    }
+
+    Object.values(table).forEach((row) => {
+      row.sg = row.gp - row.gc;
+    });
+
+    return { table, matches };
   }
 
   function sortStandingTeams(teams: string[], table: Record<string, Standing> = {}) {
@@ -3334,6 +3426,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     const updated = championships.map((championship) => {
       if (championship.country !== country) return championship;
 
+      if (championship.division === "Série A" && championship.country === "Brasil") {
+        return simulateSerieA(championship);
+      }
+
       if (championship.state === "Acre" && championship.division === "1ª Divisão") {
         return simulateAcreFirstDivision(championship);
       }
@@ -3460,8 +3556,42 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     });
   }
 
+  function simulateSerieA(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    const result = simulateDoubleRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, result.table);
+    const champion = ordered[0];
+    const relegated = ordered.slice(-4);
+
+    return {
+      ...championship,
+      standings: result.table,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": result.table,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Primeira fase": result.matches,
+      },
+      champion,
+      accessTeams: [],
+      rules: [
+        ...(championship.rules ?? []).filter((rule) => !rule.startsWith("Classificação final gerada")),
+        `Classificação final gerada: campeão = ${champion}; rebaixados = ${relegated.join(", ")}.`,
+      ],
+    };
+  }
+
   function simulateSeason() {
     if (!selected) return;
+
+    if (selected.division === "Série A" && selected.country === "Brasil") {
+      const updated = simulateSerieA(selected);
+      setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
+      setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
+      return;
+    }
 
     if (selected.state === "Acre" && selected.division === "1ª Divisão") {
       const updated = simulateAcreFirstDivision(selected);
