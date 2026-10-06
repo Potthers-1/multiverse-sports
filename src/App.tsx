@@ -1256,6 +1256,15 @@ export default function App() {
     }
 
     if (
+      championship.state === "Mato Grosso do Sul" &&
+      championship.division === "1ª Divisão" &&
+      phase === "Primeira fase"
+    ) {
+      if (index < 2) return "mato-grosso-do-sul-direct-semi";
+      if (index < 6) return "mato-grosso-do-sul-quarterfinal";
+    }
+
+    if (
       championship.state === "Mato Grosso" &&
       championship.division === "1ª Divisão" &&
       phase === "Primeira fase"
@@ -4638,7 +4647,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .standings-table tr.rn-quarterfinal td { background: rgba(249, 115, 22, 0.12) !important; }
         .standings-table tr.rn-quarterfinal td:first-child { box-shadow: inset 4px 0 0 #fb923c; color: #fdba74 !important; }
         .standings-table tr.rn-quarterfinal .standing-team { color: #fed7aa !important; }
-        .standings-table tr.mato-grosso-direct-semi td { background: rgba(249, 115, 22, 0.28) !important; }
+        .standings-table tr.mato-grosso-do-sul-direct-semi td { background: rgba(249, 115, 22, 0.28) !important; }
+.standings-table tr.mato-grosso-do-sul-direct-semi td:first-child { box-shadow: inset 4px 0 0 #f97316; color: #fdba74 !important; }
+.standings-table tr.mato-grosso-do-sul-direct-semi .standing-team { color: #fed7aa !important; }
+.standings-table tr.mato-grosso-do-sul-quarterfinal td { background: rgba(249, 115, 22, 0.12) !important; }
+.standings-table tr.mato-grosso-do-sul-quarterfinal td:first-child { box-shadow: inset 4px 0 0 #fb923c; color: #fdba74 !important; }
+.standings-table tr.mato-grosso-do-sul-quarterfinal .standing-team { color: #fed7aa !important; }
+.standings-table tr.mato-grosso-direct-semi td { background: rgba(249, 115, 22, 0.28) !important; }
         .standings-table tr.mato-grosso-direct-semi td:first-child { box-shadow: inset 4px 0 0 #f97316; color: #fdba74 !important; }
         .standings-table tr.mato-grosso-direct-semi .standing-team { color: #fed7aa !important; }
         .standings-table tr.mato-grosso-quarterfinal td { background: rgba(249, 115, 22, 0.12) !important; }
