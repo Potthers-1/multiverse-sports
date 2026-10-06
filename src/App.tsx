@@ -1061,7 +1061,7 @@ export default function App() {
   const [season, setSeason] = useState("2026");
   const [division, setDivision] = useState("Estadual");
   const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
-  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules">>({});
+  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs">>({});
 
   useEffect(() => {
     try {
@@ -1384,6 +1384,49 @@ export default function App() {
   function deleteChampionship(id: number) {
     setChampionships((current) => current.filter((c) => c.id !== id));
     if (selectedId === id) setSelectedId(null);
+  }
+
+  function getClubStateInfo(state: string, season: string, club: string) {
+    const stateChampionships = championships.filter((item) => item.country === "Brasil" && item.state === state && item.season === season && item.division !== "Estadual").sort((a, b) => {
+      const divisionA = Number.parseInt(a.division.match(/\\d+/)?.[0] ?? "99", 10);
+      const divisionB = Number.parseInt(b.division.match(/\\d+/)?.[0] ?? "99", 10);
+      return divisionA - divisionB;
+    });
+    const stateChampionship = stateChampionships.find((item) => (item.teams ?? []).includes(club));
+    const nationalChampionship = championships.find((item) => item.country === "Brasil" && item.season === season && ["Série A", "Série B", "Série C", "Série D"].includes(item.division) && (item.teams ?? []).includes(club));
+    const vacancy = calculateSerieDStateVacancies(championships, season).find((item) => item.state === state);
+    const firstDivision = stateChampionships.find((item) => item.division === "1ª Divisão");
+    const firstDivisionRanking = firstDivision ? getStateChampionshipRanking(championships, state, season) : [];
+    const rankingPosition = firstDivisionRanking.indexOf(club) + 1;
+    const hasFinalRanking = Boolean(firstDivision && (firstDivision.standings || firstDivision.phaseStandings?.["Primeira fase"]));
+    let serieDStatus = "NÃO APTO";
+    let serieDReason = "Fora da 1ª divisão estadual.";
+    if (nationalChampionship?.division === "Série D") {
+      serieDStatus = "JÁ ESTÁ NA SÉRIE D";
+      serieDReason = "O clube já está inscrito na divisão nacional.";
+    } else if (nationalChampionship?.division) {
+      serieDStatus = "NÃO APTO";
+      serieDReason = "Está na " + nationalChampionship.division + ".";
+    } else if (stateChampionship?.division !== "1ª Divisão") {
+      serieDStatus = "NÃO APTO";
+      serieDReason = "Precisa estar na 1ª divisão estadual para disputar a vaga estadual.";
+    } else if (!hasFinalRanking) {
+      serieDStatus = "EM DEFINIÇÃO";
+      serieDReason = "A classificação final do estadual ainda não foi definida.";
+    } else if (vacancy?.selected.includes(club)) {
+      serieDStatus = "APTO";
+      serieDReason = "Está dentro das " + vacancy.slots + " vagas estaduais previstas para " + state + ".";
+    } else if (rankingPosition > 0 && vacancy) {
+      serieDStatus = "NÃO APTO";
+      serieDReason = "Está fora das " + vacancy.slots + " vagas estaduais.";
+    }
+    return { stateDivision: stateChampionship?.division ?? "Não inscrito", nationalDivision: nationalChampionship?.division ?? "Sem divisão nacional", rankingPosition, serieDStatus, serieDReason };
+  }
+
+  function getStateClubsForSeason(state: string, season: string) {
+    const clubs = new Set<string>();
+    championships.filter((item) => item.country === "Brasil" && item.state === state && item.season === season && item.teams?.length).forEach((item) => (item.teams ?? []).forEach((club) => clubs.add(club)));
+    return [...clubs].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }
 
   function getRowClass(championship: Championship, phase: string, index: number) {
@@ -4216,7 +4259,47 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 )}
               </div>
 
-              {(selectedSection[selected.id] ?? "competition") === "competition" ? (
+              {(selectedSection[selected.id] ?? "competition") === "clubs" ? (
+                <div className="competition-block clubs-panel">
+                  <div className="block-title">CLUBES DO ESTADO — ELEGIBILIDADE PARA A SÉRIE D</div>
+                  {selected.state ? (() => {
+                    const clubs = getStateClubsForSeason(selected.state!, selected.season);
+                    const vacancy = calculateSerieDStateVacancies(championships, selected.season).find((item) => item.state === selected.state);
+                    return (
+                      <>
+                        <div className="clubs-summary">
+                          <div><span>Estado</span><strong>{selected.state}</strong></div>
+                          <div><span>Temporada</span><strong>{selected.season}</strong></div>
+                          <div><span>Vagas estaduais da Série D</span><strong>{vacancy?.slots ?? 0}</strong></div>
+                          <div><span>Clubes monitorados</span><strong>{clubs.length}</strong></div>
+                        </div>
+                        <div className="clubs-table-wrap">
+                          <table className="clubs-table">
+                            <thead><tr><th>CLUBE</th><th>DIVISÃO ESTADUAL</th><th>DIVISÃO NACIONAL</th><th>POSIÇÃO ESTADUAL</th><th>SÉRIE D</th><th>MOTIVO</th></tr></thead>
+                            <tbody>
+                              {clubs.map((club) => {
+                                const info = getClubStateInfo(selected.state!, selected.season, club);
+                                const statusClass = info.serieDStatus === "APTO" ? "club-status-ok" : info.serieDStatus === "EM DEFINIÇÃO" ? "club-status-pending" : info.serieDStatus === "JÁ ESTÁ NA SÉRIE D" ? "club-status-d" : "club-status-no";
+                                return (
+                                  <tr key={club}>
+                                    <td className="club-name-cell">{club}</td>
+                                    <td>{info.stateDivision}</td>
+                                    <td>{info.nationalDivision}</td>
+                                    <td>{info.rankingPosition > 0 ? info.rankingPosition + "º" : "—"}</td>
+                                    <td><span className={"club-status " + statusClass}>{info.serieDStatus}</span></td>
+                                    <td>{info.serieDReason}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="clubs-note"><strong>Regra dinâmica:</strong> clubes das Séries A, B e C ficam bloqueados para a vaga estadual da Série D. Entre os demais, a vaga desce pela classificação da 1ª divisão estadual até completar a quantidade de vagas do estado. Mudanças de acesso, rebaixamento e divisão nacional refletem automaticamente nesta tela.</div>
+                      </>
+                    );
+                  })() : null}
+                </div>
+              ) :  "competition") === "competition" ? (
                 <>
                   {selected.phases && selected.phases.length > 1 && (
                     <div className="phase-tabs">
@@ -5032,6 +5115,27 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .standings-legend .legend-promotion { background: #22c55e; }
         .standings-legend .legend-playoff { background: #eab308; }
         .standings-legend .legend-relegation { background: #ef4444; }
+
+        .clubs-panel { width: 100%; }
+        .clubs-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .clubs-summary > div { background: #11192b; border: 1px solid #26314a; border-radius: 10px; padding: 12px; }
+        .clubs-summary span { display: block; color: #71809f; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
+        .clubs-summary strong { font-size: 14px; color: #eef2ff; }
+        .clubs-table-wrap { width: 100%; overflow-x: auto; }
+        .clubs-table { width: 100%; border-collapse: collapse; min-width: 920px; }
+        .clubs-table th { color: #71809f; font-size: 10px; text-align: left; padding: 10px 9px; border-bottom: 1px solid #26314a; white-space: nowrap; }
+        .clubs-table td { color: #aeb9d0; font-size: 12px; padding: 11px 9px; border-bottom: 1px solid #1c2539; vertical-align: middle; }
+        .clubs-table tr:hover td { background: rgba(49, 87, 213, .08); }
+        .clubs-table .club-name-cell { color: #eef2ff; font-weight: 700; }
+        .club-status { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 5px 8px; font-size: 9px; font-weight: 900; white-space: nowrap; letter-spacing: .03em; }
+        .club-status-ok { background: rgba(34, 197, 94, .16); color: #86efac; border: 1px solid rgba(34, 197, 94, .25); }
+        .club-status-no { background: rgba(239, 68, 68, .13); color: #fca5a5; border: 1px solid rgba(239, 68, 68, .2); }
+        .club-status-pending { background: rgba(234, 179, 8, .14); color: #fde047; border: 1px solid rgba(234, 179, 8, .22); }
+        .club-status-d { background: rgba(249, 115, 22, .15); color: #fdba74; border: 1px solid rgba(249, 115, 22, .24); }
+        .clubs-note { margin-top: 14px; padding: 12px 14px; border: 1px solid #26314a; border-radius: 10px; color: #8e9ab4; font-size: 11px; line-height: 1.5; background: #0f1627; }
+        .clubs-note strong { color: #cbd5e1; }
+        @media (max-width: 900px) { .clubs-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 560px) { .clubs-summary { grid-template-columns: 1fr; } }
 
         .rules-list { display: grid; gap: 10px; }
         .rule-item { color: #b5bfd4; font-size: 13px; line-height: 1.45; }
