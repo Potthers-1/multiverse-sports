@@ -817,7 +817,7 @@ export default function App() {
 
   const selected = championships.find((c) => c.id === selectedId) ?? null;
   const estadualChampionships = championships.filter((champ) => champ.state);
-  const stateNames = [...new Set([...estadualChampionships.map((champ) => champ.state!), ...INITIAL_CHAMPIONSHIPS.map((champ) => champ.state!).filter(Boolean)])].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const stateNames = [...new Set([...estadualChampionships.map((champ) => champ.state!), ...INITIAL_CHAMPIONSHIPS.map((champ) => champ.state!).filter(Boolean), "Rondônia"])].filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   function drawAmazonasGroups() {
     const championship = championships.find((item) => item.id === selectedId);
