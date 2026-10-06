@@ -1233,6 +1233,15 @@ export default function App() {
     }
 
     if (
+      championship.state === "Sergipe" &&
+      championship.division === "1ª Divisão" &&
+      phase === "Primeira fase"
+    ) {
+      if (index === 0) return "sergipe-direct-semi";
+      if (index < 7) return "sergipe-quarterfinal";
+    }
+
+    if (
       championship.state === "Rio Grande do Norte" &&
       championship.division === "1ª Divisão" &&
       phase === "Primeira fase"
@@ -4534,7 +4543,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .standings-table tr.zone-second-phase td { background: rgba(249, 115, 22, 0.16) !important; }
         .standings-table tr.zone-second-phase td:first-child { box-shadow: inset 4px 0 0 #f97316; color: #fdba74 !important; }
         .standings-table tr.zone-second-phase .standing-team { color: #fed7aa !important; }
-        .standings-table tr.rn-direct-semi td { background: rgba(249, 115, 22, 0.28) !important; }
+        .standings-table tr.sergipe-direct-semi td { background: rgba(249, 115, 22, 0.28) !important; }
+.standings-table tr.sergipe-direct-semi td:first-child { box-shadow: inset 4px 0 0 #f97316; color: #fdba74 !important; }
+.standings-table tr.sergipe-direct-semi .standing-team { color: #fed7aa !important; }
+.standings-table tr.sergipe-quarterfinal td { background: rgba(249, 115, 22, 0.12) !important; }
+.standings-table tr.sergipe-quarterfinal td:first-child { box-shadow: inset 4px 0 0 #fb923c; color: #fdba74 !important; }
+.standings-table tr.sergipe-quarterfinal .standing-team { color: #fed7aa !important; }
+.standings-table tr.rn-direct-semi td { background: rgba(249, 115, 22, 0.28) !important; }
         .standings-table tr.rn-direct-semi td:first-child { box-shadow: inset 4px 0 0 #f97316; color: #fdba74 !important; }
         .standings-table tr.rn-direct-semi .standing-team { color: #fed7aa !important; }
         .standings-table tr.rn-quarterfinal td { background: rgba(249, 115, 22, 0.12) !important; }
