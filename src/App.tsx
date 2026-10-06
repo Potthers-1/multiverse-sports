@@ -512,6 +512,36 @@ const PARA_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const PARAIBA_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 17001,
+    name: "Paraíba",
+    season: "2026",
+    division: "1ª Divisão",
+    country: "Brasil",
+    state: "Paraíba",
+    teams: [
+      "Botafogo - PB",
+      "Campinense - PB",
+      "Sousa - PB",
+      "Serra Branca - PB",
+      "Nacional de Patos - PB",
+      "Treze - PB",
+      "EC de Patos - PB",
+      "Atlético Cajazeirense - PB",
+      "Confiança - PB",
+      "Pombal - PB",
+    ],
+    phases: ["Primeira fase", "Quartas de final", "Semi final", "Final"],
+    rules: [
+      "10 clubes disputam a primeira fase em turno único, totalizando 9 rodadas.",
+      "Os 4 melhores colocados avançam ao mata-mata.",
+      "Quartas de final, semifinais e final são disputadas em jogos de ida e volta.",
+      "Em caso de empate no placar agregado, a decisão é definida automaticamente nos pênaltis.",
+    ],
+  },
+];
+
 const MINAS_GERAIS_CHAMPIONSHIPS: Championship[] = [
   {
     id: 15001,
@@ -595,6 +625,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...MARANHAO_CHAMPIONSHIPS,
   ...MINAS_GERAIS_CHAMPIONSHIPS,
   ...PARA_CHAMPIONSHIPS,
+  ...PARAIBA_CHAMPIONSHIPS,
   ...MATO_GROSSO_CHAMPIONSHIPS,
 ];
 
@@ -2033,6 +2064,53 @@ export default function App() {
     };
   }
 
+  function simulateParaibaFirstDivision(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    if (teams.length < 4) return championship;
+
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const qualified = ordered.slice(0, 4);
+
+    const simulateTwoLeggedRound = (pairings: [string, string][]) => {
+      const matches: Matchup[] = [];
+      const winners: string[] = [];
+
+      for (const [teamA, teamB] of pairings) {
+        const leg1 = simulateKnockoutMatch(teamA, teamB);
+        const leg2 = simulateKnockoutMatch(teamB, teamA);
+        matches.push(leg1, leg2);
+        winners.push(resolveTwoLeggedTie(leg1, leg2));
+      }
+
+      return { matches, winners };
+    };
+
+    const semi = simulateTwoLeggedRound([
+      [qualified[0], qualified[3]],
+      [qualified[1], qualified[2]],
+    ]);
+
+    const final = simulateTwoLeggedRound([
+      [semi.winners[0], semi.winners[1]],
+    ]);
+
+    return {
+      ...championship,
+      standings: firstStandings,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstStandings,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Semi final": semi.matches,
+        "Final": final.matches,
+      },
+      champion: final.winners[0],
+    };
+  }
+
   function simulateMinasGeraisFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     if (teams.length < 12) return championship;
@@ -2392,6 +2470,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateParaFirstDivision(championship);
       }
 
+      if (championship.state === "Paraíba" && championship.division === "1ª Divisão") {
+        return simulateParaibaFirstDivision(championship);
+      }
+
       if (championship.state === "Minas Gerais" && championship.division === "1ª Divisão") {
         return simulateMinasGeraisFirstDivision(championship);
       }
@@ -2523,6 +2605,17 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       }));
     } else if (selected.state === "Pará" && selected.division === "1ª Divisão") {
       const updated = simulateParaFirstDivision(selected);
+      setChampionships((current) =>
+        current.map((championship) =>
+          championship.id === selected.id ? updated : championship
+        )
+      );
+      setSelectedPhase((current) => ({
+        ...current,
+        [selected.id]: "Primeira fase",
+      }));
+    } else if (selected.state === "Paraíba" && selected.division === "1ª Divisão") {
+      const updated = simulateParaibaFirstDivision(selected);
       setChampionships((current) =>
         current.map((championship) =>
           championship.id === selected.id ? updated : championship
