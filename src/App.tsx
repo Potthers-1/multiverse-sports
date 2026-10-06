@@ -4476,7 +4476,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                     );
                   })()}
                 </div>
-              ) :               {(selectedSection[selected.id] ?? "competition") === "clubs" ? (
+              ) : (selectedSection[selected.id] ?? "competition") === "clubs" ? (
                 <div className="competition-block clubs-panel">
                   <div className="block-title">CLUBES DO ESTADO — ELEGIBILIDADE PARA A SÉRIE D</div>
                   {selected.state ? (() => {
