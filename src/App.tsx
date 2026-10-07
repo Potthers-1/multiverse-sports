@@ -5437,9 +5437,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
   }
 
   function isChampionshipSeasonSimulated(championship: Championship): boolean {
-    // O campeão só é definido quando a simulação daquela temporada termina.
-    // Isso também cobre formatos que não usam phaseMatches em todas as etapas.
-    return Boolean(championship.champion);
+    if (championship.champion) return true;
+    const total = championship.simulationTotalRounds ?? 0;
+    const progress = championship.simulationRound ?? 0;
+    return total > 0 && progress >= total;
   }
 
   function isCountrySeasonFullySimulated(country: string): boolean {
@@ -5895,7 +5896,90 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           </button>
         </header>
 
-        {selected ? (
+
+        {showClubRanking ? (
+          <section className="card club-ranking-panel">
+            {(() => {
+              const currentYear = Number(countrySeasons["Brasil"] ?? 2026);
+              const ranking = buildBrazilClubRanking(championships, currentYear);
+              const years = Array.from({ length: 5 }, (_, index) => String(currentYear - index));
+              return (
+                <>
+                  <div className="card-header">
+                    <div>
+                      <div className="eyebrow">BRASIL • RANKING NACIONAL</div>
+                      <h2>Ranking de Clubes</h2>
+                    </div>
+                    <div className="ranking-season-badge">
+                      Temporada {currentYear}
+                    </div>
+                  </div>
+
+                  <div className="ranking-summary">
+                    <div>
+                      <span>Critério</span>
+                      <strong>Últimos 5 anos</strong>
+                    </div>
+                    <div>
+                      <span>Peso atual</span>
+                      <strong>×5</strong>
+                    </div>
+                    <div>
+                      <span>Base</span>
+                      <strong>Séries A–D</strong>
+                    </div>
+                  </div>
+
+                  {ranking.length ? (
+                    <div className="club-ranking-table-wrap">
+                      <table className="club-ranking-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>CLUBE</th>
+                            {years.map((year) => <th key={year}>{year}</th>)}
+                            <th>TOTAL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ranking.map((row, index) => (
+                            <tr key={row.club}>
+                              <td className="ranking-position">{index + 1}</td>
+                              <td className="ranking-club">
+                                <button className="club-link club-link-strong" onClick={() => openClubHistory(row.club)}>
+                                  {row.club}
+                                </button>
+                              </td>
+                              {years.map((year) => (
+                                <td key={year}>
+                                  {row.yearly[year] ? row.yearly[year].toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—"}
+                                </td>
+                              ))}
+                              <td className="ranking-total">{row.points.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="ranking-empty">
+                      O ranking será preenchido automaticamente conforme as temporadas das Séries A, B, C e D forem simuladas.
+                    </div>
+                  )}
+
+                  <div className="ranking-rules">
+                    <strong>Critérios de pontuação</strong>
+                    <span>Campeão: A 800 • B 400 • C 200 • D 100 pontos.</span>
+                    <span>2º: 80% • 3º: 75% • 4º: 70% • a partir do 5º, menos 1 ponto percentual por posição.</span>
+                    <span>Pesos: temporada vigente ×5; ano anterior ×4; até o quinto ano ×1.</span>
+                    <span>A Copa do Brasil será incorporada automaticamente quando for adicionada ao simulador.</span>
+                  </div>
+                </>
+              );
+            })()}
+          </section>
+        ) : selected ? (
+
           <section className="card">
             <div className="card-header">
               <div>
@@ -6963,87 +7047,6 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 </div>
               )}
             </div>
-          </section>
-        ) : showClubRanking ? (
-          <section className="card club-ranking-panel">
-            {(() => {
-              const currentYear = Number(countrySeasons["Brasil"] ?? 2026);
-              const ranking = buildBrazilClubRanking(championships, currentYear);
-              const years = Array.from({ length: 5 }, (_, index) => String(currentYear - index));
-              return (
-                <>
-                  <div className="card-header">
-                    <div>
-                      <div className="eyebrow">BRASIL • RANKING NACIONAL</div>
-                      <h2>Ranking de Clubes</h2>
-                    </div>
-                    <div className="ranking-season-badge">
-                      Temporada {currentYear}
-                    </div>
-                  </div>
-
-                  <div className="ranking-summary">
-                    <div>
-                      <span>Critério</span>
-                      <strong>Últimos 5 anos</strong>
-                    </div>
-                    <div>
-                      <span>Peso atual</span>
-                      <strong>×5</strong>
-                    </div>
-                    <div>
-                      <span>Base</span>
-                      <strong>Séries A–D</strong>
-                    </div>
-                  </div>
-
-                  {ranking.length ? (
-                    <div className="club-ranking-table-wrap">
-                      <table className="club-ranking-table">
-                        <thead>
-                          <tr>
-                            <th>#</th>
-                            <th>CLUBE</th>
-                            {years.map((year) => <th key={year}>{year}</th>)}
-                            <th>TOTAL</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ranking.map((row, index) => (
-                            <tr key={row.club}>
-                              <td className="ranking-position">{index + 1}</td>
-                              <td className="ranking-club">
-                                <button className="club-link club-link-strong" onClick={() => openClubHistory(row.club)}>
-                                  {row.club}
-                                </button>
-                              </td>
-                              {years.map((year) => (
-                                <td key={year}>
-                                  {row.yearly[year] ? row.yearly[year].toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—"}
-                                </td>
-                              ))}
-                              <td className="ranking-total">{row.points.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="ranking-empty">
-                      O ranking será preenchido automaticamente conforme as temporadas das Séries A, B, C e D forem simuladas.
-                    </div>
-                  )}
-
-                  <div className="ranking-rules">
-                    <strong>Critérios de pontuação</strong>
-                    <span>Campeão: A 800 • B 400 • C 200 • D 100 pontos.</span>
-                    <span>2º: 80% • 3º: 75% • 4º: 70% • a partir do 5º, menos 1 ponto percentual por posição.</span>
-                    <span>Pesos: temporada vigente ×5; ano anterior ×4; até o quinto ano ×1.</span>
-                    <span>A Copa do Brasil será incorporada automaticamente quando for adicionada ao simulador.</span>
-                  </div>
-                </>
-              );
-            })()}
           </section>
         ) : (
           <section className="welcome">
