@@ -4762,8 +4762,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       
     } else if (championship.state === "Pernambuco" && championship.division === "1ª Divisão") {
       const updated=simulatePernambucoFirstDivision(championship);
-      
-      
+      return updated;
     } else if (championship.state === "Rio Grande do Norte" && championship.division === "1ª Divisão") {
       const updated = simulateRioGrandeDoNorteFirstDivision(championship);
       
@@ -4891,12 +4890,6 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     return updated;
       
     }
-
-    setSelectedSection((current) => ({
-      ...current,
-      [championship.id]: "competition",
-    }));
-  }
 
     return championship;
   }
