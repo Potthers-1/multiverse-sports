@@ -38,6 +38,7 @@ type Championship = {
   firstTurnWinner?: string;
   secondTurnWinner?: string;
   champion?: string;
+  championHistory?: Record<string, string>;
   accessTeams?: string[];
   relegatedTeams?: string[];
   amazonasGroups?: { A: string[]; B: string[] };
@@ -1317,7 +1318,7 @@ export default function App() {
   const [season, setSeason] = useState("2026");
   const [division, setDivision] = useState("Estadual");
   const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
-  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement">>({});
+  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history">>({});
 
   useEffect(() => {
     try {
@@ -1358,6 +1359,30 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(championships));
+  }, [championships]);
+
+  // Guarda automaticamente o campeão de cada temporada para formar o histórico.
+  useEffect(() => {
+    let changed = false;
+    const updated = championships.map((championship) => {
+      if (!championship.champion) return championship;
+
+      const history = { ...(championship.championHistory ?? {}) };
+      if (history[championship.season] === championship.champion) {
+        return championship;
+      }
+
+      history[championship.season] = championship.champion;
+      changed = true;
+      return {
+        ...championship,
+        championHistory: history,
+      };
+    });
+
+    if (changed) {
+      setChampionships(updated);
+    }
   }, [championships]);
 
   const selected = championships.find((c) => c.id === selectedId) ?? null;
@@ -4944,6 +4969,18 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   </button>
                 )}
 
+                <button
+                  className={`section-tab ${selectedSection[selected.id] === "history" ? "active" : ""}`}
+                  onClick={() =>
+                    setSelectedSection((current) => ({
+                      ...current,
+                      [selected.id]: "history",
+                    }))
+                  }
+                >
+                  Histórico
+                </button>
+
                 {selected.state && (
                   <button
                     className={`section-tab ${selectedSection[selected.id] === "clubs" ? "active" : ""}`}
@@ -5032,7 +5069,47 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 )}
               </div>
 
-              {selectedSection[selected.id] === "movement" ? (
+              {selectedSection[selected.id] === "history" ? (
+                <div className="competition-block championship-history-panel">
+                  {(() => {
+                    const history = { ...(selected.championHistory ?? {}) };
+                    if (selected.champion) {
+                      history[selected.season] = selected.champion;
+                    }
+
+                    const seasons = Object.entries(history)
+                      .sort(([yearA], [yearB]) => Number(yearB) - Number(yearA));
+
+                    return (
+                      <>
+                        <div className="block-title">HISTÓRICO DE CAMPEÕES</div>
+                        <div className="history-subtitle">
+                          Campeões de todas as temporadas registradas neste campeonato.
+                        </div>
+
+                        {seasons.length ? (
+                          <div className="champion-history-list">
+                            {seasons.map(([year, champion], index) => (
+                              <div className="champion-history-row" key={year}>
+                                <div className="champion-history-year">{year}</div>
+                                <div className="champion-history-trophy">{index === 0 ? "🏆" : "🏆"}</div>
+                                <div className="champion-history-club">
+                                  <strong>{champion}</strong>
+                                  {year === selected.season && <span>Temporada atual</span>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="movement-empty">
+                            Nenhum campeão registrado ainda. O histórico será preenchido automaticamente após cada temporada simulada.
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : selectedSection[selected.id] === "movement" ? (
                 <div className="competition-block national-movement-panel">
                   {(() => {
                     const table = selected.standings ?? selected.phaseStandings?.["Primeira fase"] ?? {};
@@ -6052,6 +6129,21 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .movement-access .movement-card-title { color: #86efac; }
         .movement-relegation .movement-card-title { color: #fca5a5; }
         .movement-subtitle { color: #71809f; font-size: 10px; margin-bottom: 14px; }
+        .championship-history-panel { width: 100%; }
+        .history-subtitle { color: #8e9ab4; font-size: 11px; line-height: 1.5; margin: -4px 0 14px; }
+        .champion-history-list { border: 1px solid #202a40; border-radius: 10px; overflow: hidden; background: #0b1220; }
+        .champion-history-row { display: grid; grid-template-columns: 72px 42px 1fr; align-items: center; min-height: 54px; padding: 0 14px; border-bottom: 1px solid #1c2539; }
+        .champion-history-row:last-child { border-bottom: 0; }
+        .champion-history-year { color: #71809f; font-size: 12px; font-weight: 900; }
+        .champion-history-trophy { font-size: 16px; text-align: center; }
+        .champion-history-club { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .champion-history-club strong { color: #eef2ff; font-size: 12px; }
+        .champion-history-club span { color: #6ee7b7; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+        @media (max-width: 600px) {
+          .champion-history-row { grid-template-columns: 58px 34px 1fr; padding: 0 10px; }
+          .champion-history-club { align-items: flex-start; flex-direction: column; gap: 3px; }
+        }
+
         .movement-group-title { color: #cbd5e1; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .07em; margin: 13px 0 7px; }
         .movement-club { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #1c2539; }
         .movement-club strong { color: #eef2ff; font-size: 12px; }
