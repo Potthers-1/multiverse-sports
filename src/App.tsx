@@ -5361,15 +5361,29 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         phaseStandings: undefined,
         phaseMatches: undefined,
         firstTurnWinner: undefined,
+        secondTurnWinner: undefined,
+        champion: undefined,
+        championHistory: undefined,
+        accessTeams: undefined,
+        relegatedTeams: undefined,
+        simulationPlan: undefined,
+        simulationRound: undefined,
+        simulationTotalRounds: undefined,
+        simulationVersion: 2,
+        serieDGroups: undefined,
         amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
         paranaGroups: championship.state === "Paraná" ? undefined : championship.paranaGroups,
         pernambucoGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoGroups,
         pernambucoSecondGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoSecondGroups,
-        secondTurnWinner: undefined,
       };
     });
 
     setChampionships(resetChampionships);
+
+    // "Zerar temporada" também apaga todo o histórico acumulado dos clubes.
+    localStorage.removeItem("football-manager-club-history-v1");
+    setClubHistory({});
+    setSelectedClub(null);
 
     const resetPhases: Record<number, string> = {};
     resetChampionships.forEach((championship) => {
