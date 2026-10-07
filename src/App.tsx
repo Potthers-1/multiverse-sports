@@ -1542,6 +1542,16 @@ export default function App() {
       if (index >= 16) return "zone-relegation";
     }
 
+    // Na Série C, os 8 primeiros avançam à segunda fase e os 4 últimos são rebaixados para a Série D.
+    if (
+      championship.country === "Brasil" &&
+      championship.division === "Série C" &&
+      phase === "Primeira fase"
+    ) {
+      if (index < 8) return "zone-second-phase";
+      if (index >= 16) return "zone-relegation";
+    }
+
     // Na Série A, os 4 últimos da classificação final são rebaixados para a Série B.
     if (
       championship.country === "Brasil" &&
