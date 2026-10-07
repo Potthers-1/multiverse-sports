@@ -4345,37 +4345,49 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     };
   }
 
-  function simulateCountrySeasonPartially(country: string, roundCount: number) {
-    const current = championships.filter((item) => item.country === country);
-    if (!current.length) { window.alert("Não há campeonatos cadastrados para este país."); return; }
-    const currentYear = Math.max(...current.map((item) => Number(item.season) || 2026));
-    const season = current.filter((item) => item.season === String(currentYear));
-    const needPlans = season.some((item) => !item.simulationPlan && (item.simulationRound ?? 0) === 0);
-    const generated = needPlans ? simulateCountrySeasonFully(championships, country) : null;
+  function simulateChampionshipPartially(championshipId: number, roundCount: number) {
+    const current = championships.find((item) => item.id === championshipId);
+    if (!current) return;
 
-    const updated = championships.map((championship) => {
-      if (championship.country !== country || championship.season !== String(currentYear)) return championship;
-      const fullPlan = championship.simulationPlan
-        ?? generated?.find((item) => item.id === championship.id)
-        ?? championship;
-      const previous = championship.simulationRound ?? 0;
-      const plan = fullPlan.simulationPlan ? fullPlan.simulationPlan : fullPlan;
-      return applySimulationProgress(plan, previous + roundCount - (plan.simulationRound ?? 0));
-    });
+    if (current.champion) {
+      window.alert("Este campeonato já está 100% simulado.");
+      return;
+    }
 
-    setChampionships(updated);
-    setSelectedPhase((currentSelection) => {
-      const next = { ...currentSelection };
-      updated.filter((item) => item.country === country && item.season === String(currentYear))
-        .forEach((item) => { next[item.id] = item.phases?.[0] ?? "Primeira fase"; });
-      return next;
-    });
+    let plan = current.simulationPlan;
 
-    const completed = updated.filter((item) => item.country === country && item.season === String(currentYear))
-      .every((item) => !!item.champion);
-    window.alert(completed
-      ? "Temporada concluída: todos os campeonatos chegaram a 100%."
-      : "Simuladas " + roundCount + " rodada(s). O restante será continuado na próxima simulação.");
+    if (!plan) {
+      const generated = simulateChampionshipFully(current);
+      if (!generated) {
+        window.alert("Não foi possível preparar a simulação deste campeonato.");
+        return;
+      }
+      plan = {
+        ...generated,
+        simulationPlan: undefined,
+        simulationRound: undefined,
+        simulationTotalRounds: undefined,
+      };
+    }
+
+    const updated = applySimulationProgress(plan, roundCount);
+    setChampionships((items) =>
+      items.map((item) => (item.id === championshipId ? updated : item))
+    );
+    setSelectedPhase((items) => ({
+      ...items,
+      [championshipId]: updated.phases?.[0] ?? "Primeira fase",
+    }));
+
+    const done = !!updated.champion;
+    const simulated = updated.simulationRound ?? 0;
+    const total = updated.simulationTotalRounds ?? 0;
+
+    window.alert(
+      done
+        ? "Campeonato concluído: 100% das rodadas foram simuladas."
+        : "Simuladas " + Math.min(roundCount, Math.max(0, total - (simulated - roundCount))) + " rodada(s). O restante pode ser continuado depois."
+    );
   }
 
   function simulateCompleteCountrySeason(country: string) {
@@ -4647,6 +4659,246 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         `Classificação final gerada: campeão = ${champion}; rebaixados = ${relegated.join(", ")}.`,
       ],
     };
+  }
+
+  function simulateChampionshipFully(championship: Championship): Championship | null {
+    if (!championship) return null;
+
+    if (championship.division === "Série A" && championship.country === "Brasil") {
+      const updated = simulateSerieA(championship);
+      
+      
+      return updated;
+      return null;
+    }
+
+    if (championship.division === "Série B" && championship.country === "Brasil") {
+      const updated = simulateSerieB(championship);
+      
+      
+      return updated;
+      return null;
+    }
+
+    if (championship.division === "Série C" && championship.country === "Brasil") {
+      const updated = simulateSerieC(championship);
+      
+      
+      return updated;
+      return null;
+    }
+
+    if (championship.division === "Série D" && championship.country === "Brasil") {
+      if (!championship.serieDGroups || Object.keys(championship.serieDGroups).length !== 16) return null;
+      const updated = simulateSerieD(championship);
+      
+      
+      return updated;
+      return null;
+    }
+
+    if (championship.state === "Acre" && championship.division === "1ª Divisão") {
+      const updated = simulateAcreFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Amapá" && championship.division === "1ª Divisão") {
+      const updated = simulateAmapaFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Amazonas" && championship.division === "1ª Divisão") {
+      const updated = simulateAmazonasFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Bahia" && championship.division === "1ª Divisão") {
+      const updated = simulateBahiaFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Distrito Federal" && championship.division === "1ª Divisão") {
+      const updated = simulateDistritoFederalFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Espírito Santo" && championship.division === "1ª Divisão") {
+      const updated = simulateEspiritoSantoFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Rio Grande do Sul" && championship.division === "1ª Divisão") {
+      const updated = simulateRioGrandeDoSulFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "São Paulo" && championship.division === "1ª Divisão") {
+      const updated = simulateSaoPauloFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Paraná" && championship.division === "1ª Divisão") {
+      const updated = simulateParanaFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Pernambuco" && championship.division === "1ª Divisão") {
+      const updated=simulatePernambucoFirstDivision(championship);
+      
+      
+    } else if (championship.state === "Rio Grande do Norte" && championship.division === "1ª Divisão") {
+      const updated = simulateRioGrandeDoNorteFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Roraima" && championship.division === "1ª Divisão") {
+      const updated = simulateRoraimaFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Sergipe" && championship.division === "1ª Divisão") {
+      const updated = simulateSergipeFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Mato Grosso do Sul" && championship.division === "1ª Divisão") {
+      const updated = simulateMatoGrossoDoSulFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Tocantins" && championship.division === "1ª Divisão") {
+      const updated = simulateTocantinsFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Rondônia" && championship.division === "1ª Divisão") {
+      const updated = simulateRondoniaFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Piauí" && championship.division === "1ª Divisão") {
+      const updated = simulatePiauiFirstDivision(championship);
+      
+      
+
+    return updated;
+      
+      
+
+    } else if (championship.state === "Goiás" && championship.division === "1ª Divisão") {
+      const updated = simulateGoiasFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Maranhão" && championship.division === "1ª Divisão") {
+      const updated = simulateMaranhaoFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Pará" && championship.division === "1ª Divisão") {
+      const updated = simulateParaFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Paraíba" && championship.division === "1ª Divisão") {
+      const updated = simulateParaibaFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Minas Gerais" && championship.division === "1ª Divisão") {
+      const updated = simulateMinasGeraisFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Mato Grosso" && championship.division === "1ª Divisão") {
+      const updated = simulateMatoGrossoFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Ceará" && championship.division === "1ª Divisão") {
+      const updated = simulateCearaFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Santa Catarina" && championship.division === "1ª Divisão") {
+      const updated = simulateSantaCatarinaFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Rio de Janeiro" && championship.division === "1ª Divisão") {
+      const updated = simulateRioDeJaneiroFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else if (championship.state === "Alagoas" && championship.division === "1ª Divisão") {
+      const updated = simulateAlagoasFirstDivision(championship);
+      
+      
+    return updated;
+      
+      
+    } else {
+      const updated = simulateGenericChampionship(championship);
+      
+    return updated;
+      
+    }
+
+    setSelectedSection((current) => ({
+      ...current,
+      [championship.id]: "competition",
+    }));
+  }
+
+    return championship;
   }
 
   function simulateSeason() {
@@ -5248,22 +5500,6 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
             <div className="country-heading">
               <div className="eyebrow">BRASIL</div>
               <button
-                className="simulate-season"
-                onClick={() => simulateCompleteCountrySeason("Brasil")}
-              >
-                ▶ Simular temporada completa
-              </button>
-              <div className="partial-simulation-control">
-                <select value={simulationRounds} onChange={(event) => setSimulationRounds(Number(event.target.value))} aria-label="Quantidade de rodadas para simular">
-                  {Array.from({ length: 10 }, (_, index) => index + 1).map((round) => (
-                    <option key={round} value={round}>{round} {round === 1 ? "rodada" : "rodadas"}</option>
-                  ))}
-                </select>
-                <button className="simulate-rounds" onClick={() => simulateCountrySeasonPartially("Brasil", simulationRounds)}>
-                  ▶ Simular {simulationRounds} {simulationRounds === 1 ? "rodada" : "rodadas"}
-                </button>
-              </div>
-              <button
                 className="reset-season"
                 onClick={resetSeasonTo2026}
                 title="Apagar os resultados e voltar para 2026"
@@ -5294,9 +5530,30 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 <div className="eyebrow">TEMPORADA {selected.season}</div>
                 <h2>{selected.name}</h2>
               </div>
-              <button className="danger-link" onClick={() => deleteChampionship(selected.id)}>
-                Excluir campeonato
-              </button>
+              <div className="championship-simulation-control">
+                <select
+                  value={simulationRounds}
+                  onChange={(event) => setSimulationRounds(Number(event.target.value))}
+                  aria-label="Quantidade de rodadas para simular"
+                >
+                  {Array.from({ length: 10 }, (_, index) => index + 1).map((round) => (
+                    <option key={round} value={round}>
+                      {round} {round === 1 ? "rodada" : "rodadas"}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="simulate-rounds"
+                  onClick={() => simulateChampionshipPartially(selected.id, simulationRounds)}
+                  disabled={!!selected.champion}
+                  title={selected.champion ? "Campeonato já concluído" : "Simular a quantidade de rodadas selecionada"}
+                >
+                  ▶ Simular {simulationRounds} {simulationRounds === 1 ? "rodada" : "rodadas"}
+                </button>
+                <button className="danger-link" onClick={() => deleteChampionship(selected.id)}>
+                  Excluir campeonato
+                </button>
+              </div>
             </div>
 
             <div className="info-grid">
@@ -6852,24 +7109,21 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .reset-button { border: 1px solid #343d52; background: transparent; color: #8e9ab4; border-radius: 9px; padding: 9px; }
         .main { flex: 1; min-width: 0; padding: 32px 42px; }
         .country-heading { display: flex; align-items: center; gap: 12px; }
-        .partial-simulation-control { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
-        .partial-simulation-control select { min-height: 32px; border: 1px solid #26314a; border-radius: 8px; background: #111827; color: #e5e7eb; padding: 0 8px; font-size: 12px; }
-        .simulate-rounds { min-height: 32px; border: 1px solid #334155; border-radius: 8px; background: #172033; color: #e5e7eb; padding: 0 10px; cursor: pointer; font-size: 12px; }
-        .simulate-rounds:hover { background: #1e293b; }
-        .simulate-season { border: 1px solid #33466f; background: #14213b; color: #dce5ff; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; cursor: pointer; }
-        .simulate-season:hover { background: #1b2c4d; border-color: #4b65a0; }
-        .reset-season { border: 1px solid #593c45; background: #21151b; color: #f0b5bf; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; cursor: pointer; }
+                .reset-season { border: 1px solid #593c45; background: #21151b; color: #f0b5bf; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; cursor: pointer; }
         .reset-season:hover { background: #2c1a22; border-color: #8b4b59; color: #ffd5dc; }
         .topbar { max-width: 1100px; margin: 0 auto 26px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
         .country-heading { display: flex; align-items: center; gap: 12px; }
-        .simulate-season { border: 1px solid #33466f; background: #14213b; color: #dce5ff; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; }
-        .simulate-season:hover { background: #1b2c4d; border-color: #4b65a0; }
         h1, h2, h3, p { margin: 0; }
         h1 { font-size: 28px; margin-top: 5px; }
         h2 { font-size: 20px; margin-top: 5px; }
         .card, .welcome { max-width: 1100px; margin: 0 auto; background: #101729; border: 1px solid #222c43; border-radius: 16px; }
         .card { padding: 25px; }
         .card-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 22px; border-bottom: 1px solid #222c43; }
+        .championship-simulation-control { display: flex; align-items: center; gap: 8px; }
+        .championship-simulation-control select { min-height: 32px; border: 1px solid #26314a; border-radius: 8px; background: #111827; color: #e5e7eb; padding: 0 8px; font-size: 12px; }
+        .simulate-rounds { min-height: 32px; border: 1px solid #334155; border-radius: 8px; background: #172033; color: #e5e7eb; padding: 0 10px; cursor: pointer; font-size: 12px; }
+        .simulate-rounds:hover:not(:disabled) { background: #1e293b; }
+        .simulate-rounds:disabled { opacity: .45; cursor: not-allowed; }
         .danger-link { border: 0; background: transparent; color: #ed7180; font-size: 12px; }
         .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 22px 0; }
         .info-grid div { background: #0c1323; border: 1px solid #202a40; border-radius: 11px; padding: 15px; }
