@@ -51,6 +51,7 @@ type Championship = {
   pernambucoSecondGroups?: { A: string[]; B: string[] };
   saoPauloPots?: { A: string[]; B: string[]; C: string[]; D: string[] };
   minasGeraisGroups?: { A: string[]; B: string[]; C: string[] };
+  serieCGroups?: { A: string[]; B: string[] };
 };
 
 const SERIE_D_STATE_SLOTS: Record<string, number> = {
@@ -1060,9 +1061,55 @@ const SERIE_B_CHAMPIONSHIPS: Championship[] = [
   },
 ];
 
+const SERIE_C_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 30001,
+    name: "Série C",
+    season: "2026",
+    division: "Série C",
+    country: "Brasil",
+    teams: [
+      "Botafogo - PB",
+      "Brusque - SC",
+      "Ferroviária - SP",
+      "Maringá - PR",
+      "Floresta - CE",
+      "Inter de Limeira - SP",
+      "Paysandu - PA",
+      "Santa Cruz - PE",
+      "Ypiranga de Erechim - RS",
+      "Guarani - SP",
+      "Figueirense - SC",
+      "Maranhão - MA",
+      "Amazonas - AM",
+      "Caxias - RS",
+      "Ituano - SP",
+      "Volta Redonda - RJ",
+      "Barra - SC",
+      "Anápolis - GO",
+      "Itabaiana - SE",
+      "Confiança - SE",
+    ],
+    phases: ["Primeira fase", "Segunda fase", "Final"],
+    rules: [
+      "20 clubes disputam a primeira fase em turno único, totalizando 19 rodadas e 190 partidas.",
+      "Os 8 primeiros colocados da primeira fase avançam para a segunda fase.",
+      "Na segunda fase, os classificados são distribuídos em dois grupos de 4: Grupo A = 1º, 3º, 5º e 7º; Grupo B = 2º, 4º, 6º e 8º.",
+      "A pontuação é zerada no início da segunda fase.",
+      "Os clubes de cada grupo jogam entre si em turno e returno, totalizando 6 rodadas por grupo.",
+      "Os 2 primeiros colocados de cada grupo conquistam o acesso à Série B.",
+      "Os líderes dos dois grupos disputam a final em jogos de ida e volta.",
+      "Em caso de empate no placar agregado da final, a decisão é definida automaticamente nos pênaltis.",
+      "Os 4 últimos colocados da primeira fase são rebaixados para a Série D.",
+      "Os resultados são gerados automaticamente pelo sistema quando a temporada é simulada.",
+    ],
+  },
+];
+
 const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...SERIE_A_CHAMPIONSHIPS,
   ...SERIE_B_CHAMPIONSHIPS,
+  ...SERIE_C_CHAMPIONSHIPS,
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
   ...AMAPA_CHAMPIONSHIPS,
@@ -1646,6 +1693,53 @@ export default function App() {
       row.sg = row.gp - row.gc;
     });
     return table;
+  }
+
+  function simulateRoundRobinWithMatches(teams: string[]) {
+    const table: Record<string, Standing> = {};
+    const matches: Matchup[] = [];
+    teams.forEach((team) => {
+      table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    });
+
+    for (let i = 0; i < teams.length; i++) {
+      for (let j = i + 1; j < teams.length; j++) {
+        const home = teams[i];
+        const away = teams[j];
+        const homeGoals = Math.floor(Math.random() * 5);
+        const awayGoals = Math.floor(Math.random() * 5);
+
+        matches.push({ home, away, homeScore: homeGoals, awayScore: awayGoals });
+
+        table[home].j++;
+        table[away].j++;
+        table[home].gp += homeGoals;
+        table[home].gc += awayGoals;
+        table[away].gp += awayGoals;
+        table[away].gc += homeGoals;
+
+        if (homeGoals > awayGoals) {
+          table[home].v++;
+          table[home].pts += 3;
+          table[away].d++;
+        } else if (homeGoals < awayGoals) {
+          table[away].v++;
+          table[away].pts += 3;
+          table[home].d++;
+        } else {
+          table[home].e++;
+          table[away].e++;
+          table[home].pts++;
+          table[away].pts++;
+        }
+      }
+    }
+
+    Object.values(table).forEach((row) => {
+      row.sg = row.gp - row.gc;
+    });
+
+    return { table, matches };
   }
 
   function simulateDoubleRoundRobin(teams: string[]) {
@@ -3567,6 +3661,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateSerieB(championship);
       }
 
+      if (championship.division === "Série C" && championship.country === "Brasil") {
+        return simulateSerieC(championship);
+      }
+
       if (championship.state === "Acre" && championship.division === "1ª Divisão") {
         return simulateAcreFirstDivision(championship);
       }
@@ -3741,6 +3839,78 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     };
   }
 
+  function simulateSerieC(championship: Championship): Championship {
+    const teams = championship.teams ?? [];
+    const firstPhase = simulateRoundRobinWithMatches(teams);
+    const ordered = sortStandingTeams(teams, firstPhase.table);
+    const qualified = ordered.slice(0, 8);
+    const groupA = [qualified[0], qualified[2], qualified[4], qualified[6]];
+    const groupB = [qualified[1], qualified[3], qualified[5], qualified[7]];
+
+    const groupAResult = simulateDoubleRoundRobin(groupA);
+    const groupBResult = simulateDoubleRoundRobin(groupB);
+    const groupAOrdered = sortStandingTeams(groupA, groupAResult.table);
+    const groupBOrdered = sortStandingTeams(groupB, groupBResult.table);
+
+    const accessTeams = [...groupAOrdered.slice(0, 2), ...groupBOrdered.slice(0, 2)];
+    const relegated = ordered.slice(-4);
+
+    const finalMatches: Matchup[] = [];
+    if (groupAOrdered[0] && groupBOrdered[0]) {
+      const finalLeg1 = simulateKnockoutMatch(groupAOrdered[0], groupBOrdered[0]);
+      const finalLeg2 = simulateKnockoutMatch(groupBOrdered[0], groupAOrdered[0]);
+      const champion = resolveTwoLeggedTie(finalLeg1, finalLeg2);
+      finalMatches.push(finalLeg1, finalLeg2);
+
+      return {
+        ...championship,
+        standings: firstPhase.table,
+        phaseStandings: {
+          ...(championship.phaseStandings ?? {}),
+          "Primeira fase": firstPhase.table,
+          "Segunda fase - Grupo A": groupAResult.table,
+          "Segunda fase - Grupo B": groupBResult.table,
+        },
+        phaseMatches: {
+          ...(championship.phaseMatches ?? {}),
+          "Primeira fase": firstPhase.matches,
+          "Segunda fase": [...groupAResult.matches, ...groupBResult.matches],
+          "Final": finalMatches,
+        },
+        serieCGroups: {
+          A: groupA,
+          B: groupB,
+        },
+        champion,
+        accessTeams,
+        relegatedTeams: relegated,
+        rules: [
+          ...(championship.rules ?? []).filter((rule) => !rule.startsWith("Classificação final gerada")),
+          `Classificação final gerada: campeão = ${champion}; acesso = ${accessTeams.join(", ")}; rebaixados = ${relegated.join(", ")}.`,
+        ],
+      };
+    }
+
+    return {
+      ...championship,
+      standings: firstPhase.table,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": firstPhase.table,
+        "Segunda fase - Grupo A": groupAResult.table,
+        "Segunda fase - Grupo B": groupBResult.table,
+      },
+      phaseMatches: {
+        ...(championship.phaseMatches ?? {}),
+        "Primeira fase": firstPhase.matches,
+        "Segunda fase": [...groupAResult.matches, ...groupBResult.matches],
+      },
+      serieCGroups: { A: groupA, B: groupB },
+      accessTeams,
+      relegatedTeams: relegated,
+    };
+  }
+
   function simulateSerieA(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     const result = simulateDoubleRoundRobin(teams);
@@ -3781,6 +3951,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
     if (selected.division === "Série B" && selected.country === "Brasil") {
       const updated = simulateSerieB(selected);
+      setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
+      setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
+      return;
+    }
+
+    if (selected.division === "Série C" && selected.country === "Brasil") {
+      const updated = simulateSerieC(selected);
       setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
       setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
       return;
@@ -4566,6 +4743,54 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
                         if (selected.state === "Pernambuco" && currentPhase === "2º Turno - Fase de grupos") {
                           const groups=selected.pernambucoSecondGroups??{A:[],B:[]};const render=(letter:string)=>{const group=groups[letter as keyof typeof groups]??[],table=selected.phaseStandings?.[`2º Turno - Grupo ${letter}`]??{},ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{`GRUPO ${letter}`}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index===0?"zone-second-phase":index<3?"zone-playoff":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};return <div className="amazonas-groups-grid">{render("A")}{render("B")}</div>;
+                        }
+
+                        if (
+                          selected.division === "Série C" &&
+                          currentPhase === "Segunda fase"
+                        ) {
+                          const groups = selected.serieCGroups ?? { A: [], B: [] };
+                          const renderGroup = (letter: "A" | "B") => {
+                            const group = groups[letter] ?? [];
+                            const table = selected.phaseStandings?.[`Segunda fase - Grupo ${letter}`] ?? {};
+                            const ordered = sortStandingTeams(group, table);
+                            return (
+                              <div className="amazonas-group-table">
+                                <div className="amazonas-group-title">{`GRUPO ${letter}`}</div>
+                                <div className="standings-wrap">
+                                  <table className="standings-table">
+                                    <thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead>
+                                    <tbody>
+                                      {ordered.map((team, index) => {
+                                        const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                                        const zone = index < 2 ? "zone-promotion" : "";
+                                        return (
+                                          <tr key={team} className={zone}>
+                                            <td>{index + 1}</td>
+                                            <td className="standing-team">{team}</td>
+                                            <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
+                                            <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
+                                            <td className="standing-points">{row.pts}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          };
+                          return (
+                            <>
+                              <div className="amazonas-groups-grid">
+                                {renderGroup("A")}
+                                {renderGroup("B")}
+                              </div>
+                              <div className="standings-legend">
+                                <span><i className="legend-promotion" /> Acesso à Série B</span>
+                              </div>
+                            </>
+                          );
                         }
 
                         if (currentPhase.includes("Oitavas de final") || currentPhase.includes("Quartas de final") || currentPhase.includes("Segunda fase") || currentPhase.includes("Play-off de acesso") || currentPhase.includes("Semi final") || currentPhase.includes("Semifinal") || currentPhase.includes("Final")) {
