@@ -4317,6 +4317,12 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     return table;
   }
 
+  function getCurrentSimulationPhase(championship: Championship): string {
+    const units = buildSimulationUnits(championship);
+    const progress = championship.simulationRound ?? 0;
+    return units[Math.max(0, progress - 1)]?.phase ?? championship.phases?.[0] ?? "Primeira fase";
+  }
+
   function applySimulationProgress(plan: Championship, roundCount: number): Championship {
     const allUnits = buildSimulationUnits(plan);
     const previous = plan.simulationRound ?? 0;
@@ -4370,43 +4376,32 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       };
     }
 
-    const updated = applySimulationProgress(plan, roundCount);
+    const previousProgress = current.simulationRound ?? 0;
+    const progressPlan = {
+      ...plan,
+      simulationRound: previousProgress,
+      simulationTotalRounds: current.simulationTotalRounds ?? plan.simulationTotalRounds,
+    };
+    const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
       items.map((item) => (item.id === championshipId ? updated : item))
     );
     setSelectedPhase((items) => ({
       ...items,
-      [championshipId]: updated.phases?.[0] ?? "Primeira fase",
+      [championshipId]: getCurrentSimulationPhase(updated),
     }));
 
     const done = !!updated.champion;
     const simulated = updated.simulationRound ?? 0;
     const total = updated.simulationTotalRounds ?? 0;
+    const playedNow = Math.max(0, simulated - previousProgress);
 
     window.alert(
       done
         ? "Campeonato concluído: 100% das rodadas foram simuladas."
-        : "Simuladas " + Math.min(roundCount, Math.max(0, total - (simulated - roundCount))) + " rodada(s). O restante pode ser continuado depois."
+        : "Foram simuladas " + playedNow + " rodada(s). O campeonato pode continuar a partir daqui."
     );
   }
-
-  function simulateCompleteCountrySeason(country: string) {
-    const countryChampionships = championships.filter((championship) => championship.country === country);
-    if (!countryChampionships.length) { window.alert("Não há campeonatos cadastrados para este país."); return; }
-    const updated = simulateCountrySeasonFully(championships, country).map((championship) => ({
-      ...championship, simulationPlan: undefined, simulationRound: undefined, simulationTotalRounds: undefined,
-    }));
-    setChampionships(updated);
-    setSelectedPhase((current) => {
-      const next = { ...current };
-      updated.filter((championship) => championship.country === country).forEach((championship) => {
-        if (championship.phases?.length) next[championship.id] = championship.phases[0];
-      });
-      return next;
-    });
-    window.alert("Temporada completa simulada: primeiro os estaduais, depois as divisões nacionais. A Série D teve seus grupos sorteados automaticamente.");
-  }
-
 
   function simulateSerieB(championship: Championship): Championship {
     const teams = championship.teams ?? [];
@@ -5554,6 +5549,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
               <div><span>Divisão</span><strong>{selected.division}</strong></div>
               <div><span>Temporada de referência</span><strong>{selected.season}</strong></div>
                           <div><span>Próxima temporada</span><strong>{String(Number(selected.season) + 1)}</strong></div>
+              <div>
+                <span>Progresso da simulação</span>
+                <strong>
+                  {selected.simulationRound
+                    ? `${selected.simulationRound}/${selected.simulationTotalRounds ?? "?"} rodadas`
+                    : "0 rodadas"}
+                </strong>
+              </div>
             </div>
 
             <div className="phase-area">
