@@ -1410,6 +1410,118 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
 
 const STORAGE_KEY = "football-manager-clean-v2";
 
+
+type ClubRankingRow = {
+  club: string;
+  points: number;
+  yearly: Record<string, number>;
+};
+
+function getLeagueRankingPercentage(position: number): number {
+  if (position <= 0) return 0;
+  if (position === 1) return 100;
+  if (position === 2) return 80;
+  if (position === 3) return 75;
+  if (position === 4) return 70;
+  return Math.max(0, 70 - (position - 4));
+}
+
+function getLeagueRankingPoints(division: string, position: number): number {
+  const maximum: Record<string, number> = {
+    "Série A": 800,
+    "Série B": 400,
+    "Série C": 200,
+    "Série D": 100,
+  };
+  const max = maximum[division];
+  return max ? max * getLeagueRankingPercentage(position) / 100 : 0;
+}
+
+function getCompletedLeagueOrder(championship: Championship): string[] {
+  if (!championship.champion) return [];
+
+  const teams = championship.teams ?? [];
+  const table = championship.standings ?? championship.phaseStandings?.["Primeira fase"] ?? {};
+
+  if (championship.division !== "Série D") {
+    return sortStandingTeams(teams, table);
+  }
+
+  const access = getSerieDSemifinalists(championship);
+  const finalMatches = championship.phaseMatches?.["Final"] ?? [];
+  const finalClubs = Array.from(
+    new Set(finalMatches.flatMap((match) => [match.home, match.away]).filter(Boolean))
+  );
+  const finalist = finalClubs.find((club) => club !== championship.champion);
+
+  const phaseOrder = ["Semifinal", "Quartas de final", "Oitavas de final", "Terceira fase", "Segunda fase"];
+  const eliminatedByPhase: Record<string, string[]> = {};
+
+  for (const phase of phaseOrder) {
+    const matches = championship.phaseMatches?.[phase] ?? [];
+    const clubs = Array.from(new Set(matches.flatMap((match) => [match.home, match.away]).filter(Boolean)));
+    const previous = new Set(
+      phaseOrder
+        .slice(0, phaseOrder.indexOf(phase))
+        .flatMap((name) => eliminatedByPhase[name] ?? [])
+    );
+    eliminatedByPhase[phase] = clubs.filter((club) => !previous.has(club));
+  }
+
+  const ordered: string[] = [];
+  const pushUnique = (club?: string) => {
+    if (club && !ordered.includes(club)) ordered.push(club);
+  };
+
+  pushUnique(championship.champion);
+  pushUnique(finalist);
+  for (const club of access) pushUnique(club);
+
+  for (const phase of phaseOrder) {
+    for (const club of eliminatedByPhase[phase] ?? []) pushUnique(club);
+  }
+
+  for (const club of sortStandingTeams(teams, table)) pushUnique(club);
+  return ordered;
+}
+
+function buildBrazilClubRanking(championships: Championship[], currentYear: number): ClubRankingRow[] {
+  if (!Number.isFinite(currentYear)) return [];
+
+  const years = Array.from({ length: 5 }, (_, index) => String(currentYear - index));
+  const rows: Record<string, ClubRankingRow> = {};
+
+  for (const championship of championships) {
+    if (
+      championship.country !== "Brasil" ||
+      !["Série A", "Série B", "Série C", "Série D"].includes(championship.division) ||
+      !years.includes(championship.season) ||
+      !championship.champion
+    ) {
+      continue;
+    }
+
+    const order = getCompletedLeagueOrder(championship);
+    const weight = 5 - (currentYear - Number(championship.season));
+    if (weight <= 0) continue;
+
+    order.forEach((club, index) => {
+      const basePoints = getLeagueRankingPoints(championship.division, index + 1);
+      if (!basePoints) return;
+
+      const earned = basePoints * weight;
+      if (!rows[club]) rows[club] = { club, points: 0, yearly: {} };
+      rows[club].points += earned;
+      rows[club].yearly[championship.season] =
+        (rows[club].yearly[championship.season] ?? 0) + earned;
+    });
+  }
+
+  return Object.values(rows)
+    .sort((a, b) => b.points - a.points || a.club.localeCompare(b.club))
+    .map((row) => ({ ...row, points: Math.round(row.points * 100) / 100 }));
+}
+
 export default function App() {
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -1425,6 +1537,7 @@ export default function App() {
   const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason">>({});
   const [simulationRounds, setSimulationRounds] = useState(1);
   const [countrySeasons, setCountrySeasons] = useState<Record<string, string>>({});
+  const [showClubRanking, setShowClubRanking] = useState(false);
   const roundRobinMatchCache: Record<string, Matchup[]> = {};
 
   useEffect(() => {
@@ -5723,6 +5836,12 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         </div>
 
         <div className="sidebar-bottom">
+          <button
+            className={showClubRanking ? "new-button ranking-button active" : "new-button ranking-button"}
+            onClick={() => setShowClubRanking((current) => !current)}
+          >
+            🏆 Ranking de clubes
+          </button>
           <button className="new-button" onClick={() => setShowCreate(true)}>
             + Criar campeonato
           </button>
@@ -6830,6 +6949,87 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
               )}
             </div>
           </section>
+        ) : showClubRanking ? (
+          <section className="card club-ranking-panel">
+            {(() => {
+              const currentYear = Number(countrySeasons["Brasil"] ?? 2026);
+              const ranking = buildBrazilClubRanking(championships, currentYear);
+              const years = Array.from({ length: 5 }, (_, index) => String(currentYear - index));
+              return (
+                <>
+                  <div className="card-header">
+                    <div>
+                      <div className="eyebrow">BRASIL • RANKING NACIONAL</div>
+                      <h2>Ranking de Clubes</h2>
+                    </div>
+                    <div className="ranking-season-badge">
+                      Temporada {currentYear}
+                    </div>
+                  </div>
+
+                  <div className="ranking-summary">
+                    <div>
+                      <span>Critério</span>
+                      <strong>Últimos 5 anos</strong>
+                    </div>
+                    <div>
+                      <span>Peso atual</span>
+                      <strong>×5</strong>
+                    </div>
+                    <div>
+                      <span>Base</span>
+                      <strong>Séries A–D</strong>
+                    </div>
+                  </div>
+
+                  {ranking.length ? (
+                    <div className="club-ranking-table-wrap">
+                      <table className="club-ranking-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>CLUBE</th>
+                            {years.map((year) => <th key={year}>{year}</th>)}
+                            <th>TOTAL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ranking.map((row, index) => (
+                            <tr key={row.club}>
+                              <td className="ranking-position">{index + 1}</td>
+                              <td className="ranking-club">
+                                <button className="club-link club-link-strong" onClick={() => openClubHistory(row.club)}>
+                                  {row.club}
+                                </button>
+                              </td>
+                              {years.map((year) => (
+                                <td key={year}>
+                                  {row.yearly[year] ? row.yearly[year].toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—"}
+                                </td>
+                              ))}
+                              <td className="ranking-total">{row.points.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="ranking-empty">
+                      O ranking será preenchido automaticamente conforme as temporadas das Séries A, B, C e D forem simuladas.
+                    </div>
+                  )}
+
+                  <div className="ranking-rules">
+                    <strong>Critérios de pontuação</strong>
+                    <span>Campeão: A 800 • B 400 • C 200 • D 100 pontos.</span>
+                    <span>2º: 80% • 3º: 75% • 4º: 70% • a partir do 5º, menos 1 ponto percentual por posição.</span>
+                    <span>Pesos: temporada vigente ×5; ano anterior ×4; até o quinto ano ×1.</span>
+                    <span>A Copa do Brasil será incorporada automaticamente quando for adicionada ao simulador.</span>
+                  </div>
+                </>
+              );
+            })()}
+          </section>
         ) : (
           <section className="welcome">
             <div className="welcome-icon">⚽</div>
@@ -7356,7 +7556,26 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .state-link:hover, .state-link.selected { background: #17213a; color: #fff; }
         .state-link small { color: #68758f; font-size: 10px; }
         .sidebar-bottom { margin-top: auto; display: grid; gap: 8px; }
-        .top-action:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.35); }\n        .new-button, .primary-button, .top-action { border: 0; background: #3157d5; color: white; font-weight: 700; border-radius: 9px; padding: 11px 15px; }
+        .top-action:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.35); }
+        .ranking-button.active { background: #263a78; }
+        .club-ranking-panel { width: 100%; }
+        .ranking-season-badge { color: #aab5cc; font-size: 11px; font-weight: 800; }
+        .ranking-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 20px 0; }
+        .ranking-summary > div { background: #0c1323; border: 1px solid #202a40; border-radius: 10px; padding: 12px; }
+        .ranking-summary span { display: block; color: #71809f; font-size: 10px; text-transform: uppercase; letter-spacing: .07em; }
+        .ranking-summary strong { display: block; color: #eef2ff; margin-top: 5px; font-size: 14px; }
+        .club-ranking-table-wrap { width: 100%; overflow-x: auto; }
+        .club-ranking-table { width: 100%; min-width: 760px; border-collapse: collapse; }
+        .club-ranking-table th { color: #71809f; font-size: 9px; text-align: left; padding: 10px 9px; border-bottom: 1px solid #26314a; white-space: nowrap; }
+        .club-ranking-table td { color: #aeb9d0; font-size: 11px; padding: 10px 9px; border-bottom: 1px solid #1c2539; white-space: nowrap; }
+        .club-ranking-table tbody tr:hover td { background: rgba(49, 87, 213, .08); }
+        .club-ranking-table .ranking-position { color: #71809f; font-weight: 900; width: 34px; }
+        .club-ranking-table .ranking-club { color: #eef2ff; font-weight: 700; }
+        .club-ranking-table .ranking-total { color: #86efac; font-weight: 900; }
+        .ranking-empty { color: #8e9ab4; padding: 40px 10px; text-align: center; }
+        .ranking-rules { display: grid; gap: 5px; margin-top: 16px; padding: 13px 14px; border: 1px solid #26314a; border-radius: 10px; background: #0f1627; color: #8e9ab4; font-size: 10px; line-height: 1.45; }
+        .ranking-rules strong { color: #cbd5e1; font-size: 11px; }
+        @media (max-width: 760px) { .ranking-summary { grid-template-columns: 1fr; } }\n        .new-button, .primary-button, .top-action { border: 0; background: #3157d5; color: white; font-weight: 700; border-radius: 9px; padding: 11px 15px; }
         .new-button:hover, .primary-button:hover, .top-action:hover { background: #3d65ed; }
         .reset-button { border: 1px solid #343d52; background: transparent; color: #8e9ab4; border-radius: 9px; padding: 9px; }
         .main { flex: 1; min-width: 0; padding: 32px 42px; }
