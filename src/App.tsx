@@ -1417,6 +1417,12 @@ type ClubRankingRow = {
   yearly: Record<string, number>;
 };
 
+type ClubRankingSeasonRecord = {
+  season: string;
+  division: string;
+  order: string[];
+};
+
 function getLeagueRankingPercentage(position: number): number {
   if (position <= 0) return 0;
   if (position === 1) return 100;
@@ -1493,36 +1499,62 @@ function getCompletedLeagueOrder(championship: Championship): string[] {
   return ordered;
 }
 
-function buildBrazilClubRanking(championships: Championship[], currentYear: number): ClubRankingRow[] {
+function buildBrazilClubRanking(
+  championships: Championship[],
+  currentYear: number,
+  rankingHistory: ClubRankingSeasonRecord[] = []
+): ClubRankingRow[] {
   if (!Number.isFinite(currentYear)) return [];
 
   const years = Array.from({ length: 5 }, (_, index) => String(currentYear - index));
   const rows: Record<string, ClubRankingRow> = {};
+  const processed = new Set<string>();
 
-  for (const championship of championships) {
-    if (
-      championship.country !== "Brasil" ||
-      !["Série A", "Série B", "Série C", "Série D"].includes(championship.division) ||
-      !years.includes(championship.season) ||
-      !championship.champion
-    ) {
-      continue;
-    }
+  const addSeasonResult = (season: string, division: string, order: string[]) => {
+    if (!years.includes(season) || !order.length) return;
 
-    const order = getCompletedLeagueOrder(championship);
-    const weight = 5 - (currentYear - Number(championship.season));
-    if (weight <= 0) continue;
+    const weight = 5 - (currentYear - Number(season));
+    if (weight <= 0) return;
+
+    const key = `${season}|${division}`;
+    if (processed.has(key)) return;
+    processed.add(key);
 
     order.forEach((club, index) => {
-      const basePoints = getLeagueRankingPoints(championship.division, index + 1);
+      const basePoints = getLeagueRankingPoints(division, index + 1);
       if (!basePoints) return;
 
       const earned = basePoints * weight;
       if (!rows[club]) rows[club] = { club, points: 0, yearly: {} };
       rows[club].points += earned;
-      rows[club].yearly[championship.season] =
-        (rows[club].yearly[championship.season] ?? 0) + earned;
+      rows[club].yearly[season] =
+        (rows[club].yearly[season] ?? 0) + earned;
     });
+  };
+
+  // Resultados já encerrados são preservados quando a competição avança para
+  // a temporada seguinte e deixa de carregar os resultados da temporada anterior.
+  for (const record of rankingHistory) {
+    addSeasonResult(record.season, record.division, record.order);
+  }
+
+  // A temporada vigente ainda está no objeto do campeonato. Depois que ela
+  // avança, o resultado já terá sido transferido para rankingHistory.
+  for (const championship of championships) {
+    if (
+      championship.country !== "Brasil" ||
+      !["Série A", "Série B", "Série C", "Série D"].includes(championship.division) ||
+      championship.season !== String(currentYear) ||
+      !championship.champion
+    ) {
+      continue;
+    }
+
+    addSeasonResult(
+      championship.season,
+      championship.division,
+      getCompletedLeagueOrder(championship)
+    );
   }
 
   return Object.values(rows)
@@ -1546,6 +1578,7 @@ export default function App() {
   const [simulationRounds, setSimulationRounds] = useState(1);
   const [countrySeasons, setCountrySeasons] = useState<Record<string, string>>({});
   const [showClubRanking, setShowClubRanking] = useState(false);
+  const [clubRankingHistory, setClubRankingHistory] = useState<ClubRankingSeasonRecord[]>([]);
   const roundRobinMatchCache: Record<string, Matchup[]> = {};
 
   useEffect(() => {
@@ -1613,6 +1646,15 @@ export default function App() {
         setChampionships(merged);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 
+        const savedRankingHistory = localStorage.getItem("football-manager-club-ranking-v1");
+        if (savedRankingHistory) {
+          try {
+            setClubRankingHistory(JSON.parse(savedRankingHistory) as ClubRankingSeasonRecord[]);
+          } catch {
+            setClubRankingHistory([]);
+          }
+        }
+
         const savedCountrySeasons = localStorage.getItem("football-manager-country-seasons-v1");
         if (savedCountrySeasons) {
           try {
@@ -1632,6 +1674,7 @@ export default function App() {
           setCountrySeasons(initialCountrySeasons);
         }
       } else {
+        setClubRankingHistory([]);
         setChampionships(INITIAL_CHAMPIONSHIPS);
         const initialCountrySeasons: Record<string, string> = {};
         for (const country of [...new Set(INITIAL_CHAMPIONSHIPS.map((item) => item.country))]) {
@@ -1655,6 +1698,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("football-manager-country-seasons-v1", JSON.stringify(countrySeasons));
   }, [countrySeasons]);
+
+  useEffect(() => {
+    localStorage.setItem("football-manager-club-ranking-v1", JSON.stringify(clubRankingHistory));
+  }, [clubRankingHistory]);
 
   // Guarda automaticamente o campeão de cada temporada para formar o histórico.
   useEffect(() => {
@@ -5431,8 +5478,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
   function resetEverything() {
     if (!window.confirm("Apagar todos os campeonatos e começar novamente do zero?")) return;
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem("football-manager-club-ranking-v1");
+    localStorage.removeItem("football-manager-country-seasons-v1");
+    localStorage.removeItem("football-manager-club-history-v1");
     setChampionships([]);
+    setClubRankingHistory([]);
+    setClubHistory({});
     setSelectedId(null);
+    setShowClubRanking(false);
     setShowCreate(false);
   }
 
@@ -5574,6 +5627,37 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     const cRelegated = serieC?.relegatedTeams ?? [];
     const dAccess = serieD ? getSerieDSemifinalists(serieD) : [];
 
+    const completedRankingRecords: ClubRankingSeasonRecord[] = countryChampionships
+      .filter(
+        (item) =>
+          item.season === String(currentYear) &&
+          ["Série A", "Série B", "Série C", "Série D"].includes(item.division) &&
+          !!item.champion
+      )
+      .map((item) => ({
+        season: String(currentYear),
+        division: item.division,
+        order: getCompletedLeagueOrder(item),
+      }))
+      .filter((record) => record.order.length > 0);
+
+    if (completedRankingRecords.length) {
+      setClubRankingHistory((current) => {
+        const next = [...current];
+        for (const record of completedRankingRecords) {
+          const index = next.findIndex(
+            (item) => item.season === record.season && item.division === record.division
+          );
+          if (index >= 0) {
+            next[index] = record;
+          } else {
+            next.push(record);
+          }
+        }
+        return next;
+      });
+    }
+
     const nextTeams = (division: string, fallback: string[]) => {
       if (division === "Série A") {
         return [...fallback.filter((club) => !aRelegated.includes(club)), ...bAccess]
@@ -5699,7 +5783,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     // "Zerar temporada" também apaga todo o histórico acumulado dos clubes.
     localStorage.removeItem("football-manager-club-history-v1");
     localStorage.removeItem("football-manager-country-seasons-v1");
+    localStorage.removeItem("football-manager-club-ranking-v1");
     setClubHistory({});
+    setClubRankingHistory([]);
     setSelectedClub(null);
 
     const resetPhases: Record<number, string> = {};
@@ -5901,7 +5987,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           <section className="card club-ranking-panel">
             {(() => {
               const currentYear = Number(countrySeasons["Brasil"] ?? 2026);
-              const ranking = buildBrazilClubRanking(championships, currentYear);
+              const ranking = buildBrazilClubRanking(championships, currentYear, clubRankingHistory);
               const years = Array.from({ length: 5 }, (_, index) => String(currentYear - index));
               return (
                 <>
