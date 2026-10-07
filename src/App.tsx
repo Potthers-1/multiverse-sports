@@ -5753,9 +5753,18 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
   }
 
   function resetSeasonTo2026() {
-    if (!window.confirm("Zerar todas as simulações e voltar todos os campeonatos para a temporada 2026?")) return;
+    const country = selectedCountry;
+    if (
+      !window.confirm(
+        `Zerar todas as simulações de ${country} e voltar seus campeonatos para a temporada 2026? Isso não afetará nenhum outro país.`
+      )
+    ) {
+      return;
+    }
 
     const resetChampionships = championships.map((championship) => {
+      if (championship.country !== country) return championship;
+
       const definition = INITIAL_CHAMPIONSHIPS.find((item) => item.id === championship.id);
 
       return {
@@ -5780,36 +5789,66 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         paranaGroups: championship.state === "Paraná" ? undefined : championship.paranaGroups,
         pernambucoGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoGroups,
         pernambucoSecondGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoSecondGroups,
+        saoPauloPots: championship.state === "São Paulo" ? undefined : championship.saoPauloPots,
+        secondTurnWinner: undefined,
       };
     });
 
     setChampionships(resetChampionships);
 
-    const resetCountrySeasons: Record<string, string> = Object.fromEntries(
-      AVAILABLE_COUNTRIES.map((country) => [country, "2026"])
-    );
-    for (const country of [...new Set(resetChampionships.map((item) => item.country))]) {
-      resetCountrySeasons[country] = "2026";
-    }
-    setCountrySeasons(resetCountrySeasons);
-    setSelectedCountry("Brasil");
-    setShowClubRanking(false);
+    setCountrySeasons((current) => ({
+      ...current,
+      [country]: "2026",
+    }));
 
-    // "Zerar temporada" também apaga todo o histórico acumulado dos clubes.
-    localStorage.removeItem("football-manager-club-history-v1");
-    localStorage.removeItem("football-manager-country-seasons-v1");
-    localStorage.removeItem("football-manager-club-ranking-v1");
-    setClubHistory({});
-    setClubRankingHistory([]);
+    // O histórico dos outros países permanece intacto.
+    setClubHistory((current) => {
+      const next: Record<string, ClubHistoryEntry[]> = {};
+      for (const [club, entries] of Object.entries(current)) {
+        const kept = entries.filter((entry) => entry.country !== country);
+        if (kept.length) next[club] = kept;
+      }
+      return next;
+    });
     setSelectedClub(null);
+
+    // O ranking nacional é independente por país. Atualmente só existe o ranking do Brasil.
+    if (country === "Brasil") {
+      localStorage.removeItem("football-manager-club-ranking-v1");
+      setClubRankingHistory([]);
+      setShowClubRanking(false);
+    }
 
     const resetPhases: Record<number, string> = {};
     resetChampionships.forEach((championship) => {
-      if (championship.phases?.length) resetPhases[championship.id] = championship.phases[0];
+      if (championship.country === country && championship.phases?.length) {
+        resetPhases[championship.id] = championship.phases[0];
+      }
     });
 
-    setSelectedPhase(resetPhases);
-    setSelectedSection({});
+    setSelectedPhase((current) => {
+      const next = { ...current };
+      for (const [id, phase] of Object.entries(resetPhases)) {
+        next[Number(id)] = phase;
+      }
+      return next;
+    });
+
+    setSelectedSection((current) => {
+      const next = { ...current };
+      for (const championship of resetChampionships) {
+        if (championship.country === country) {
+          next[championship.id] = "competition";
+        }
+      }
+      return next;
+    });
+
+    setSelectedId(null);
+
+    window.alert(
+      `A temporada de ${country} foi zerada para 2026. Os demais países não foram alterados.`
+    );
   }
 
   return (
