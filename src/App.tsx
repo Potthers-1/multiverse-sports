@@ -6173,9 +6173,20 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   (a, b) => Number(b.season) - Number(a.season) || b.competitionId - a.competitionId
                 );
                 const currentNational =
-                  entries.find((item) => Number(item.season) === Math.max(...entries.map((item) => Number(item.season)), 0) && item.division.startsWith("Série "))?.division
-                  ?? "Sem divisão nacional";
+                  entries.find(
+                    (item) =>
+                      Number(item.season) === Math.max(...entries.map((item) => Number(item.season)), 0) &&
+                      item.division.startsWith("Série ")
+                  )?.division ?? "Sem divisão nacional";
                 const titles = entries.filter((item) => item.champion).length;
+
+                const resultLabel = (entry: ClubHistoryEntry) => {
+                  if (entry.champion) return "CAMPEÃO";
+                  if (entry.access) return "ACESSO";
+                  if (entry.relegated) return "REBAIXADO";
+                  return entry.position ? `${entry.position}º lugar` : "PARTICIPOU";
+                };
+
                 return (
                   <>
                     <div className="modal-header club-history-header">
@@ -6186,30 +6197,44 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                       <button className="close" onClick={() => setSelectedClub(null)}>×</button>
                     </div>
 
-                    <div className="club-history-summary">
-                      <div><span>Competições registradas</span><strong>{entries.length}</strong></div>
-                      <div><span>Títulos</span><strong>{titles}</strong></div>
-                      <div><span>Divisão nacional mais recente</span><strong>{currentNational}</strong></div>
+                    <div className="club-history-stats">
+                      <span>{entries.length} registros</span>
+                      <span>{titles} {titles === 1 ? "título" : "títulos"}</span>
+                      <span>{currentNational}</span>
                     </div>
 
                     {entries.length ? (
-                      <div className="club-history-timeline">
+                      <div className="club-history-simple">
+                        <div className="club-history-simple-head">
+                          <span>ANO</span>
+                          <span>COMPETIÇÃO</span>
+                          <span>RESULTADO</span>
+                        </div>
+
                         {entries.map((entry) => (
-                          <div className="club-history-entry" key={`${entry.competitionId}-${entry.season}`}>
-                            <div className="club-history-season">{entry.season}</div>
-                            <div className="club-history-line">
-                              <div className="club-history-dot" />
+                          <div className="club-history-simple-row" key={`${entry.competitionId}-${entry.season}`}>
+                            <div className="club-history-simple-season">{entry.season}</div>
+                            <div className="club-history-simple-competition">
+                              <strong>{entry.competition}</strong>
+                              <span>
+                                {entry.division}
+                                {entry.state ? ` — ${entry.state}` : ""}
+                              </span>
                             </div>
-                            <div className="club-history-content">
-                              <div className="club-history-competition">
-                                <strong>{entry.competition}</strong>
-                                <span>{entry.division}{entry.state ? ` — ${entry.state}` : ""}</span>
-                              </div>
-                              <div className="club-history-result">
-                                {entry.champion ? "🏆 Campeão" : entry.position ? `${entry.position}º lugar` : "Participou"}
-                                {entry.access ? " · 🟢 Acesso" : ""}
-                                {entry.relegated ? " · 🔴 Rebaixado" : ""}
-                              </div>
+                            <div>
+                              <span
+                                className={`club-history-result-badge ${
+                                  entry.champion
+                                    ? "is-champion"
+                                    : entry.access
+                                      ? "is-access"
+                                      : entry.relegated
+                                        ? "is-relegated"
+                                        : ""
+                                }`}
+                              >
+                                {resultLabel(entry)}
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -6221,7 +6246,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                     )}
 
                     <div className="clubs-note">
-                      <strong>Histórico automático:</strong> cada temporada simulada registra a competição, posição final, títulos, acessos e rebaixamentos do clube.
+                      <strong>Histórico automático:</strong> cada temporada simulada registra a competição, posição final, títulos, acessos e rebaixamentos.
                     </div>
                   </>
                 );
@@ -6508,28 +6533,114 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         }
         .club-link-strong { color: #eef2ff !important; font-weight: 700; }
         .knockout-club-link { color: #e7edf8 !important; font-size: 15px; line-height: 1.25; font-weight: 800; }
-        .club-history-modal { width: min(760px, 100%); max-height: 88vh; overflow-y: auto; }
-        .club-history-header { margin-bottom: 16px; }
-        .club-history-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
-        .club-history-summary > div { background: #0c1323; border: 1px solid #26314a; border-radius: 10px; padding: 12px; min-width: 0; }
-        .club-history-summary span { display: block; color: #71809f; font-size: 9px; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
-        .club-history-summary strong { color: #eef2ff; font-size: 13px; line-height: 1.3; }
-        .club-history-timeline { display: grid; gap: 0; }
-        .club-history-entry { display: grid; grid-template-columns: 58px 18px minmax(0, 1fr); min-height: 76px; }
-        .club-history-season { color: #71809f; font-size: 11px; font-weight: 900; padding-top: 3px; }
-        .club-history-line { position: relative; display: flex; justify-content: center; }
-        .club-history-line::after { content: ""; position: absolute; top: 14px; bottom: -1px; width: 1px; background: #293650; }
-        .club-history-entry:last-child .club-history-line::after { display: none; }
-        .club-history-dot { position: relative; z-index: 1; width: 9px; height: 9px; margin-top: 4px; border-radius: 50%; background: #3157d5; border: 2px solid #101729; box-shadow: 0 0 0 1px #3157d5; }
-        .club-history-content { padding: 0 0 18px 12px; min-width: 0; }
-        .club-history-competition { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-        .club-history-competition strong { color: #eef2ff; font-size: 12px; }
-        .club-history-competition span { color: #71809f; font-size: 9px; text-align: right; }
-        .club-history-result { margin-top: 5px; color: #aeb9ce; font-size: 11px; }
+        .club-history-modal { width: min(780px, 100%); max-height: 88vh; overflow-y: auto; }
+        .club-history-header { margin-bottom: 10px; }
+        .club-history-stats {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px 18px;
+          margin-bottom: 16px;
+          color: #71809f;
+          font-size: 10px;
+        }
+        .club-history-stats span + span::before {
+          content: "•";
+          margin-right: 18px;
+          color: #394661;
+        }
+        .club-history-simple {
+          border: 1px solid #26314a;
+          border-radius: 10px;
+          overflow: hidden;
+          background: #0c1323;
+        }
+        .club-history-simple-head,
+        .club-history-simple-row {
+          display: grid;
+          grid-template-columns: 72px minmax(0, 1fr) 118px;
+          align-items: center;
+          gap: 12px;
+        }
+        .club-history-simple-head {
+          min-height: 34px;
+          padding: 0 12px;
+          background: #10192c;
+          border-bottom: 1px solid #26314a;
+          color: #68758f;
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: .08em;
+        }
+        .club-history-simple-row {
+          min-height: 58px;
+          padding: 8px 12px;
+          border-bottom: 1px solid #1c2539;
+        }
+        .club-history-simple-row:last-child { border-bottom: 0; }
+        .club-history-simple-row:hover { background: #10192c; }
+        .club-history-simple-season {
+          color: #9eacc5;
+          font-size: 12px;
+          font-weight: 900;
+        }
+        .club-history-simple-competition {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+        .club-history-simple-competition strong {
+          color: #eef2ff;
+          font-size: 12px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .club-history-simple-competition span {
+          color: #68758f;
+          font-size: 9px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .club-history-result-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          min-height: 26px;
+          padding: 4px 7px;
+          border-radius: 6px;
+          border: 1px solid #2b3650;
+          color: #aeb9ce;
+          background: #11192b;
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: .04em;
+        }
+        .club-history-result-badge.is-champion {
+          color: #fcd34d;
+          background: rgba(234, 179, 8, .10);
+          border-color: rgba(234, 179, 8, .24);
+        }
+        .club-history-result-badge.is-access {
+          color: #86efac;
+          background: rgba(34, 197, 94, .10);
+          border-color: rgba(34, 197, 94, .22);
+        }
+        .club-history-result-badge.is-relegated {
+          color: #fca5a5;
+          background: rgba(239, 68, 68, .10);
+          border-color: rgba(239, 68, 68, .22);
+        }
         @media (max-width: 620px) {
-          .club-history-summary { grid-template-columns: 1fr; }
-          .club-history-competition { align-items: flex-start; flex-direction: column; gap: 3px; }
-          .club-history-competition span { text-align: left; }
+          .club-history-simple-head,
+          .club-history-simple-row {
+            grid-template-columns: 54px minmax(0, 1fr);
+          }
+          .club-history-simple-head span:last-child { display: none; }
+          .club-history-simple-row > div:last-child { grid-column: 2; justify-self: start; }
+          .club-history-result-badge { width: auto; min-width: 92px; }
         }
 
         .clubs-panel { width: 100%; }
