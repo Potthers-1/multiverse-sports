@@ -3821,6 +3821,17 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return simulateSerieC(championship);
       }
 
+      if (championship.division === "Série D" && championship.country === "Brasil") {
+        if (
+          !championship.serieDGroups ||
+          Object.keys(championship.serieDGroups).length !== 16 ||
+          Object.values(championship.serieDGroups).some((group) => group.length !== 6)
+        ) {
+          return championship;
+        }
+        return simulateSerieD(championship);
+      }
+
       if (championship.state === "Acre" && championship.division === "1ª Divisão") {
         return simulateAcreFirstDivision(championship);
       }
