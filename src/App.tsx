@@ -1437,6 +1437,14 @@ function getLeagueRankingPoints(division: string, position: number): number {
   return max ? max * getLeagueRankingPercentage(position) / 100 : 0;
 }
 
+function rankTeamsByStanding(teams: string[], table: Record<string, Standing> = {}): string[] {
+  return [...teams].sort((a, b) => {
+    const A = table[a] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    const B = table[b] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    return B.pts - A.pts || B.v - A.v || B.sg - A.sg || B.gp - A.gp || a.localeCompare(b);
+  });
+}
+
 function getCompletedLeagueOrder(championship: Championship): string[] {
   if (!championship.champion) return [];
 
@@ -1444,7 +1452,7 @@ function getCompletedLeagueOrder(championship: Championship): string[] {
   const table = championship.standings ?? championship.phaseStandings?.["Primeira fase"] ?? {};
 
   if (championship.division !== "Série D") {
-    return sortStandingTeams(teams, table);
+    return rankTeamsByStanding(teams, table);
   }
 
   const access = getSerieDSemifinalists(championship);
@@ -1481,7 +1489,7 @@ function getCompletedLeagueOrder(championship: Championship): string[] {
     for (const club of eliminatedByPhase[phase] ?? []) pushUnique(club);
   }
 
-  for (const club of sortStandingTeams(teams, table)) pushUnique(club);
+  for (const club of rankTeamsByStanding(teams, table)) pushUnique(club);
   return ordered;
 }
 
@@ -6179,7 +6187,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                     const table = selected.standings ?? selected.phaseStandings?.["Primeira fase"] ?? {};
                     const teams = selected.teams ?? [];
                     const simulated = Object.keys(table).length > 0;
-                    const ordered = simulated ? sortStandingTeams(teams, table) : [];
+                    const ordered = simulated ? rankTeamsByStanding(teams, table) : [];
                     const relegated = selected.relegatedTeams ?? (
                       simulated && selected.division === "Série A" ? ordered.slice(-4) :
                       simulated && selected.division === "Série B" ? ordered.slice(-4) : []
