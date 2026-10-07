@@ -71,6 +71,7 @@ type Championship = {
   simulationPlan?: Championship;
   simulationRound?: number;
   simulationTotalRounds?: number;
+  simulationVersion?: number;
 };
 
 const SERIE_D_STATE_SLOTS: Record<string, number> = {
@@ -1445,7 +1446,7 @@ export default function App() {
         const parsed = (JSON.parse(saved) as Championship[]).filter((champ) => champ.id !== 1002 && !(champ.state === "Acre" && champ.division !== "1ª Divisão"));
         const merged = parsed.map((champ) => {
           const definition = INITIAL_CHAMPIONSHIPS.find((item) => item.id === champ.id);
-          return definition
+          const base = definition
             ? {
                 ...champ,
                 name: definition.name,
@@ -1457,6 +1458,28 @@ export default function App() {
                 rules: definition.rules,
               }
             : champ;
+
+          // Migra dados da versão anterior da simulação gradual.
+          // Progresso parcial antigo não deve ser reaproveitado no novo modelo individual.
+          if (base.simulationVersion !== 2 && !base.champion) {
+            return {
+              ...base,
+              phaseStandings: undefined,
+              phaseMatches: undefined,
+              standings: undefined,
+              accessTeams: undefined,
+              relegatedTeams: undefined,
+              simulationPlan: undefined,
+              simulationRound: undefined,
+              simulationTotalRounds: undefined,
+              simulationVersion: 2,
+            };
+          }
+
+          return {
+            ...base,
+            simulationVersion: 2,
+          };
         });
 
         for (const definition of INITIAL_CHAMPIONSHIPS) {
@@ -4348,6 +4371,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       simulationRound: progress,
       simulationTotalRounds: allUnits.length,
       simulationPlan: complete ? undefined : plan,
+      simulationVersion: 2,
     };
   }
 
@@ -4361,6 +4385,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     }
 
     let plan = current.simulationPlan;
+    let previousProgress = current.simulationVersion === 2 ? (current.simulationRound ?? 0) : 0;
 
     if (!plan) {
       const generated = simulateChampionshipFully(current);
@@ -4373,14 +4398,15 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         simulationPlan: undefined,
         simulationRound: undefined,
         simulationTotalRounds: undefined,
+        simulationVersion: 2,
       };
+      previousProgress = 0;
     }
-
-    const previousProgress = current.simulationRound ?? 0;
     const progressPlan = {
       ...plan,
       simulationRound: previousProgress,
       simulationTotalRounds: current.simulationTotalRounds ?? plan.simulationTotalRounds,
+      simulationVersion: 2,
     };
     const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
