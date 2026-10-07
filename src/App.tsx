@@ -5895,6 +5895,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           )}
 
           {selectedCountry === "Brasil" && (
+            <>
                       <button
                         className={`state-menu-toggle ${estaduaisOpen ? "open" : ""}`}
                         onClick={() => setEstaduaisOpen((open) => !open)}
@@ -5976,6 +5977,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                           )}
                         </div>
                       )}
+            </>
           )}
         </div>
 
