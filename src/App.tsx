@@ -5839,6 +5839,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                     setSelectedCountry(country);
                     setSelectedId(null);
                     setShowClubRanking(false);
+                    setEstaduaisOpen(false);
                   }}
                 >
                   {country === "Brasil" ? "🇧🇷" : "🇦🇷"} {country}
@@ -5893,86 +5894,88 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
             </button>
           )}
 
-          <button
-            className={`state-menu-toggle ${estaduaisOpen ? "open" : ""}`}
-            onClick={() => setEstaduaisOpen((open) => !open)}
-            aria-expanded={estaduaisOpen}
-          >
-            <span>Estaduais</span>
-            <span className="state-chevron">{estaduaisOpen ? "▾" : "▸"}</span>
-          </button>
-
-          {estaduaisOpen && (
-            <div className="state-menu">
-              {stateNames.length === 0 ? (
-                <div className="state-empty">Nenhum estadual criado.</div>
-              ) : (
-                stateNames.map((stateName) => {
-                  const stateDivisions = [...new Set([
-                    ...estadualChampionships
-                      .filter((champ) => champ.state === stateName)
-                      .map((champ) => champ.division),
-                    ...INITIAL_CHAMPIONSHIPS
-                      .filter((champ) => champ.state === stateName)
-                      .map((champ) => champ.division),
-                  ])].sort((a, b) => a.localeCompare(b, "pt-BR"));
-
-                  return (
-                    <div key={stateName} className="state-group">
+          {selectedCountry === "Brasil" && (
                       <button
-                        className={`state-name-toggle ${openStates[stateName] ? "open" : ""}`}
-                        onClick={() =>
-                          setOpenStates((current) => ({
-                            ...current,
-                            [stateName]: !current[stateName],
-                          }))
-                        }
-                        aria-expanded={!!openStates[stateName]}
+                        className={`state-menu-toggle ${estaduaisOpen ? "open" : ""}`}
+                        onClick={() => setEstaduaisOpen((open) => !open)}
+                        aria-expanded={estaduaisOpen}
                       >
-                        <span>🇧🇷 {stateName}</span>
-                        <span className="state-chevron">{openStates[stateName] ? "▾" : "▸"}</span>
+                        <span>Estaduais</span>
+                        <span className="state-chevron">{estaduaisOpen ? "▾" : "▸"}</span>
                       </button>
-
-                      {openStates[stateName] && (
-                        <div className="division-menu">
-                          {stateDivisions.map((divisionName) => {
-                            const divisionSeasons = [
-                              ...estadualChampionships.filter(
-                                (champ) =>
-                                  champ.state === stateName &&
-                                  champ.division === divisionName
-                              ),
-                              ...INITIAL_CHAMPIONSHIPS.filter(
-                                (champ) =>
-                                  champ.state === stateName &&
-                                  champ.division === divisionName &&
-                                  !estadualChampionships.some((saved) => saved.id === champ.id)
-                              ),
-                            ].sort(
-                              (a, b) =>
-                                Number(b.season) - Number(a.season) ||
-                                b.id - a.id
-                            );
-                            const latest = divisionSeasons[0];
-
-                            return (
-                              <button
-                                key={`${stateName}-${divisionName}`}
-                                className={`state-link ${selectedId === latest.id ? "selected" : ""}`}
-                                onClick={() => setSelectedId(latest.id)}
-                              >
-                                <span>{divisionName}</span>
-                                <small>{latest.season}</small>
-                              </button>
-                            );
-                          })}
+            
+                      {estaduaisOpen && (
+                        <div className="state-menu">
+                          {stateNames.length === 0 ? (
+                            <div className="state-empty">Nenhum estadual criado.</div>
+                          ) : (
+                            stateNames.map((stateName) => {
+                              const stateDivisions = [...new Set([
+                                ...estadualChampionships
+                                  .filter((champ) => champ.state === stateName)
+                                  .map((champ) => champ.division),
+                                ...INITIAL_CHAMPIONSHIPS
+                                  .filter((champ) => champ.state === stateName)
+                                  .map((champ) => champ.division),
+                              ])].sort((a, b) => a.localeCompare(b, "pt-BR"));
+            
+                              return (
+                                <div key={stateName} className="state-group">
+                                  <button
+                                    className={`state-name-toggle ${openStates[stateName] ? "open" : ""}`}
+                                    onClick={() =>
+                                      setOpenStates((current) => ({
+                                        ...current,
+                                        [stateName]: !current[stateName],
+                                      }))
+                                    }
+                                    aria-expanded={!!openStates[stateName]}
+                                  >
+                                    <span>🇧🇷 {stateName}</span>
+                                    <span className="state-chevron">{openStates[stateName] ? "▾" : "▸"}</span>
+                                  </button>
+            
+                                  {openStates[stateName] && (
+                                    <div className="division-menu">
+                                      {stateDivisions.map((divisionName) => {
+                                        const divisionSeasons = [
+                                          ...estadualChampionships.filter(
+                                            (champ) =>
+                                              champ.state === stateName &&
+                                              champ.division === divisionName
+                                          ),
+                                          ...INITIAL_CHAMPIONSHIPS.filter(
+                                            (champ) =>
+                                              champ.state === stateName &&
+                                              champ.division === divisionName &&
+                                              !estadualChampionships.some((saved) => saved.id === champ.id)
+                                          ),
+                                        ].sort(
+                                          (a, b) =>
+                                            Number(b.season) - Number(a.season) ||
+                                            b.id - a.id
+                                        );
+                                        const latest = divisionSeasons[0];
+            
+                                        return (
+                                          <button
+                                            key={`${stateName}-${divisionName}`}
+                                            className={`state-link ${selectedId === latest.id ? "selected" : ""}`}
+                                            onClick={() => setSelectedId(latest.id)}
+                                          >
+                                            <span>{divisionName}</span>
+                                            <small>{latest.season}</small>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
                         </div>
                       )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
           )}
         </div>
 
