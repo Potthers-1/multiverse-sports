@@ -68,6 +68,9 @@ type Championship = {
   minasGeraisGroups?: { A: string[]; B: string[]; C: string[] };
   serieCGroups?: { A: string[]; B: string[] };
   serieDGroups?: Record<string, string[]>;
+  simulationPlan?: Championship;
+  simulationRound?: number;
+  simulationTotalRounds?: number;
 };
 
 const SERIE_D_STATE_SLOTS: Record<string, number> = {
@@ -1419,6 +1422,8 @@ export default function App() {
   const [division, setDivision] = useState("Estadual");
   const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
   const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason">>({});
+  const [simulationRounds, setSimulationRounds] = useState(1);
+  const roundRobinMatchCache: Record<string, Matchup[]> = {};
 
   useEffect(() => {
     try {
@@ -2110,48 +2115,56 @@ export default function App() {
     return "";
   }
 
+  function assignRoundNumbers(matches: Matchup[]): Matchup[] {
+    const roundMatches: Matchup[][] = [];
+    for (const match of matches) {
+      let target = -1;
+      for (let index = 0; index < roundMatches.length; index += 1) {
+        const used = new Set(roundMatches[index].flatMap((item) => [item.home, item.away]));
+        if (!used.has(match.home) && !used.has(match.away)) { target = index; break; }
+      }
+      if (target === -1) { target = roundMatches.length; roundMatches.push([]); }
+      roundMatches[target].push(match);
+    }
+    return roundMatches.flatMap((items, roundIndex) =>
+      items.map((match) => ({ ...match, round: roundIndex + 1 }))
+    );
+  }
+
+  function roundRobinCacheKey(teams: string[]) {
+    return [...teams].sort().join("||");
+  }
+
   function simulateRoundRobin(teams: string[]) {
     const table: Record<string, Standing> = {};
+    const matches: Matchup[] = [];
     teams.forEach((team) => {
       table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
     });
-
     for (let i = 0; i < teams.length; i++) {
       for (let j = i + 1; j < teams.length; j++) {
         const home = teams[i];
         const away = teams[j];
         const homeGoals = Math.floor(Math.random() * 5);
         const awayGoals = Math.floor(Math.random() * 5);
-
-        table[home].j++;
-        table[away].j++;
-        table[home].gp += homeGoals;
-        table[home].gc += awayGoals;
-        table[away].gp += awayGoals;
-        table[away].gc += homeGoals;
-
+        matches.push({ home, away, homeScore: homeGoals, awayScore: awayGoals });
+        table[home].j++; table[away].j++;
+        table[home].gp += homeGoals; table[home].gc += awayGoals;
+        table[away].gp += awayGoals; table[away].gc += homeGoals;
         if (homeGoals > awayGoals) {
-          table[home].v++;
-          table[home].pts += 3;
-          table[away].d++;
+          table[home].v++; table[home].pts += 3; table[away].d++;
         } else if (homeGoals < awayGoals) {
-          table[away].v++;
-          table[away].pts += 3;
-          table[home].d++;
+          table[away].v++; table[away].pts += 3; table[home].d++;
         } else {
-          table[home].e++;
-          table[away].e++;
-          table[home].pts++;
-          table[away].pts++;
+          table[home].e++; table[away].e++; table[home].pts++; table[away].pts++;
         }
       }
     }
-
-    Object.values(table).forEach((row) => {
-      row.sg = row.gp - row.gc;
-    });
+    Object.values(table).forEach((row) => { row.sg = row.gp - row.gc; });
+    roundRobinMatchCache[roundRobinCacheKey(teams)] = assignRoundNumbers(matches);
     return table;
   }
+
 
   function simulateRoundRobinWithMatches(teams: string[]) {
     const table: Record<string, Standing> = {};
@@ -2197,7 +2210,7 @@ export default function App() {
       row.sg = row.gp - row.gc;
     });
 
-    return { table, matches };
+    return { table, matches: assignRoundNumbers(matches) };
   }
 
   function simulateDoubleRoundRobin(teams: string[]) {
@@ -4098,21 +4111,12 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     };
   }
 
-  function simulateCompleteCountrySeason(country: string) {
-    const countryChampionships = championships.filter(
-      (championship) => championship.country === country
-    );
-
-    if (!countryChampionships.length) {
-      window.alert("Não há campeonatos cadastrados para este país.");
-      return;
-    }
-
+  function simulateCountrySeasonFully(sourceChampionships: Championship[], country: string): Championship[] {
     const nationalDivisions = new Set(["Série A", "Série B", "Série C", "Série D"]);
 
     // ETAPA 1: todos os campeonatos estaduais são simulados primeiro.
     // Isso garante que os resultados estaduais estejam concluídos antes do início das divisões nacionais.
-    let updated = championships.map((championship) => {
+    let updated = sourceChampionships.map((championship) => {
       if (championship.country !== country || nationalDivisions.has(championship.division)) {
         return championship;
       }
@@ -4251,24 +4255,146 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       return championship;
     });
 
-    setChampionships(updated);
 
-    setSelectedPhase((current) => {
-      const next = { ...current };
-      updated
-        .filter((championship) => championship.country === country)
-        .forEach((championship) => {
-          if (championship.phases?.length) {
-            next[championship.id] = championship.phases[0];
+    updated = updated.map((championship) => {
+      if (championship.country !== country) return championship;
+      const firstPhaseName = championship.phases?.[0] ?? "Primeira fase";
+      const existing = championship.phaseMatches?.[firstPhaseName] ?? [];
+      if (existing.length > 0) return championship;
+      const cached = roundRobinMatchCache[roundRobinCacheKey(championship.teams ?? [])];
+      if (!cached?.length) return championship;
+      return {
+        ...championship,
+        phaseMatches: { ...(championship.phaseMatches ?? {}), [firstPhaseName]: cached },
+      };
+    });
+    return updated;
+  }
+
+  function buildSimulationUnits(championship: Championship): { phase: string; matches: Matchup[] }[] {
+    const phaseMatches = championship.phaseMatches ?? {};
+    const units: { phase: string; matches: Matchup[] }[] = [];
+    for (const phase of Object.keys(phaseMatches)) {
+      const matches = phaseMatches[phase] ?? [];
+      if (!matches.length) continue;
+      const hasRounds = matches.every((match) => match.round !== undefined);
+      if (hasRounds) {
+        [...new Set(matches.map((match) => match.round as number))]
+          .sort((a, b) => a - b)
+          .forEach((round) => units.push({ phase, matches: matches.filter((match) => match.round === round) }));
+      } else {
+        const grouped: Matchup[][] = [];
+        for (const match of matches) {
+          let target = -1;
+          for (let index = 0; index < grouped.length; index += 1) {
+            const used = new Set(grouped[index].flatMap((item) => [item.home, item.away]));
+            if (!used.has(match.home) && !used.has(match.away)) { target = index; break; }
           }
-        });
+          if (target === -1) { target = grouped.length; grouped.push([]); }
+          grouped[target].push(match);
+        }
+        grouped.forEach((roundMatches) => units.push({ phase, matches: roundMatches }));
+      }
+    }
+    return units;
+  }
+
+  function calculateStandingFromMatches(matches: Matchup[]): Record<string, Standing> {
+    const table: Record<string, Standing> = {};
+    for (const match of matches) {
+      if (match.homeScore === undefined || match.awayScore === undefined) continue;
+      if (!table[match.home]) table[match.home] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+      if (!table[match.away]) table[match.away] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+      const home = table[match.home]; const away = table[match.away];
+      home.j++; away.j++;
+      home.gp += match.homeScore; home.gc += match.awayScore;
+      away.gp += match.awayScore; away.gc += match.homeScore;
+      if (match.homeScore > match.awayScore) { home.v++; home.pts += 3; away.d++; }
+      else if (match.homeScore < match.awayScore) { away.v++; away.pts += 3; home.d++; }
+      else { home.e++; away.e++; home.pts++; away.pts++; }
+    }
+    Object.values(table).forEach((row) => { row.sg = row.gp - row.gc; });
+    return table;
+  }
+
+  function applySimulationProgress(plan: Championship, roundCount: number): Championship {
+    const allUnits = buildSimulationUnits(plan);
+    const previous = plan.simulationRound ?? 0;
+    const progress = Math.min(allUnits.length, previous + roundCount);
+    const phaseMatches: Record<string, Matchup[]> = {};
+    allUnits.slice(0, progress).forEach((unit) => {
+      phaseMatches[unit.phase] = [...(phaseMatches[unit.phase] ?? []), ...unit.matches];
+    });
+    const phaseStandings: Record<string, Record<string, Standing>> = {};
+    Object.entries(phaseMatches).forEach(([phase, matches]) => {
+      phaseStandings[phase] = calculateStandingFromMatches(matches);
+    });
+    const firstPhaseName = plan.phases?.[0] ?? "Primeira fase";
+    const complete = progress >= allUnits.length;
+    return {
+      ...plan,
+      phaseMatches,
+      phaseStandings: { ...(complete ? (plan.phaseStandings ?? {}) : {}), ...phaseStandings },
+      standings: complete ? plan.standings : (phaseStandings[firstPhaseName] ?? {}),
+      champion: complete ? plan.champion : undefined,
+      accessTeams: complete ? plan.accessTeams : undefined,
+      relegatedTeams: complete ? plan.relegatedTeams : undefined,
+      simulationRound: progress,
+      simulationTotalRounds: allUnits.length,
+      simulationPlan: complete ? undefined : plan,
+    };
+  }
+
+  function simulateCountrySeasonPartially(country: string, roundCount: number) {
+    const current = championships.filter((item) => item.country === country);
+    if (!current.length) { window.alert("Não há campeonatos cadastrados para este país."); return; }
+    const currentYear = Math.max(...current.map((item) => Number(item.season) || 2026));
+    const season = current.filter((item) => item.season === String(currentYear));
+    const needPlans = season.some((item) => !item.simulationPlan && (item.simulationRound ?? 0) === 0);
+    const generated = needPlans ? simulateCountrySeasonFully(championships, country) : null;
+
+    const updated = championships.map((championship) => {
+      if (championship.country !== country || championship.season !== String(currentYear)) return championship;
+      const fullPlan = championship.simulationPlan
+        ?? generated?.find((item) => item.id === championship.id)
+        ?? championship;
+      const previous = championship.simulationRound ?? 0;
+      const plan = fullPlan.simulationPlan ? fullPlan.simulationPlan : fullPlan;
+      return applySimulationProgress(plan, previous + roundCount - (plan.simulationRound ?? 0));
+    });
+
+    setChampionships(updated);
+    setSelectedPhase((currentSelection) => {
+      const next = { ...currentSelection };
+      updated.filter((item) => item.country === country && item.season === String(currentYear))
+        .forEach((item) => { next[item.id] = item.phases?.[0] ?? "Primeira fase"; });
       return next;
     });
 
-    window.alert(
-      "Temporada completa simulada: primeiro os estaduais, depois as divisões nacionais. A Série D teve seus grupos sorteados automaticamente."
-    );
+    const completed = updated.filter((item) => item.country === country && item.season === String(currentYear))
+      .every((item) => !!item.champion);
+    window.alert(completed
+      ? "Temporada concluída: todos os campeonatos chegaram a 100%."
+      : "Simuladas " + roundCount + " rodada(s). O restante será continuado na próxima simulação.");
   }
+
+  function simulateCompleteCountrySeason(country: string) {
+    const countryChampionships = championships.filter((championship) => championship.country === country);
+    if (!countryChampionships.length) { window.alert("Não há campeonatos cadastrados para este país."); return; }
+    const updated = simulateCountrySeasonFully(championships, country).map((championship) => ({
+      ...championship, simulationPlan: undefined, simulationRound: undefined, simulationTotalRounds: undefined,
+    }));
+    setChampionships(updated);
+    setSelectedPhase((current) => {
+      const next = { ...current };
+      updated.filter((championship) => championship.country === country).forEach((championship) => {
+        if (championship.phases?.length) next[championship.id] = championship.phases[0];
+      });
+      return next;
+    });
+    window.alert("Temporada completa simulada: primeiro os estaduais, depois as divisões nacionais. A Série D teve seus grupos sorteados automaticamente.");
+  }
+
 
   function simulateSerieB(championship: Championship): Championship {
     const teams = championship.teams ?? [];
@@ -4926,6 +5052,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           accessTeams: undefined,
           relegatedTeams: undefined,
           champion: undefined,
+          simulationPlan: undefined,
+          simulationRound: undefined,
+          simulationTotalRounds: undefined,
           serieDGroups: undefined,
           amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
           paranaGroups: championship.state === "Paraná" ? undefined : championship.paranaGroups,
@@ -5124,6 +5253,16 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
               >
                 ▶ Simular temporada completa
               </button>
+              <div className="partial-simulation-control">
+                <select value={simulationRounds} onChange={(event) => setSimulationRounds(Number(event.target.value))} aria-label="Quantidade de rodadas para simular">
+                  {Array.from({ length: 10 }, (_, index) => index + 1).map((round) => (
+                    <option key={round} value={round}>{round} {round === 1 ? "rodada" : "rodadas"}</option>
+                  ))}
+                </select>
+                <button className="simulate-rounds" onClick={() => simulateCountrySeasonPartially("Brasil", simulationRounds)}>
+                  ▶ Simular {simulationRounds} {simulationRounds === 1 ? "rodada" : "rodadas"}
+                </button>
+              </div>
               <button
                 className="reset-season"
                 onClick={resetSeasonTo2026}
@@ -6713,6 +6852,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .reset-button { border: 1px solid #343d52; background: transparent; color: #8e9ab4; border-radius: 9px; padding: 9px; }
         .main { flex: 1; min-width: 0; padding: 32px 42px; }
         .country-heading { display: flex; align-items: center; gap: 12px; }
+        .partial-simulation-control { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
+        .partial-simulation-control select { min-height: 32px; border: 1px solid #26314a; border-radius: 8px; background: #111827; color: #e5e7eb; padding: 0 8px; font-size: 12px; }
+        .simulate-rounds { min-height: 32px; border: 1px solid #334155; border-radius: 8px; background: #172033; color: #e5e7eb; padding: 0 10px; cursor: pointer; font-size: 12px; }
+        .simulate-rounds:hover { background: #1e293b; }
         .simulate-season { border: 1px solid #33466f; background: #14213b; color: #dce5ff; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; cursor: pointer; }
         .simulate-season:hover { background: #1b2c4d; border-color: #4b65a0; }
         .reset-season { border: 1px solid #593c45; background: #21151b; color: #f0b5bf; border-radius: 8px; padding: 7px 11px; font-size: 11px; font-weight: 800; cursor: pointer; }
