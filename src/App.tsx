@@ -89,7 +89,26 @@ type SerieDVacancy = {
   slots: number;
   selected: string[];
   skipped: string[];
+  guaranteedRelegated: string[];
 };
+
+function getSerieDGuaranteedRelegated(
+  championships: Championship[],
+  season: string
+): string[] {
+  const targetYear = Number(season);
+  if (!Number.isFinite(targetYear)) return [];
+
+  const previousSeason = String(targetYear - 1);
+  const previousSerieC = championships.find(
+    (item) =>
+      item.country === "Brasil" &&
+      item.division === "Série C" &&
+      item.season === previousSeason
+  );
+
+  return previousSerieC?.relegatedTeams ? [...previousSerieC.relegatedTeams] : [];
+}
 
 function getStateChampionshipRanking(
   championships: Championship[],
@@ -123,6 +142,9 @@ function calculateSerieDStateVacancies(
   championships: Championship[],
   season: string
 ): SerieDVacancy[] {
+  const guaranteedRelegated = getSerieDGuaranteedRelegated(championships, season);
+  const guaranteedSet = new Set(guaranteedRelegated);
+
   const blocked = new Set(
     championships
       .filter(
@@ -149,7 +171,7 @@ function calculateSerieDStateVacancies(
       }
     }
 
-    return { state, slots, selected, skipped };
+    return { state, slots, selected, skipped, guaranteedRelegated };
   });
 }
 
@@ -1493,6 +1515,7 @@ export default function App() {
       nationalFinalTableReady &&
       nationalRanking.slice(-4).includes(club)
     );
+    const serieDGuaranteedRelegated = getSerieDGuaranteedRelegated(championships, season);
     const vacancy = calculateSerieDStateVacancies(championships, season).find((item) => item.state === state);
     const firstDivision = stateChampionships.find((item) => item.division === "1ª Divisão");
     const firstDivisionRanking = firstDivision ? getStateChampionshipRanking(championships, state, season) : [];
@@ -1500,7 +1523,10 @@ export default function App() {
     const hasFinalRanking = Boolean(firstDivision && (firstDivision.standings || firstDivision.phaseStandings?.["Primeira fase"]));
     let serieDStatus = "NÃO APTO";
     let serieDReason = "Fora da 1ª divisão estadual.";
-    if (nationalChampionship?.division === "Série D") {
+    if (serieDGuaranteedRelegated.includes(club)) {
+      serieDStatus = "GARANTIDO NA SÉRIE D";
+      serieDReason = "Rebaixado da Série C na temporada anterior. Vaga garantida na Série D da temporada seguinte.";
+    } else if (nationalChampionship?.division === "Série D") {
       serieDStatus = "JÁ ESTÁ NA SÉRIE D";
       serieDReason = "O clube já está inscrito na divisão nacional.";
     } else if (serieARelegated) {
@@ -4676,6 +4702,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                           <div><span>Temporada</span><strong>{selected.season}</strong></div>
                           <div><span>Vagas estaduais da Série D</span><strong>{vacancy?.slots ?? 0}</strong></div>
                           <div><span>Clubes monitorados</span><strong>{clubs.length}</strong></div>
+                          <div><span>Rebaixados da Série C com vaga garantida</span><strong>{vacancy?.guaranteedRelegated.length ?? 0}</strong></div>
                         </div>
                         <div className="clubs-table-wrap">
                           <table className="clubs-table">
@@ -4683,7 +4710,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                             <tbody>
                               {clubs.map((club) => {
                                 const info = getClubStateInfo(selected.state!, selected.season, club);
-                                const statusClass = info.serieDStatus === "APTO" ? "club-status-ok" : info.serieDStatus === "EM DEFINIÇÃO" ? "club-status-pending" : info.serieDStatus === "JÁ ESTÁ NA SÉRIE D" ? "club-status-d" : "club-status-no";
+                                const statusClass = info.serieDStatus === "APTO" || info.serieDStatus === "GARANTIDO NA SÉRIE D" ? "club-status-ok" : info.serieDStatus === "EM DEFINIÇÃO" ? "club-status-pending" : info.serieDStatus === "JÁ ESTÁ NA SÉRIE D" ? "club-status-d" : "club-status-no";
                                 return (
                                   <tr key={club}>
                                     <td className="club-name-cell">{club}</td>
@@ -4698,7 +4725,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                             </tbody>
                           </table>
                         </div>
-                        <div className="clubs-note"><strong>Regra dinâmica:</strong> clubes das Séries A, B e C ficam bloqueados para a vaga estadual da Série D. Entre os demais, a vaga desce pela classificação da 1ª divisão estadual até completar a quantidade de vagas do estado. Mudanças de acesso, rebaixamento e divisão nacional refletem automaticamente nesta tela.</div>
+                        <div className="clubs-note"><strong>Regra dinâmica:</strong> clubes das Séries A, B e C ficam bloqueados para a vaga estadual da Série D. Os 4 rebaixados da Série C da temporada anterior recebem vaga garantida na Série D seguinte e não consomem uma vaga estadual. Entre os demais, a vaga desce pela classificação da 1ª divisão estadual até completar a quantidade de vagas do estado. Mudanças de acesso, rebaixamento e divisão nacional refletem automaticamente nesta tela.</div>
                       </>
                     );
                   })() : null}
