@@ -4542,12 +4542,15 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       }
 
       if (division === "Série B") {
-        return [...fallback.filter((club) => !bRelegated.includes(club)), ...aRelegated, ...bAccess.filter((club) => !fallback.includes(club))]
-          .filter((club, index, list) => list.indexOf(club) === index);
+        return [
+          ...fallback.filter((club) => !bRelegated.includes(club) && !bAccess.includes(club)),
+          ...aRelegated,
+          ...cAccess,
+        ].filter((club, index, list) => list.indexOf(club) === index);
       }
 
       if (division === "Série C") {
-        return [...fallback.filter((club) => !cRelegated.includes(club)), ...bRelegated, ...dAccess]
+        return [...fallback.filter((club) => !cRelegated.includes(club) && !cAccess.includes(club)), ...bRelegated, ...dAccess]
           .filter((club, index, list) => list.indexOf(club) === index);
       }
 
