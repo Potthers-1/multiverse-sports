@@ -4820,12 +4820,40 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     setShowCreate(false);
   }
 
+  function isChampionshipSeasonSimulated(championship: Championship): boolean {
+    if (!championship.champion) return false;
+    const phaseMatches = championship.phaseMatches ?? {};
+    return Object.values(phaseMatches).some((matches) => matches.length > 0);
+  }
+
+  function isCurrentSeasonFullySimulated(): boolean {
+    const brazilChampionships = championships.filter((item) => item.country === "Brasil");
+    if (!brazilChampionships.length) return false;
+
+    const currentYear = Math.max(
+      ...brazilChampionships.map((item) => Number(item.season) || 2026)
+    );
+    const currentSeasonChampionships = brazilChampionships.filter(
+      (item) => item.season === String(currentYear)
+    );
+
+    return (
+      currentSeasonChampionships.length > 0 &&
+      currentSeasonChampionships.every(isChampionshipSeasonSimulated)
+    );
+  }
+
   function goToNextSeason() {
     const country = "Brasil";
     const countryChampionships = championships.filter((c) => c.country === country);
 
     if (!countryChampionships.length) {
       window.alert("Não há campeonatos cadastrados para avançar.");
+      return;
+    }
+
+    if (!isCurrentSeasonFullySimulated()) {
+      window.alert("A próxima temporada só pode ser criada depois que 100% dos campeonatos da temporada vigente forem simulados.");
       return;
     }
 
@@ -5106,7 +5134,16 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
             </div>
             <h1>{selected ? selected.name : "Novo começo"}</h1>
           </div>
-          <button className="top-action" onClick={goToNextSeason}>
+          <button
+            className="top-action"
+            onClick={goToNextSeason}
+            disabled={!isCurrentSeasonFullySimulated()}
+            title={
+              isCurrentSeasonFullySimulated()
+                ? "Criar a próxima temporada"
+                : "Simule 100% dos campeonatos da temporada vigente antes de avançar"
+            }
+          >
             → Próxima temporada
           </button>
         </header>
@@ -6671,7 +6708,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .state-link:hover, .state-link.selected { background: #17213a; color: #fff; }
         .state-link small { color: #68758f; font-size: 10px; }
         .sidebar-bottom { margin-top: auto; display: grid; gap: 8px; }
-        .new-button, .primary-button, .top-action { border: 0; background: #3157d5; color: white; font-weight: 700; border-radius: 9px; padding: 11px 15px; }
+        .top-action:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.35); }\n        .new-button, .primary-button, .top-action { border: 0; background: #3157d5; color: white; font-weight: 700; border-radius: 9px; padding: 11px 15px; }
         .new-button:hover, .primary-button:hover, .top-action:hover { background: #3d65ed; }
         .reset-button { border: 1px solid #343d52; background: transparent; color: #8e9ab4; border-radius: 9px; padding: 9px; }
         .main { flex: 1; min-width: 0; padding: 32px 42px; }
