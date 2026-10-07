@@ -1461,7 +1461,7 @@ export default function App() {
 
           // Migra dados da versão anterior da simulação gradual.
           // Progresso parcial antigo não deve ser reaproveitado no novo modelo individual.
-          if (base.simulationVersion !== 2 && !base.champion) {
+          if (base.simulationVersion !== 3 && !base.champion) {
             return {
               ...base,
               phaseStandings: undefined,
@@ -1472,13 +1472,13 @@ export default function App() {
               simulationPlan: undefined,
               simulationRound: undefined,
               simulationTotalRounds: undefined,
-              simulationVersion: 2,
+              simulationVersion: 3,
             };
           }
 
           return {
             ...base,
-            simulationVersion: 2,
+            simulationVersion: 3,
           };
         });
 
@@ -2139,16 +2139,74 @@ export default function App() {
   }
 
   function assignRoundNumbers(matches: Matchup[]): Matchup[] {
+    if (!matches.length) return [];
+
+    // Para um turno completo, usamos o método de Berger/círculo.
+    // Isso garante que TODOS os clubes joguem exatamente uma vez
+    // em cada rodada (quando o número de clubes é par).
+    const teams = [...new Set(matches.flatMap((match) => [match.home, match.away]))];
+    const expectedMatches = (teams.length * (teams.length - 1)) / 2;
+
+    if (matches.length === expectedMatches && teams.length >= 2) {
+      const matchByPair = new Map<string, Matchup>();
+      for (const match of matches) {
+        const key = [match.home, match.away].sort().join("||");
+        matchByPair.set(key, match);
+      }
+
+      const rotation = [...teams];
+      const hasBye = rotation.length % 2 === 1;
+      if (hasBye) rotation.push("__BYE__");
+
+      const rounds: Matchup[][] = [];
+      const totalRounds = rotation.length - 1;
+
+      for (let round = 0; round < totalRounds; round += 1) {
+        const roundMatches: Matchup[] = [];
+
+        for (let index = 0; index < rotation.length / 2; index += 1) {
+          const first = rotation[index];
+          const second = rotation[rotation.length - 1 - index];
+
+          if (first === "__BYE__" || second === "__BYE__") continue;
+
+          const key = [first, second].sort().join("||");
+          const match = matchByPair.get(key);
+          if (match) {
+            roundMatches.push({ ...match, round: round + 1 });
+          }
+        }
+
+        rounds.push(roundMatches);
+
+        const fixed = rotation[0];
+        const rest = rotation.slice(1);
+        rest.unshift(rest.pop()!);
+        rotation.splice(0, rotation.length, fixed, ...rest);
+      }
+
+      return rounds.flat();
+    }
+
+    // Fallback para calendários que não são um round-robin completo
+    // (mata-mata e formatos especiais).
     const roundMatches: Matchup[][] = [];
     for (const match of matches) {
       let target = -1;
       for (let index = 0; index < roundMatches.length; index += 1) {
         const used = new Set(roundMatches[index].flatMap((item) => [item.home, item.away]));
-        if (!used.has(match.home) && !used.has(match.away)) { target = index; break; }
+        if (!used.has(match.home) && !used.has(match.away)) {
+          target = index;
+          break;
+        }
       }
-      if (target === -1) { target = roundMatches.length; roundMatches.push([]); }
+      if (target === -1) {
+        target = roundMatches.length;
+        roundMatches.push([]);
+      }
       roundMatches[target].push(match);
     }
+
     return roundMatches.flatMap((items, roundIndex) =>
       items.map((match) => ({ ...match, round: roundIndex + 1 }))
     );
@@ -4322,8 +4380,15 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     return units;
   }
 
-  function calculateStandingFromMatches(matches: Matchup[]): Record<string, Standing> {
+  function calculateStandingFromMatches(
+    matches: Matchup[],
+    initialTeams: string[] = []
+  ): Record<string, Standing> {
     const table: Record<string, Standing> = {};
+    initialTeams.forEach((team) => {
+      table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+    });
+
     for (const match of matches) {
       if (match.homeScore === undefined || match.awayScore === undefined) continue;
       if (!table[match.home]) table[match.home] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
@@ -4355,10 +4420,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       phaseMatches[unit.phase] = [...(phaseMatches[unit.phase] ?? []), ...unit.matches];
     });
     const phaseStandings: Record<string, Record<string, Standing>> = {};
-    Object.entries(phaseMatches).forEach(([phase, matches]) => {
-      phaseStandings[phase] = calculateStandingFromMatches(matches);
-    });
     const firstPhaseName = plan.phases?.[0] ?? "Primeira fase";
+
+    Object.entries(phaseMatches).forEach(([phase, matches]) => {
+      phaseStandings[phase] = calculateStandingFromMatches(
+        matches,
+        phase === firstPhaseName ? (plan.teams ?? []) : []
+      );
+    });
     const complete = progress >= allUnits.length;
     return {
       ...plan,
@@ -4371,7 +4440,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       simulationRound: progress,
       simulationTotalRounds: allUnits.length,
       simulationPlan: complete ? undefined : plan,
-      simulationVersion: 2,
+      simulationVersion: 3,
     };
   }
 
@@ -4398,7 +4467,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         simulationPlan: undefined,
         simulationRound: undefined,
         simulationTotalRounds: undefined,
-        simulationVersion: 2,
+        simulationVersion: 3,
       };
       previousProgress = 0;
     }
