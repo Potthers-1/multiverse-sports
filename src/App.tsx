@@ -143,7 +143,6 @@ function calculateSerieDStateVacancies(
   season: string
 ): SerieDVacancy[] {
   const guaranteedRelegated = getSerieDGuaranteedRelegated(championships, season);
-  const guaranteedSet = new Set(guaranteedRelegated);
 
   const blocked = new Set(
     championships
