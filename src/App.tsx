@@ -4253,7 +4253,6 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       standings,
       phaseStandings,
       phaseMatches,
-      serieDGroups: groups,
       champion,
       accessTeams: semifinalists,
       relegatedTeams: [],
