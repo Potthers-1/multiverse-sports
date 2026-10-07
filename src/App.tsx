@@ -1444,7 +1444,7 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = (JSON.parse(saved) as Championship[]).filter((champ) => champ.id !== 1002 && !(champ.state === "Acre" && champ.division !== "1ª Divisão"));
-        const merged = parsed.map((champ) => {
+        const merged: Championship[] = parsed.map((champ) => {
           const definition = INITIAL_CHAMPIONSHIPS.find((item) => item.id === champ.id);
           const base = definition
             ? {
