@@ -1003,137 +1003,6 @@ const PERNAMBUCO_CHAMPIONSHIPS: Championship[] = [{
   rules: ["Torneio Frevo: 24 clubes em quatro grupos de 6, com jogos dentro do próprio grupo em turno único.","Os 4 melhores de cada grupo avançam às oitavas de final, em jogo único e em dois blocos: A/B e C/D.","Quartas de final em jogo único e regionalizadas. Empates nas oitavas e quartas são decididos automaticamente nos pênaltis.","Os quatro vencedores das quartas formam um quadrangular final em turno único. Os 3 melhores avançam ao Torneio Forró.","Torneio Forró: os 3 classificados do primeiro turno juntam-se a Sport, Retrô, Decisão, Náutico, Santa Cruz, Maguary e Vitória das Tabocas.","Na fase principal do segundo turno são dois grupos de 5, com cada clube enfrentando apenas os clubes do outro grupo.","Os líderes avançam diretamente às semifinais. 2º x 3º de cada grupo disputam a segunda fase em ida e volta dentro do próprio grupo.","Semifinais e final são disputadas em ida e volta. Empates no agregado são decididos automaticamente nos pênaltis."]
 }];
 
-  const SERIE_D_INITIAL_GROUPS: Record<string, string[]> = {
-  "A": [
-    "Retrô - PE",
-    "Maricá - RJ",
-    "Luverdense - MT",
-    "Trem - AP",
-    "Tirol - CE",
-    "Vitória - ES"
-  ],
-  "B": [
-    "Marcílio Dias - SC",
-    "Aparecidense - GO",
-    "America - RJ",
-    "Lagarto - SE",
-    "Araguaína - TO",
-    "GAS - RR"
-  ],
-  "C": [
-    "São Joseense - PR",
-    "Capital - DF",
-    "Decisão Goiana - PE",
-    "Goiatuba - GO",
-    "Porto - BA",
-    "Manauara - AM"
-  ],
-  "D": [
-    "Laguna - RN",
-    "São Luiz - RS",
-    "CSA - AL",
-    "ASA - AL",
-    "Manaus - AM",
-    "Juazeirense - BA"
-  ],
-  "E": [
-    "Sousa - PB",
-    "Ferroviário - CE",
-    "Portuguesa - SP",
-    "Maracanã - CE",
-    "Galvez - AC",
-    "Guarany de Bagé - RS"
-  ],
-  "F": [
-    "União Rondonópolis - MT",
-    "CSE - AL",
-    "Sergipe - SE",
-    "Nacional - AM",
-    "Tuna Luso - PA",
-    "Operário - MS"
-  ],
-  "G": [
-    "São José - RS",
-    "Piauí - PI",
-    "Velo Clube - SP",
-    "Independência - AC",
-    "Nova Iguaçu - RJ",
-    "Inhumas - GO"
-  ],
-  "H": [
-    "Democrata GV - MG",
-    "Blumenau - SC",
-    "Brasil de Pelotas - RS",
-    "Atlético - CE",
-    "XV de Piracicaba - SP",
-    "Iguatu - CE"
-  ],
-  "I": [
-    "Ceilândia - DF",
-    "Sampaio Corrêa - MA",
-    "FC Cascavel - PR",
-    "América - RN",
-    "Altos - PI",
-    "Joinville - SC"
-  ],
-  "J": [
-    "Gama - DF",
-    "Fluminense - PI",
-    "Primavera - MT",
-    "Tocantinópolis - TO",
-    "Tombense - MG",
-    "Pouso Alegre - MG"
-  ],
-  "K": [
-    "Madureira - RJ",
-    "ABECAT - GO",
-    "Águia de Marabá - PA",
-    "Portuguesa - RJ",
-    "Alagoinhas - BA",
-    "Santa Catarina - SC"
-  ],
-  "L": [
-    "Mixto - MT",
-    "Operário VG - MT",
-    "Imperatriz - MA",
-    "Gazin Porto Velho - RO",
-    "Jacuipense - BA",
-    "Cianorte - PR"
-  ],
-  "M": [
-    "Treze - PB",
-    "Noroeste - SP",
-    "Betim Futebol - MG",
-    "Ivinhema - MS",
-    "Guaporé - RO",
-    "Monte Roraima - RR"
-  ],
-  "N": [
-    "Moto Club - MA",
-    "Real Noroeste - ES",
-    "Azuriz - PR",
-    "IAPE - MA",
-    "Maguary - PE",
-    "São Raimundo - RR"
-  ],
-  "O": [
-    "CRAC - GO",
-    "Uberlândia - MG",
-    "Rio Branco - ES",
-    "Parnahyba - PI",
-    "Oratório - AP",
-    "Central - PE"
-  ],
-  "P": [
-    "Brasiliense - DF",
-    "ABC - RN",
-    "Humaitá - AC",
-    "Água Santa - SP",
-    "Sampaio Corrêa - RJ",
-    "Serra Branca - PB"
-  ]
-};
-
 const SERIE_D_CHAMPIONSHIPS: Championship[] = [
   {
     id: 31001,
@@ -4198,9 +4067,45 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     };
   }
 
+  function generateSerieDGroups() {
+    if (!selected || selected.division !== "Série D" || selected.country !== "Brasil") return;
+
+    const teams = [...(selected.teams ?? [])];
+    if (teams.length !== 96) return;
+
+    const shuffled = [...teams].sort(() => Math.random() - 0.5);
+    const groups: Record<string, string[]> = {};
+
+    for (let index = 0; index < 16; index += 1) {
+      const letter = String.fromCharCode(65 + index);
+      groups[letter] = shuffled.slice(index * 6, index * 6 + 6);
+    }
+
+    const prepared: Championship = {
+      ...selected,
+      serieDGroups: groups,
+      standings: undefined,
+      phaseStandings: undefined,
+      phaseMatches: undefined,
+      champion: undefined,
+      accessTeams: undefined,
+      relegatedTeams: undefined,
+    };
+
+    setChampionships((current) =>
+      current.map((championship) =>
+        championship.id === selected.id ? prepared : championship
+      )
+    );
+    setSelectedPhase((current) => ({
+      ...current,
+      [selected.id]: "Primeira fase",
+    }));
+  }
+
   function simulateSerieD(championship: Championship): Championship {
     const groups: Record<string, string[]> = Object.fromEntries(
-      Object.entries(SERIE_D_INITIAL_GROUPS).map(([letter, group]) => [letter, [...group]])
+      Object.entries(championship.serieDGroups ?? {}).map(([letter, group]) => [letter, [...group]])
     );
 
     const phaseStandings: Record<string, Record<string, Standing>> = {};
@@ -4316,6 +4221,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     }
 
     if (selected.division === "Série D" && selected.country === "Brasil") {
+      if (!selected.serieDGroups || Object.keys(selected.serieDGroups).length !== 16) return;
       const updated = simulateSerieD(selected);
       setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
       setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
@@ -4889,6 +4795,15 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                     }
                   >
                     Clubes / Série D
+                  </button>
+                )}
+
+                {selected.division === "Série D" && selected.country === "Brasil" && (
+                  <button
+                    className="section-tab"
+                    onClick={generateSerieDGroups}
+                  >
+                    🎲 Gerar grupos
                   </button>
                 )}
 
