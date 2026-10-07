@@ -4518,22 +4518,73 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     );
     const nextYear = String(currentYear + 1);
 
+    const getDivision = (division: string) =>
+      countryChampionships.find(
+        (item) => item.division === division && item.season === String(currentYear)
+      );
+
+    const serieA = getDivision("Série A");
+    const serieB = getDivision("Série B");
+    const serieC = getDivision("Série C");
+    const serieD = getDivision("Série D");
+
+    const aRelegated = serieA?.relegatedTeams ?? [];
+    const bAccess = serieB?.accessTeams ?? [];
+    const bRelegated = serieB?.relegatedTeams ?? [];
+    const cAccess = serieC?.accessTeams ?? [];
+    const cRelegated = serieC?.relegatedTeams ?? [];
+    const dAccess = serieD?.accessTeams ?? [];
+
+    const nextTeams = (division: string, fallback: string[]) => {
+      if (division === "Série A") {
+        return [...fallback.filter((club) => !aRelegated.includes(club)), ...bAccess]
+          .filter((club, index, list) => list.indexOf(club) === index);
+      }
+
+      if (division === "Série B") {
+        return [...fallback.filter((club) => !bRelegated.includes(club)), ...aRelegated, ...bAccess.filter((club) => !fallback.includes(club))]
+          .filter((club, index, list) => list.indexOf(club) === index);
+      }
+
+      if (division === "Série C") {
+        return [...fallback.filter((club) => !cRelegated.includes(club)), ...bRelegated, ...dAccess]
+          .filter((club, index, list) => list.indexOf(club) === index);
+      }
+
+      return fallback;
+    };
+
     setChampionships((current) =>
       current.map((championship) => {
         if (championship.country !== country) return championship;
 
+        let teams = championship.teams;
+
+        if (!championship.state && championship.division === "Série A") {
+          teams = nextTeams("Série A", serieA?.teams ?? championship.teams ?? []);
+        } else if (!championship.state && championship.division === "Série B") {
+          teams = nextTeams("Série B", serieB?.teams ?? championship.teams ?? []);
+        } else if (!championship.state && championship.division === "Série C") {
+          teams = nextTeams("Série C", serieC?.teams ?? championship.teams ?? []);
+        }
+
         return {
           ...championship,
           season: nextYear,
+          teams,
           standings: undefined,
           phaseStandings: undefined,
           phaseMatches: undefined,
           firstTurnWinner: undefined,
+          accessTeams: undefined,
+          relegatedTeams: undefined,
+          champion: undefined,
+          serieDGroups: undefined,
           amazonasGroups: championship.state === "Amazonas" ? undefined : championship.amazonasGroups,
           paranaGroups: championship.state === "Paraná" ? undefined : championship.paranaGroups,
           pernambucoGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoGroups,
           pernambucoSecondGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoSecondGroups,
-        saoPauloPots: championship.state === "São Paulo" ? undefined : championship.saoPauloPots,
+          saoPauloPots: championship.state === "São Paulo" ? undefined : championship.saoPauloPots,
           secondTurnWinner: undefined,
         };
       })
@@ -4549,7 +4600,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       [1001]: "competition",
     }));
 
-    window.alert(`Temporada ${nextYear} criada. A composição dos clubes foi mantida, sem promoção ou rebaixamento.`);
+    window.alert(
+      `Temporada ${nextYear} criada. Os acessos e rebaixamentos nacionais foram aplicados; os 4 promovidos da Série D agora fazem parte da Série C e deixam de consumir vagas estaduais da Série D.`
+    );
   }
 
   function resetSeasonTo2026() {
