@@ -22,6 +22,20 @@ type Standing = {
   pts: number;
 };
 
+type ClubHistoryEntry = {
+  competitionId: number;
+  competition: string;
+  country: string;
+  state?: string;
+  division: string;
+  season: string;
+  position?: number;
+  champion?: boolean;
+  access?: boolean;
+  relegated?: boolean;
+  phase?: string;
+};
+
 type Championship = {
   id: number;
   name: string;
@@ -1395,6 +1409,8 @@ const STORAGE_KEY = "football-manager-clean-v2";
 export default function App() {
   const [championships, setChampionships] = useState<Championship[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedClub, setSelectedClub] = useState<string | null>(null);
+  const [clubHistory, setClubHistory] = useState<Record<string, ClubHistoryEntry[]>>({});
   const [showCreate, setShowCreate] = useState(false);
   const [estaduaisOpen, setEstaduaisOpen] = useState(false);
   const [openStates, setOpenStates] = useState<Record<string, boolean>>({});
@@ -1403,6 +1419,19 @@ export default function App() {
   const [division, setDivision] = useState("Estadual");
   const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
   const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason">>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("football-manager-club-history-v1");
+      if (saved) setClubHistory(JSON.parse(saved) as Record<string, ClubHistoryEntry[]>);
+    } catch {
+      localStorage.removeItem("football-manager-club-history-v1");
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("football-manager-club-history-v1", JSON.stringify(clubHistory));
+  }, [clubHistory]);
 
   useEffect(() => {
     try {
@@ -1447,6 +1476,75 @@ export default function App() {
 
   // Guarda automaticamente o campeão de cada temporada para formar o histórico.
   useEffect(() => {
+    setClubHistory((current) => {
+      let changed = false;
+      const next = { ...current };
+
+      for (const championship of championships) {
+        const table =
+          championship.standings ??
+          championship.phaseStandings?.["Primeira fase"] ??
+          {};
+        const ordered = Object.keys(table).length
+          ? sortStandingTeams(championship.teams ?? Object.keys(table), table)
+          : [];
+
+        if (!ordered.length && !championship.champion && !(championship.accessTeams?.length) && !(championship.relegatedTeams?.length)) {
+          continue;
+        }
+
+        for (const club of championship.teams ?? []) {
+          const position = ordered.indexOf(club) >= 0 ? ordered.indexOf(club) + 1 : undefined;
+          const champion = championship.champion === club;
+          const access = (championship.division === "Série D"
+            ? getSerieDSemifinalists(championship)
+            : championship.accessTeams ?? []
+          ).includes(club);
+          const relegated = (championship.relegatedTeams ?? []).includes(club);
+
+          if (!position && !champion && !access && !relegated) continue;
+
+          const entry: ClubHistoryEntry = {
+            competitionId: championship.id,
+            competition: championship.name,
+            country: championship.country,
+            state: championship.state,
+            division: championship.division,
+            season: championship.season,
+            position,
+            champion,
+            access,
+            relegated,
+          };
+
+          const key = String(club);
+          const previous = next[key] ?? [];
+          const existingIndex = previous.findIndex(
+            (item) => item.competitionId === entry.competitionId && item.season === entry.season
+          );
+
+          if (existingIndex >= 0) {
+            const old = previous[existingIndex];
+            if (JSON.stringify(old) !== JSON.stringify(entry)) {
+              const updatedEntries = [...previous];
+              updatedEntries[existingIndex] = entry;
+              next[key] = updatedEntries;
+              changed = true;
+            }
+          } else {
+            next[key] = [...previous, entry].sort(
+              (a, b) => Number(b.season) - Number(a.season) || b.competitionId - a.competitionId
+            );
+            changed = true;
+          }
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [championships]);
+
+  useEffect(() => {
     let changed = false;
     const updated = championships.map((championship) => {
       if (!championship.champion) return championship;
@@ -1472,6 +1570,23 @@ export default function App() {
   const selected = championships.find((c) => c.id === selectedId) ?? null;
   const estadualChampionships = championships.filter((champ) => champ.state);
   const stateNames = [...new Set([...estadualChampionships.map((champ) => champ.state!), ...INITIAL_CHAMPIONSHIPS.map((champ) => champ.state!).filter(Boolean), "Rondônia"])].filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  function openClubHistory(club: string) {
+    setSelectedClub(club);
+  }
+
+  function clubLink(club: string, className = "club-link") {
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={() => openClubHistory(club)}
+        title={`Ver histórico de ${club}`}
+      >
+        {club}
+      </button>
+    );
+  }
 
   function drawAmazonasGroups() {
     const championship = championships.find((item) => item.id === selectedId);
@@ -5208,7 +5323,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                 {rows.map((row, index) => (
                                   <tr key={row.club}>
                                     <td>{index + 1}</td>
-                                    <td className="club-name-cell">{row.club}</td>
+                                    <td className="club-name-cell">{clubLink(row.club, "club-link club-link-strong")}</td>
                                     <td>{row.origin}</td>
                                   </tr>
                                 ))}
@@ -5245,7 +5360,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                 <div className="champion-history-year">{year}</div>
                                 <div className="champion-history-trophy">{index === 0 ? "🏆" : "🏆"}</div>
                                 <div className="champion-history-club">
-                                  <strong>{champion}</strong>
+                                  {clubLink(champion, "club-link club-link-strong")}
                                   {year === selected.season && <span>Temporada atual</span>}
                                 </div>
                               </div>
@@ -5299,14 +5414,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                             ) : selected.division === "Série B" ? (
                               <>
                                 <div className="movement-group-title">Acesso direto</div>
-                                {directAccess.length ? directAccess.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>1º/2º — acesso direto</span></div>) : <div className="movement-empty small">Nenhum definido.</div>}
+                                {directAccess.length ? directAccess.map((club) => <div className="movement-club" key={club}>{clubLink(club, "club-link club-link-strong")}<span>1º/2º — acesso direto</span></div>) : <div className="movement-empty small">Nenhum definido.</div>}
                                 <div className="movement-group-title">Acesso via play-off</div>
-                                {playoffAccess.length ? playoffAccess.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>Vencedor do play-off</span></div>) : <div className="movement-empty small">Nenhum definido.</div>}
+                                {playoffAccess.length ? playoffAccess.map((club) => <div className="movement-club" key={club}>{clubLink(club, "club-link club-link-strong")}<span>Vencedor do play-off</span></div>) : <div className="movement-empty small">Nenhum definido.</div>}
                               </>
                             ) : genericAccess.length ? (
                               <>
                                 {selected.division === "Série D" && <div className="movement-group-title">4 semifinalistas — acesso à Série C</div>}
-                                {genericAccess.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>{selected.division === "Série D" ? "Acesso garantido à Série C" : "Acesso conquistado"}</span></div>)}
+                                {genericAccess.map((club) => <div className="movement-club" key={club}>{clubLink(club, "club-link club-link-strong")}<span>{selected.division === "Série D" ? "Acesso garantido à Série C" : "Acesso conquistado"}</span></div>)}
                               </>
                             ) : <div className="movement-empty small">Nenhum acesso registrado nesta divisão.</div>}
                           </div>
@@ -5314,7 +5429,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                           <div className="movement-card movement-relegation">
                             <div className="movement-card-title">🔴 REBAIXAMENTO</div>
                             <div className="movement-subtitle">Clubes que perderam a divisão nacional</div>
-                            {relegated.length ? relegated.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>Rebaixado para a divisão inferior</span></div>) : <div className="movement-empty small">Nenhum rebaixamento registrado nesta divisão.</div>}
+                            {relegated.length ? relegated.map((club) => <div className="movement-club" key={club}>{clubLink(club, "club-link club-link-strong")}<span>Rebaixado para a divisão inferior</span></div>) : <div className="movement-empty small">Nenhum rebaixamento registrado nesta divisão.</div>}
                           </div>
                         </div>
                         <div className="clubs-note"><strong>Atualização automática:</strong> esta aba mostra exclusivamente a movimentação da temporada vigente. Quando uma temporada for simulada, os clubes que conquistarem acesso ou forem rebaixados serão atualizados automaticamente.</div>
@@ -5346,7 +5461,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                 const statusClass = info.serieDStatus === "APTO" || info.serieDStatus === "GARANTIDO NA SÉRIE D" ? "club-status-ok" : info.serieDStatus === "EM DEFINIÇÃO" ? "club-status-pending" : info.serieDStatus === "JÁ ESTÁ NA SÉRIE D" ? "club-status-d" : "club-status-no";
                                 return (
                                   <tr key={club}>
-                                    <td className="club-name-cell">{club}</td>
+                                    <td className="club-name-cell">{clubLink(club, "club-link club-link-strong")}</td>
                                     <td>{info.stateDivision}</td>
                                     <td>{info.nationalDivision}</td>
                                     <td>{info.rankingPosition > 0 ? info.rankingPosition + "º" : "—"}</td>
@@ -5404,15 +5519,15 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
                         if (selected.state === "Pernambuco" && currentPhase === "1º Turno - Fase de grupos") {
                           const groups=selected.pernambucoGroups??{A:[],B:[],C:[],D:[]};
-                          const render=(letter:string)=>{const group=groups[letter as keyof typeof groups]??[],table=selected.phaseStandings?.[`1º Turno - Grupo ${letter}`]??{},ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{`GRUPO ${letter}`}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index<4?"zone-second-phase":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};return <div className="amazonas-groups-grid">{render("A")}{render("B")}{render("C")}{render("D")}</div>;
+                          const render=(letter:string)=>{const group=groups[letter as keyof typeof groups]??[],table=selected.phaseStandings?.[`1º Turno - Grupo ${letter}`]??{},ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{`GRUPO ${letter}`}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index<4?"zone-second-phase":""}><td>{index+1}</td><td className="standing-team">{clubLink(team)}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};return <div className="amazonas-groups-grid">{render("A")}{render("B")}{render("C")}{render("D")}</div>;
                         }
 
                         if (selected.state === "Pernambuco" && currentPhase === "1º Turno - Quadrangular final") {
-                          const table=selected.phaseStandings?.["1º Turno - Quadrangular final"]??{},ordered=sortStandingTeams(Object.keys(table),table);return <div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team];return <tr key={team} className={index<3?"zone-second-phase":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table><div className="standings-legend"><span><i className="legend-second-phase"/> Classificados para o segundo turno</span></div></div>;
+                          const table=selected.phaseStandings?.["1º Turno - Quadrangular final"]??{},ordered=sortStandingTeams(Object.keys(table),table);return <div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team];return <tr key={team} className={index<3?"zone-second-phase":""}><td>{index+1}</td><td className="standing-team">{clubLink(team)}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table><div className="standings-legend"><span><i className="legend-second-phase"/> Classificados para o segundo turno</span></div></div>;
                         }
 
                         if (selected.state === "Pernambuco" && currentPhase === "2º Turno - Fase de grupos") {
-                          const groups=selected.pernambucoSecondGroups??{A:[],B:[]};const render=(letter:string)=>{const group=groups[letter as keyof typeof groups]??[],table=selected.phaseStandings?.[`2º Turno - Grupo ${letter}`]??{},ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{`GRUPO ${letter}`}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index===0?"zone-second-phase":index<3?"zone-playoff":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};return <div className="amazonas-groups-grid">{render("A")}{render("B")}</div>;
+                          const groups=selected.pernambucoSecondGroups??{A:[],B:[]};const render=(letter:string)=>{const group=groups[letter as keyof typeof groups]??[],table=selected.phaseStandings?.[`2º Turno - Grupo ${letter}`]??{},ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{`GRUPO ${letter}`}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index===0?"zone-second-phase":index<3?"zone-playoff":""}><td>{index+1}</td><td className="standing-team">{clubLink(team)}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};return <div className="amazonas-groups-grid">{render("A")}{render("B")}</div>;
                         }
 
                         if (
@@ -5436,7 +5551,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                         const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
                                         return (
                                           <tr key={team} className={index < 4 ? "zone-second-phase" : ""}>
-                                            <td>{index + 1}</td><td className="standing-team">{team}</td>
+                                            <td>{index + 1}</td><td className="standing-team">{clubLink(team)}</td>
                                             <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
                                             <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td>
                                           </tr>
@@ -5482,7 +5597,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                         return (
                                           <tr key={team} className={zone}>
                                             <td>{index + 1}</td>
-                                            <td className="standing-team">{team}</td>
+                                            <td className="standing-team">{clubLink(team)}</td>
                                             <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
                                             <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
                                             <td className="standing-points">{row.pts}</td>
@@ -5540,7 +5655,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                       <div className="knockout-teams">
                                         <div className={`knockout-team ${homeWinner ? "winner" : ""}`}>
                                           <span className="knockout-team-position">CASA</span>
-                                          <strong>{match.home}</strong>
+                                          {clubLink(match.home, "club-link knockout-club-link")}
                                         </div>
                                         <div className="knockout-score">
                                           <span>PLACAR</span>
@@ -5553,7 +5668,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                         </div>
                                         <div className={`knockout-team away ${awayWinner ? "winner" : ""}`}>
                                           <span className="knockout-team-position">FORA</span>
-                                          <strong>{match.away}</strong>
+                                          {clubLink(match.away, "club-link knockout-club-link")}
                                         </div>
                                       </div>
                                       <div className="knockout-card-footer">
@@ -5598,7 +5713,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                         return (
                                           <tr key={team} className={getRowClass(selected, currentPhase, index)}>
                                             <td>{index + 1}</td>
-                                            <td className="standing-team">{team}</td>
+                                            <td className="standing-team">{clubLink(team)}</td>
                                             <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
                                             <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
                                             <td className="standing-points">{row.pts}</td>
@@ -5655,7 +5770,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                         const row = table[team] ?? {j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};
                                         return (
                                           <tr key={team} className={getRowClass(selected,currentPhase,index)}>
-                                            <td>{index+1}</td><td className="standing-team">{team}</td>
+                                            <td>{index+1}</td><td className="standing-team">{clubLink(team)}</td>
                                             <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
                                             <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td>
                                           </tr>
@@ -5675,7 +5790,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                         if (selected.state === "Paraná" && currentPhase === "Primeira fase") {
                           const a=selected.paranaGroups?.A??[], b=selected.paranaGroups?.B??[];
                           const ta=selected.phaseStandings?.["Primeira fase - Grupo A"]??{}, tb=selected.phaseStandings?.["Primeira fase - Grupo B"]??{};
-                          const renderGroup=(title:string,group:string[],table:Record<string,Standing>)=>{const ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{title}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index<4?"zone-second-phase":""}><td>{index+1}</td><td className="standing-team">{team}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};
+                          const renderGroup=(title:string,group:string[],table:Record<string,Standing>)=>{const ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{title}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index<4?"zone-second-phase":""}><td>{index+1}</td><td className="standing-team">{clubLink(team)}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};
                           return <div className="amazonas-groups-grid">{renderGroup("GRUPO A",a,ta)}{renderGroup("GRUPO B",b,tb)}</div>;
                         }
 
@@ -5706,7 +5821,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                         return (
                                           <tr key={team} className={index < 4 ? "zone-second-phase" : ""}>
                                             <td>{index + 1}</td>
-                                            <td className="standing-team">{team}</td>
+                                            <td className="standing-team">{clubLink(team)}</td>
                                             <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
                                             <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
                                             <td className="standing-points">{row.pts}</td>
@@ -5760,7 +5875,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                         return (
                                           <tr key={team} className={index < qualifiedCount ? "zone-second-phase" : ""}>
                                             <td>{index + 1}</td>
-                                            <td className="standing-team">{team}</td>
+                                            <td className="standing-team">{clubLink(team)}</td>
                                             <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
                                             <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
                                             <td className="standing-points">{row.pts}</td>
@@ -5840,7 +5955,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                         return (
                                           <tr key={team} className={qualified ? "zone-second-phase" : ""}>
                                             <td>{index + 1}</td>
-                                            <td className="standing-team">{team}</td>
+                                            <td className="standing-team">{clubLink(team)}</td>
                                             <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
                                             <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
                                             <td className="standing-points">{row.pts}</td>
@@ -5893,7 +6008,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                             className={index < 4 ? "zone-second-phase" : ""}
                                           >
                                             <td>{index + 1}</td>
-                                            <td className="standing-team">{team}</td>
+                                            <td className="standing-team">{clubLink(team)}</td>
                                             <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
                                             <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
                                             <td className="standing-points">{row.pts}</td>
@@ -5949,7 +6064,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                             }
                                           >
                                             <td>{index + 1}</td>
-                                            <td className="standing-team">{team}</td>
+                                            <td className="standing-team">{clubLink(team)}</td>
                                             <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
                                             <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
                                             <td className="standing-points">{row.pts}</td>
@@ -5997,7 +6112,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                   return (
                                     <tr key={team} className={getRowClass(selected, currentPhase, index)}>
                                       <td>{index + 1}</td>
-                                      <td className="standing-team">{team}</td>
+                                      <td className="standing-team">{clubLink(team)}</td>
                                       <td>{row.j}</td>
                                       <td>{row.v}</td>
                                       <td>{row.e}</td>
@@ -6048,6 +6163,71 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
               Criar o primeiro campeonato
             </button>
           </section>
+        )}
+
+        {selectedClub && (
+          <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setSelectedClub(null)}>
+            <div className="modal club-history-modal">
+              {(() => {
+                const entries = (clubHistory[selectedClub] ?? []).slice().sort(
+                  (a, b) => Number(b.season) - Number(a.season) || b.competitionId - a.competitionId
+                );
+                const currentNational =
+                  entries.find((item) => Number(item.season) === Math.max(...entries.map((item) => Number(item.season)), 0) && item.division.startsWith("Série "))?.division
+                  ?? "Sem divisão nacional";
+                const titles = entries.filter((item) => item.champion).length;
+                return (
+                  <>
+                    <div className="modal-header club-history-header">
+                      <div>
+                        <div className="eyebrow">HISTÓRICO DO CLUBE</div>
+                        <h2>{selectedClub}</h2>
+                      </div>
+                      <button className="close" onClick={() => setSelectedClub(null)}>×</button>
+                    </div>
+
+                    <div className="club-history-summary">
+                      <div><span>Competições registradas</span><strong>{entries.length}</strong></div>
+                      <div><span>Títulos</span><strong>{titles}</strong></div>
+                      <div><span>Divisão nacional mais recente</span><strong>{currentNational}</strong></div>
+                    </div>
+
+                    {entries.length ? (
+                      <div className="club-history-timeline">
+                        {entries.map((entry) => (
+                          <div className="club-history-entry" key={`${entry.competitionId}-${entry.season}`}>
+                            <div className="club-history-season">{entry.season}</div>
+                            <div className="club-history-line">
+                              <div className="club-history-dot" />
+                            </div>
+                            <div className="club-history-content">
+                              <div className="club-history-competition">
+                                <strong>{entry.competition}</strong>
+                                <span>{entry.division}{entry.state ? ` — ${entry.state}` : ""}</span>
+                              </div>
+                              <div className="club-history-result">
+                                {entry.champion ? "🏆 Campeão" : entry.position ? `${entry.position}º lugar` : "Participou"}
+                                {entry.access ? " · 🟢 Acesso" : ""}
+                                {entry.relegated ? " · 🔴 Rebaixado" : ""}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="movement-empty">
+                        O histórico será preenchido automaticamente assim que o clube disputar uma competição simulada.
+                      </div>
+                    )}
+
+                    <div className="clubs-note">
+                      <strong>Histórico automático:</strong> cada temporada simulada registra a competição, posição final, títulos, acessos e rebaixamentos do clube.
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
         )}
 
         {showCreate && (
@@ -6309,6 +6489,48 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .movement-empty { color: #8e9ab4; font-size: 12px; line-height: 1.5; padding: 18px 0; }
         .movement-empty.small { padding: 8px 0; font-size: 11px; }
         @media (max-width: 760px) { .movement-grid { grid-template-columns: 1fr; } .movement-club { align-items: flex-start; flex-direction: column; gap: 4px; } .movement-club span { text-align: left; } }
+
+        .club-link {
+          border: 0;
+          background: transparent;
+          padding: 0;
+          margin: 0;
+          color: inherit;
+          font: inherit;
+          font-weight: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+        .club-link:hover {
+          color: #8fb0ff !important;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+        .club-link-strong { color: #eef2ff !important; font-weight: 700; }
+        .knockout-club-link { color: #e7edf8 !important; font-size: 15px; line-height: 1.25; font-weight: 800; }
+        .club-history-modal { width: min(760px, 100%); max-height: 88vh; overflow-y: auto; }
+        .club-history-header { margin-bottom: 16px; }
+        .club-history-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+        .club-history-summary > div { background: #0c1323; border: 1px solid #26314a; border-radius: 10px; padding: 12px; min-width: 0; }
+        .club-history-summary span { display: block; color: #71809f; font-size: 9px; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+        .club-history-summary strong { color: #eef2ff; font-size: 13px; line-height: 1.3; }
+        .club-history-timeline { display: grid; gap: 0; }
+        .club-history-entry { display: grid; grid-template-columns: 58px 18px minmax(0, 1fr); min-height: 76px; }
+        .club-history-season { color: #71809f; font-size: 11px; font-weight: 900; padding-top: 3px; }
+        .club-history-line { position: relative; display: flex; justify-content: center; }
+        .club-history-line::after { content: ""; position: absolute; top: 14px; bottom: -1px; width: 1px; background: #293650; }
+        .club-history-entry:last-child .club-history-line::after { display: none; }
+        .club-history-dot { position: relative; z-index: 1; width: 9px; height: 9px; margin-top: 4px; border-radius: 50%; background: #3157d5; border: 2px solid #101729; box-shadow: 0 0 0 1px #3157d5; }
+        .club-history-content { padding: 0 0 18px 12px; min-width: 0; }
+        .club-history-competition { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+        .club-history-competition strong { color: #eef2ff; font-size: 12px; }
+        .club-history-competition span { color: #71809f; font-size: 9px; text-align: right; }
+        .club-history-result { margin-top: 5px; color: #aeb9ce; font-size: 11px; }
+        @media (max-width: 620px) {
+          .club-history-summary { grid-template-columns: 1fr; }
+          .club-history-competition { align-items: flex-start; flex-direction: column; gap: 3px; }
+          .club-history-competition span { text-align: left; }
+        }
 
         .clubs-panel { width: 100%; }
         .clubs-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
