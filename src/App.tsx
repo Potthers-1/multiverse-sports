@@ -139,6 +139,30 @@ function getStateChampionshipRanking(
   });
 }
 
+function getSerieDSemifinalists(championship: Championship): string[] {
+  const stored = championship.accessTeams ?? [];
+  if (championship.division !== "Série D" || championship.country !== "Brasil") {
+    return stored;
+  }
+
+  if (stored.length >= 4) {
+    return stored.slice(0, 4);
+  }
+
+  const semifinalMatches = championship.phaseMatches?.["Semifinal"] ?? [];
+  const semifinalists: string[] = [];
+
+  for (const match of semifinalMatches) {
+    for (const club of [match.home, match.away]) {
+      if (club && !semifinalists.includes(club)) {
+        semifinalists.push(club);
+      }
+    }
+  }
+
+  return semifinalists.length >= 4 ? semifinalists.slice(0, 4) : stored;
+}
+
 function calculateSerieDStateVacancies(
   championships: Championship[],
   season: string
@@ -4150,6 +4174,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     const quarterfinals = runKnockout("Quartas de final", roundOf16);
     const semifinalists = runKnockout("Semifinal", quarterfinals);
 
+    // Os 4 clubes que chegam à semifinal garantem o acesso à Série C.
+    // Os vencedores das semifinais disputam apenas o título.
+    const accessTeams = [...quarterfinals];
+
     let champion: string | undefined;
     const finalMatches: Matchup[] = [];
     if (semifinalists.length === 2) {
@@ -4170,7 +4198,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       phaseStandings,
       phaseMatches,
       champion,
-      accessTeams: semifinalists,
+      accessTeams,
       relegatedTeams: [],
       rules: [
         ...(championship.rules ?? []).filter((rule) => !rule.startsWith("Classificação final gerada")),
@@ -4533,7 +4561,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     const bRelegated = serieB?.relegatedTeams ?? [];
     const cAccess = serieC?.accessTeams ?? [];
     const cRelegated = serieC?.relegatedTeams ?? [];
-    const dAccess = serieD?.accessTeams ?? [];
+    const dAccess = serieD ? getSerieDSemifinalists(serieD) : [];
 
     const nextTeams = (division: string, fallback: string[]) => {
       if (division === "Série A") {
@@ -4950,22 +4978,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                       simulated && selected.division === "Série A" ? ordered.slice(-4) :
                       simulated && selected.division === "Série B" ? ordered.slice(-4) : []
                     );
-                    const semifinalMatches = selected.phaseMatches?.["Semifinal"] ?? [];
-                    const derivedSerieDAccess: string[] = [];
-                    if (selected.division === "Série D" && semifinalMatches.length >= 2) {
-                      for (let index = 0; index + 1 < semifinalMatches.length; index += 2) {
-                        const winner = resolveTwoLeggedTie(
-                          { ...semifinalMatches[index] },
-                          { ...semifinalMatches[index + 1] }
-                        );
-                        if (winner && !derivedSerieDAccess.includes(winner)) {
-                          derivedSerieDAccess.push(winner);
-                        }
-                      }
-                    }
-                    const access = selected.accessTeams?.length
-                      ? selected.accessTeams
-                      : derivedSerieDAccess;
+                    const access = selected.division === "Série D"
+                      ? getSerieDSemifinalists(selected)
+                      : (selected.accessTeams ?? []);
                     const directAccess = selected.division === "Série B" && simulated ? access.filter((club) => ordered.slice(0, 2).includes(club)) : [];
                     const playoffAccess = selected.division === "Série B" && simulated ? access.filter((club) => !directAccess.includes(club)) : [];
                     const genericAccess = selected.division !== "Série B" ? access : [];
