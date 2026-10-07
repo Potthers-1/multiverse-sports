@@ -5287,6 +5287,77 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     return Object.values(phaseMatches).some((matches) => matches.length > 0);
   }
 
+  function isCountrySeasonFullySimulated(country: string): boolean {
+    const countryChampionships = championships.filter((item) => item.country === country);
+    if (!countryChampionships.length) return false;
+    const currentYear = Math.max(...countryChampionships.map((item) => Number(item.season) || 2026));
+    const currentSeasonChampionships = countryChampionships.filter((item) => item.season === String(currentYear));
+    return currentSeasonChampionships.length > 0 && currentSeasonChampionships.every(isChampionshipSeasonSimulated);
+  }
+
+  function simulateCompleteCountrySeason(country: string) {
+    const countryChampionships = championships.filter((item) => item.country === country);
+    if (!countryChampionships.length) {
+      window.alert("Não há campeonatos cadastrados para este país.");
+      return;
+    }
+
+    const currentYear = Math.max(...countryChampionships.map((item) => Number(item.season) || 2026));
+    const currentSeasonChampionships = countryChampionships.filter((item) => item.season === String(currentYear));
+    const updatedById = new Map<number, Championship>();
+    let simulatedCount = 0;
+
+    currentSeasonChampionships.forEach((championship) => {
+      if (isChampionshipSeasonSimulated(championship)) {
+        updatedById.set(championship.id, championship);
+        return;
+      }
+
+      let prepared = championship;
+
+      if (
+        championship.country === "Brasil" &&
+        championship.division === "Série D" &&
+        (!championship.serieDGroups || Object.keys(championship.serieDGroups).length !== 16)
+      ) {
+        const teams = [...(championship.teams ?? [])];
+        if (teams.length === 96) {
+          const shuffled = [...teams].sort(() => Math.random() - 0.5);
+          const groups: Record<string, string[]> = {};
+          for (let index = 0; index < 16; index += 1) {
+            const letter = String.fromCharCode(65 + index);
+            groups[letter] = shuffled.slice(index * 6, index * 6 + 6);
+          }
+          prepared = { ...prepared, serieDGroups: groups };
+        }
+      }
+
+      const updated = simulateChampionshipFully(prepared);
+      if (updated) {
+        updatedById.set(championship.id, {
+          ...updated,
+          simulationRound: updated.simulationTotalRounds ?? updated.simulationRound,
+          simulationTotalRounds: updated.simulationTotalRounds ?? updated.simulationRound,
+          simulationVersion: 3,
+          simulationPlan: undefined,
+        });
+        simulatedCount += 1;
+      } else {
+        updatedById.set(championship.id, championship);
+      }
+    });
+
+    setChampionships((current) =>
+      current.map((championship) => updatedById.get(championship.id) ?? championship)
+    );
+
+    window.alert(
+      simulatedCount === currentSeasonChampionships.length
+        ? `Temporada ${currentYear} de ${country} simulada completamente.`
+        : `Foram simulados ${simulatedCount} de ${currentSeasonChampionships.length} campeonatos de ${country}.`
+    );
+  }
+
   function isCurrentSeasonFullySimulated(): boolean {
     const brazilChampionships = championships.filter((item) => item.country === "Brasil");
     if (!brazilChampionships.length) return false;
@@ -5476,7 +5547,24 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
         <div className="sidebar-section">
           <div className="section-title">PAÍSES</div>
-          <button className="country active">🇧🇷 Brasil</button>
+          {[...new Set(championships.map((championship) => championship.country))].sort().map((country) => {
+            const complete = isCountrySeasonFullySimulated(country);
+            return (
+              <div key={country} className="country-row">
+                <button className="country active">
+                  {country === "Brasil" ? "🇧🇷" : "🌎"} {country}
+                </button>
+                <button
+                  className="country-simulate"
+                  onClick={() => simulateCompleteCountrySeason(country)}
+                  disabled={complete}
+                  title={complete ? `Temporada atual de ${country} já está 100% simulada` : `Simular a temporada completa de ${country}`}
+                >
+                  ▶
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         <div className="sidebar-section">
@@ -6851,6 +6939,11 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .brand span { color: #8e9ab4; font-size: 12px; margin-top: 2px; }
         .sidebar-section { margin-bottom: 22px; }
         .section-title, .eyebrow { color: #71809f; font-size: 10px; font-weight: 800; letter-spacing: .14em; }
+        .country-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .country-row .country { flex: 1; margin-bottom: 0; }
+        .country-simulate { width: 34px; min-width: 34px; height: 34px; border: 1px solid #26314a; border-radius: 8px; background: #111827; color: #cbd5e1; cursor: pointer; font-size: 12px; }
+        .country-simulate:hover:not(:disabled) { background: #1e293b; border-color: #334155; }
+        .country-simulate:disabled { opacity: .4; cursor: not-allowed; }
         .country, .champ-link { width: 100%; border: 0; background: transparent; color: #b8c2d9; text-align: left; border-radius: 9px; padding: 10px 11px; }
         .country.active, .champ-link.selected { background: #17213a; color: #fff; }
         .champ-link { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
