@@ -1068,7 +1068,7 @@ const SERIE_D_CHAMPIONSHIPS: Championship[] = [
       "Galvez - AC",
       "Gama - DF",
       "GAS - RR",
-      "Gazin Porto Velho - RO",
+      "Porto Velho - RO",
       "Goiatuba - GO",
       "Guaporé - RO",
       "Guarany de Bagé - RS",
