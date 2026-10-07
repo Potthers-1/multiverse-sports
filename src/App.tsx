@@ -1424,6 +1424,7 @@ export default function App() {
   const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
   const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason">>({});
   const [simulationRounds, setSimulationRounds] = useState(1);
+  const [countrySeasons, setCountrySeasons] = useState<Record<string, string>>({});
   const roundRobinMatchCache: Record<string, Matchup[]> = {};
 
   useEffect(() => {
@@ -1490,8 +1491,36 @@ export default function App() {
 
         setChampionships(merged);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+
+        const savedCountrySeasons = localStorage.getItem("football-manager-country-seasons-v1");
+        if (savedCountrySeasons) {
+          try {
+            setCountrySeasons(JSON.parse(savedCountrySeasons) as Record<string, string>);
+          } catch {
+            setCountrySeasons({});
+          }
+        } else {
+          const initialCountrySeasons: Record<string, string> = {};
+          for (const country of [...new Set(merged.map((item) => item.country))]) {
+            const years = merged
+              .filter((item) => item.country === country)
+              .map((item) => Number(item.season))
+              .filter(Number.isFinite);
+            if (years.length) initialCountrySeasons[country] = String(Math.min(...years));
+          }
+          setCountrySeasons(initialCountrySeasons);
+        }
       } else {
         setChampionships(INITIAL_CHAMPIONSHIPS);
+        const initialCountrySeasons: Record<string, string> = {};
+        for (const country of [...new Set(INITIAL_CHAMPIONSHIPS.map((item) => item.country))]) {
+          const years = INITIAL_CHAMPIONSHIPS
+            .filter((item) => item.country === country)
+            .map((item) => Number(item.season))
+            .filter(Number.isFinite);
+          if (years.length) initialCountrySeasons[country] = String(Math.min(...years));
+        }
+        setCountrySeasons(initialCountrySeasons);
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -1501,6 +1530,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(championships));
   }, [championships]);
+
+  useEffect(() => {
+    localStorage.setItem("football-manager-country-seasons-v1", JSON.stringify(countrySeasons));
+  }, [countrySeasons]);
 
   // Guarda automaticamente o campeão de cada temporada para formar o histórico.
   useEffect(() => {
@@ -1875,10 +1908,11 @@ export default function App() {
     const cleanName = name.trim();
     if (!cleanName) return;
 
+    const selectedSeason = season.trim() || countrySeasons["Brasil"] || "2026";
     const championship: Championship = {
       id: Date.now(),
       name: cleanName,
-      season: season.trim() || "2026",
+      season: selectedSeason,
       division,
       country: "Brasil",
     };
@@ -5290,7 +5324,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
   function isCountrySeasonFullySimulated(country: string): boolean {
     const countryChampionships = championships.filter((item) => item.country === country);
     if (!countryChampionships.length) return false;
-    const currentYear = Math.max(...countryChampionships.map((item) => Number(item.season) || 2026));
+    const currentYear = Number(countrySeasons[country] ?? Math.min(...countryChampionships.map((item) => Number(item.season) || 2026)));
     const currentSeasonChampionships = countryChampionships.filter((item) => item.season === String(currentYear));
     return currentSeasonChampionships.length > 0 && currentSeasonChampionships.every(isChampionshipSeasonSimulated);
   }
@@ -5362,8 +5396,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     const brazilChampionships = championships.filter((item) => item.country === "Brasil");
     if (!brazilChampionships.length) return false;
 
-    const currentYear = Math.max(
-      ...brazilChampionships.map((item) => Number(item.season) || 2026)
+    const currentYear = Number(
+      countrySeasons["Brasil"] ??
+      Math.min(...brazilChampionships.map((item) => Number(item.season) || 2026))
     );
     const currentSeasonChampionships = brazilChampionships.filter(
       (item) => item.season === String(currentYear)
@@ -5389,8 +5424,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       return;
     }
 
-    const currentYear = Math.max(
-      ...countryChampionships.map((c) => Number(c.season) || 2026)
+    const currentYear = Number(
+      countrySeasons[country] ??
+      Math.min(...countryChampionships.map((c) => Number(c.season) || 2026))
     );
     const nextYear = String(currentYear + 1);
 
@@ -5435,7 +5471,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
     setChampionships((current) =>
       current.map((championship) => {
-        if (championship.country !== country) return championship;
+        if (championship.country !== country || championship.season !== String(currentYear)) {
+          return championship;
+        }
 
         let teams = championship.teams;
 
@@ -5471,6 +5509,11 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         };
       })
     );
+
+    setCountrySeasons((current) => ({
+      ...current,
+      [country]: nextYear,
+    }));
 
     setSelectedId(1001);
     setSelectedPhase((current) => ({
@@ -5520,8 +5563,15 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
     setChampionships(resetChampionships);
 
+    const resetCountrySeasons: Record<string, string> = {};
+    for (const country of [...new Set(resetChampionships.map((item) => item.country))]) {
+      resetCountrySeasons[country] = "2026";
+    }
+    setCountrySeasons(resetCountrySeasons);
+
     // "Zerar temporada" também apaga todo o histórico acumulado dos clubes.
     localStorage.removeItem("football-manager-club-history-v1");
+    localStorage.removeItem("football-manager-country-seasons-v1");
     setClubHistory({});
     setSelectedClub(null);
 
@@ -5554,6 +5604,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 <button className="country active">
                   {country === "Brasil" ? "🇧🇷" : "🌎"} {country}
                 </button>
+                <span className="country-season-label">
+                  {countrySeasons[country] ?? "2026"}
+                </span>
                 <button
                   className="country-simulate"
                   onClick={() => simulateCompleteCountrySeason(country)}
@@ -6941,6 +6994,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .section-title, .eyebrow { color: #71809f; font-size: 10px; font-weight: 800; letter-spacing: .14em; }
         .country-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
         .country-row .country { flex: 1; margin-bottom: 0; }
+        .country-season-label { color: #71809f; font-size: 10px; font-weight: 800; min-width: 34px; text-align: center; }
         .country-simulate { width: 34px; min-width: 34px; height: 34px; border: 1px solid #26314a; border-radius: 8px; background: #111827; color: #cbd5e1; cursor: pointer; font-size: 12px; }
         .country-simulate:hover:not(:disabled) { background: #1e293b; border-color: #334155; }
         .country-simulate:disabled { opacity: .4; cursor: not-allowed; }
