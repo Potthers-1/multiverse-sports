@@ -4454,7 +4454,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     }
 
     let plan = current.simulationPlan;
-    let previousProgress = current.simulationVersion === 2 ? (current.simulationRound ?? 0) : 0;
+    let previousProgress = current.simulationVersion === 3 ? (current.simulationRound ?? 0) : 0;
 
     if (!plan) {
       const generated = simulateChampionshipFully(current);
@@ -4475,7 +4475,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       ...plan,
       simulationRound: previousProgress,
       simulationTotalRounds: current.simulationTotalRounds ?? plan.simulationTotalRounds,
-      simulationVersion: 2,
+      simulationVersion: 3,
     };
     const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
