@@ -52,6 +52,7 @@ type Championship = {
   saoPauloPots?: { A: string[]; B: string[]; C: string[]; D: string[] };
   minasGeraisGroups?: { A: string[]; B: string[]; C: string[] };
   serieCGroups?: { A: string[]; B: string[] };
+  serieDGroups?: Record<string, string[]>;
 };
 
 const SERIE_D_STATE_SLOTS: Record<string, number> = {
@@ -1002,6 +1003,125 @@ const PERNAMBUCO_CHAMPIONSHIPS: Championship[] = [{
   rules: ["Torneio Frevo: 24 clubes em quatro grupos de 6, com jogos dentro do próprio grupo em turno único.","Os 4 melhores de cada grupo avançam às oitavas de final, em jogo único e em dois blocos: A/B e C/D.","Quartas de final em jogo único e regionalizadas. Empates nas oitavas e quartas são decididos automaticamente nos pênaltis.","Os quatro vencedores das quartas formam um quadrangular final em turno único. Os 3 melhores avançam ao Torneio Forró.","Torneio Forró: os 3 classificados do primeiro turno juntam-se a Sport, Retrô, Decisão, Náutico, Santa Cruz, Maguary e Vitória das Tabocas.","Na fase principal do segundo turno são dois grupos de 5, com cada clube enfrentando apenas os clubes do outro grupo.","Os líderes avançam diretamente às semifinais. 2º x 3º de cada grupo disputam a segunda fase em ida e volta dentro do próprio grupo.","Semifinais e final são disputadas em ida e volta. Empates no agregado são decididos automaticamente nos pênaltis."]
 }];
 
+const SERIE_D_CHAMPIONSHIPS: Championship[] = [
+  {
+    id: 31001,
+    name: "Série D",
+    season: "2026",
+    division: "Série D",
+    country: "Brasil",
+    teams: [
+      "ABC - RN",
+      "ABECAT - GO",
+      "Água Santa - SP",
+      "Águia de Marabá - PA",
+      "Altos - PI",
+      "America - RJ",
+      "América - RN",
+      "Aparecidense - GO",
+      "Araguaína - TO",
+      "ASA - AL",
+      "Atlético - CE",
+      "Alagoinhas - BA",
+      "Azuriz - PR",
+      "Betim Futebol - MG",
+      "Brasil de Pelotas - RS",
+      "Brasiliense - DF",
+      "Blumenau - SC",
+      "Capital - DF",
+      "Ceilândia - DF",
+      "Central - PE",
+      "Cianorte - PR",
+      "CRAC - GO",
+      "CSA - AL",
+      "CSE - AL",
+      "Decisão Goiana - PE",
+      "Democrata GV - MG",
+      "FC Cascavel - PR",
+      "Ferroviário - CE",
+      "Fluminense - PI",
+      "Galvez - AC",
+      "Gama - DF",
+      "GAS - RR",
+      "Gazin Porto Velho - RO",
+      "Goiatuba - GO",
+      "Guaporé - RO",
+      "Guarany de Bagé - RS",
+      "Humaitá - AC",
+      "IAPE - MA",
+      "Iguatu - CE",
+      "Imperatriz - MA",
+      "Independência - AC",
+      "Inhumas - GO",
+      "Ivinhema - MS",
+      "Jacuipense - BA",
+      "Joinville - SC",
+      "Juazeirense - BA",
+      "Lagarto - SE",
+      "Laguna - RN",
+      "Luverdense - MT",
+      "Madureira - RJ",
+      "Maguary - PE",
+      "Manauara - AM",
+      "Manaus - AM",
+      "Maracanã - CE",
+      "Marcílio Dias - SC",
+      "Maricá - RJ",
+      "Mixto - MT",
+      "Monte Roraima - RR",
+      "Moto Club - MA",
+      "Nacional - AM",
+      "Noroeste - SP",
+      "Nova Iguaçu - RJ",
+      "Operário - MS",
+      "Operário VG - MT",
+      "Oratório - AP",
+      "Parnahyba - PI",
+      "Piauí - PI",
+      "Porto - BA",
+      "Portuguesa - SP",
+      "Portuguesa - RJ",
+      "Pouso Alegre - MG",
+      "Primavera - MT",
+      "Real Noroeste - ES",
+      "Retrô - PE",
+      "Rio Branco - ES",
+      "Sampaio Corrêa - MA",
+      "Sampaio Corrêa - RJ",
+      "Santa Catarina - SC",
+      "São José - RS",
+      "São Joseense - PR",
+      "São Luiz - RS",
+      "São Raimundo - RR",
+      "Sergipe - SE",
+      "Serra Branca - PB",
+      "Sousa - PB",
+      "Tirol - CE",
+      "Tocantinópolis - TO",
+      "Tombense - MG",
+      "Trem - AP",
+      "Treze - PB",
+      "Tuna Luso - PA",
+      "Uberlândia - MG",
+      "União Rondonópolis - MT",
+      "Velo Clube - SP",
+      "Vitória - ES",
+      "XV de Piracicaba - SP",
+    ],
+    phases: ["Primeira fase", "Segunda fase", "Terceira fase", "Oitavas de final", "Quartas de final", "Semifinal", "Final"],
+    rules: [
+      "96 clubes disputam a primeira fase, divididos aleatoriamente pelo sistema em 16 grupos de 6 clubes.",
+      "A primeira fase é disputada em turno e returno dentro de cada grupo, totalizando 10 rodadas por grupo.",
+      "Os 4 primeiros colocados de cada grupo avançam à segunda fase, formando 64 clubes.",
+      "A partir da segunda fase, todos os confrontos eliminatórios são disputados em jogos de ida e volta.",
+      "Em caso de empate no placar agregado de qualquer confronto eliminatório, a decisão é definida automaticamente nos pênaltis.",
+      "Os quatro clubes que chegarem à semifinal conquistam o acesso à Série C da temporada seguinte.",
+      "Os dois clubes da final disputam o título da Série D em jogos de ida e volta.",
+      "Os resultados e os grupos são gerados automaticamente pelo sistema quando a temporada é simulada.",
+    ],
+  },
+];
+
 const SERIE_A_CHAMPIONSHIPS: Championship[] = [
   {
     id: 28001,
@@ -1131,6 +1251,7 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...SERIE_A_CHAMPIONSHIPS,
   ...SERIE_B_CHAMPIONSHIPS,
   ...SERIE_C_CHAMPIONSHIPS,
+  ...SERIE_D_CHAMPIONSHIPS,
   ...ACRE_CHAMPIONSHIPS,
   ...ALAGOAS_CHAMPIONSHIPS,
   ...AMAPA_CHAMPIONSHIPS,
@@ -3946,6 +4067,76 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     };
   }
 
+  function simulateSerieD(championship: Championship): Championship {
+    const teams = [...(championship.teams ?? [])];
+    for (let i = teams.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [teams[i], teams[j]] = [teams[j], teams[i]];
+    }
+
+    const groups: Record<string, string[]> = {};
+    for (let i = 0; i < 16; i++) groups[String.fromCharCode(65 + i)] = teams.slice(i * 6, i * 6 + 6);
+
+    const phaseStandings: Record<string, Record<string, Standing>> = {};
+    const phaseMatches: Record<string, Matchup[]> = {};
+    const qualified: string[] = [];
+
+    Object.entries(groups).forEach(([letter, group]) => {
+      const result = simulateDoubleRoundRobin(group);
+      phaseStandings[`Primeira fase - Grupo ${letter}`] = result.table;
+      phaseMatches[`Primeira fase - Grupo ${letter}`] = result.matches;
+      qualified.push(...sortStandingTeams(group, result.table).slice(0, 4));
+    });
+
+    const runKnockout = (phaseName: string, participants: string[]) => {
+      const matches: Matchup[] = [];
+      const winners: string[] = [];
+      for (let i = 0; i < participants.length; i += 2) {
+        if (!participants[i] || !participants[i + 1]) continue;
+        const leg1 = simulateKnockoutMatch(participants[i], participants[i + 1]);
+        const leg2 = simulateKnockoutMatch(participants[i + 1], participants[i]);
+        matches.push(leg1, leg2);
+        winners.push(resolveTwoLeggedTie(leg1, leg2));
+      }
+      phaseMatches[phaseName] = matches;
+      return winners;
+    };
+
+    const second = runKnockout("Segunda fase", qualified);
+    const third = runKnockout("Terceira fase", second);
+    const roundOf16 = runKnockout("Oitavas de final", third);
+    const quarterfinals = runKnockout("Quartas de final", roundOf16);
+    const semifinalists = runKnockout("Semifinal", quarterfinals);
+
+    let champion: string | undefined;
+    const finalMatches: Matchup[] = [];
+    if (semifinalists.length === 2) {
+      const leg1 = simulateKnockoutMatch(semifinalists[0], semifinalists[1]);
+      const leg2 = simulateKnockoutMatch(semifinalists[1], semifinalists[0]);
+      champion = resolveTwoLeggedTie(leg1, leg2);
+      finalMatches.push(leg1, leg2);
+    }
+    phaseMatches["Final"] = finalMatches;
+
+    const standings: Record<string, Standing> = {};
+    Object.values(phaseStandings).slice(0, 16).forEach((table) => Object.assign(standings, table));
+
+    return {
+      ...championship,
+      standings,
+      phaseStandings,
+      phaseMatches,
+      serieDGroups: groups,
+      champion,
+      accessTeams: semifinalists,
+      relegatedTeams: [],
+      rules: [
+        ...(championship.rules ?? []).filter((rule) => !rule.startsWith("Classificação final gerada")),
+        `Classificação final gerada: campeão = ${champion ?? "não definido"}; acesso à Série C = ${semifinalists.join(", ")}.`,
+      ],
+    };
+  }
+
   function simulateSerieA(championship: Championship): Championship {
     const teams = championship.teams ?? [];
     const result = simulateDoubleRoundRobin(teams);
@@ -3993,6 +4184,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
     if (selected.division === "Série C" && selected.country === "Brasil") {
       const updated = simulateSerieC(selected);
+      setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
+      setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
+      return;
+    }
+
+    if (selected.division === "Série D" && selected.country === "Brasil") {
+      const updated = simulateSerieD(selected);
       setChampionships((current) => current.map((championship) => championship.id === selected.id ? updated : championship));
       setSelectedPhase((current) => ({ ...current, [selected.id]: "Primeira fase" }));
       return;
