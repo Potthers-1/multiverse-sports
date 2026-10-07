@@ -3884,135 +3884,93 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       return;
     }
 
-    const updated = championships.map((championship) => {
-      if (championship.country !== country) return championship;
+    const nationalDivisions = new Set(["Série A", "Série B", "Série C", "Série D"]);
 
-      if (championship.division === "Série A" && championship.country === "Brasil") {
-        return simulateSerieA(championship);
-      }
-
-      if (championship.division === "Série B" && championship.country === "Brasil") {
-        return simulateSerieB(championship);
-      }
-
-      if (championship.division === "Série C" && championship.country === "Brasil") {
-        return simulateSerieC(championship);
-      }
-
-      if (championship.division === "Série D" && championship.country === "Brasil") {
-        if (
-          !championship.serieDGroups ||
-          Object.keys(championship.serieDGroups).length !== 16 ||
-          Object.values(championship.serieDGroups).some((group) => group.length !== 6)
-        ) {
-          return championship;
-        }
-        return simulateSerieD(championship);
+    // ETAPA 1: todos os campeonatos estaduais são simulados primeiro.
+    // Isso garante que os resultados estaduais estejam concluídos antes do início das divisões nacionais.
+    let updated = championships.map((championship) => {
+      if (championship.country !== country || nationalDivisions.has(championship.division)) {
+        return championship;
       }
 
       if (championship.state === "Acre" && championship.division === "1ª Divisão") {
         return simulateAcreFirstDivision(championship);
       }
-
       if (championship.state === "Alagoas" && championship.division === "1ª Divisão") {
         return simulateAlagoasFirstDivision(championship);
       }
-
       if (championship.state === "Amapá" && championship.division === "1ª Divisão") {
         return simulateAmapaFirstDivision(championship);
       }
-
       if (championship.state === "Amazonas" && championship.division === "1ª Divisão") {
         return simulateAmazonasFirstDivision(championship);
       }
-
       if (championship.state === "Bahia" && championship.division === "1ª Divisão") {
         return simulateBahiaFirstDivision(championship);
       }
-
       if (championship.state === "Distrito Federal" && championship.division === "1ª Divisão") {
         return simulateDistritoFederalFirstDivision(championship);
       }
-
       if (championship.state === "Espírito Santo" && championship.division === "1ª Divisão") {
         return simulateEspiritoSantoFirstDivision(championship);
       }
-
       if (championship.state === "Rio de Janeiro" && championship.division === "1ª Divisão") {
         return simulateRioDeJaneiroFirstDivision(championship);
       }
-
       if (championship.state === "Santa Catarina" && championship.division === "1ª Divisão") {
         return simulateSantaCatarinaFirstDivision(championship);
       }
-
       if (championship.state === "Ceará" && championship.division === "1ª Divisão") {
         return simulateCearaFirstDivision(championship);
       }
-
       if (championship.state === "Rio Grande do Sul" && championship.division === "1ª Divisão") {
         return simulateRioGrandeDoSulFirstDivision(championship);
       }
-
       if (championship.state === "São Paulo" && championship.division === "1ª Divisão") {
         return simulateSaoPauloFirstDivision(championship);
       }
-
       if (championship.state === "Paraná" && championship.division === "1ª Divisão") {
         return simulateParanaFirstDivision(championship);
       }
-
       if (championship.state === "Goiás" && championship.division === "1ª Divisão") {
         return simulateGoiasFirstDivision(championship);
       }
-
       if (championship.state === "Maranhão" && championship.division === "1ª Divisão") {
         return simulateMaranhaoFirstDivision(championship);
       }
-
       if (championship.state === "Pará" && championship.division === "1ª Divisão") {
         return simulateParaFirstDivision(championship);
       }
-
       if (championship.state === "Paraíba" && championship.division === "1ª Divisão") {
         return simulateParaibaFirstDivision(championship);
       }
-
       if (championship.state === "Minas Gerais" && championship.division === "1ª Divisão") {
         return simulateMinasGeraisFirstDivision(championship);
       }
-
       if (championship.state === "Mato Grosso" && championship.division === "1ª Divisão") {
         return simulateMatoGrossoFirstDivision(championship);
       }
-
       if (championship.state === "Pernambuco" && championship.division === "1ª Divisão") {
         return simulatePernambucoFirstDivision(championship);
       }
-
       if (championship.state === "Piauí" && championship.division === "1ª Divisão") {
         return simulatePiauiFirstDivision(championship);
       }
-
       if (championship.state === "Rio Grande do Norte" && championship.division === "1ª Divisão") {
         return simulateRioGrandeDoNorteFirstDivision(championship);
       }
       if (championship.state === "Rondônia" && championship.division === "1ª Divisão") {
         return simulateRondoniaFirstDivision(championship);
       }
-
       if (championship.state === "Roraima" && championship.division === "1ª Divisão") {
         return simulateRoraimaFirstDivision(championship);
       }
-
       if (championship.state === "Sergipe" && championship.division === "1ª Divisão") {
         return simulateSergipeFirstDivision(championship);
       }
-
       if (championship.state === "Mato Grosso do Sul" && championship.division === "1ª Divisão") {
         return simulateMatoGrossoDoSulFirstDivision(championship);
       }
-
       if (championship.state === "Tocantins" && championship.division === "1ª Divisão") {
         return simulateTocantinsFirstDivision(championship);
       }
@@ -4020,9 +3978,57 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       return simulateGenericChampionship(championship);
     });
 
+    // ETAPA 2: somente depois de terminar os estaduais, simulamos A, B, C e D.
+    updated = updated.map((championship) => {
+      if (championship.country !== country || !nationalDivisions.has(championship.division)) {
+        return championship;
+      }
+
+      if (championship.division === "Série A") {
+        return simulateSerieA(championship);
+      }
+
+      if (championship.division === "Série B") {
+        return simulateSerieB(championship);
+      }
+
+      if (championship.division === "Série C") {
+        return simulateSerieC(championship);
+      }
+
+      // A Série D sorteia seus 16 grupos automaticamente no início da simulação.
+      if (championship.division === "Série D") {
+        const teams = [...(championship.teams ?? [])];
+
+        if (teams.length !== 96) {
+          return championship;
+        }
+
+        const shuffled = [...teams].sort(() => Math.random() - 0.5);
+        const groups: Record<string, string[]> = {};
+
+        for (let index = 0; index < 16; index += 1) {
+          const letter = String.fromCharCode(65 + index);
+          groups[letter] = shuffled.slice(index * 6, index * 6 + 6);
+        }
+
+        return simulateSerieD({
+          ...championship,
+          serieDGroups: groups,
+          standings: undefined,
+          phaseStandings: undefined,
+          phaseMatches: undefined,
+          champion: undefined,
+          accessTeams: undefined,
+          relegatedTeams: undefined,
+        });
+      }
+
+      return championship;
+    });
+
     setChampionships(updated);
 
-    // Após a simulação completa, a primeira fase continua sendo a tela inicial.
     setSelectedPhase((current) => {
       const next = { ...current };
       updated
@@ -4034,6 +4040,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         });
       return next;
     });
+
+    window.alert(
+      "Temporada completa simulada: primeiro os estaduais, depois as divisões nacionais. A Série D teve seus grupos sorteados automaticamente."
+    );
   }
 
   function simulateSerieB(championship: Championship): Championship {
