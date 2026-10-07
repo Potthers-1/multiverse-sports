@@ -4980,6 +4980,51 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                         }
 
                         if (
+                          selected.division === "Série D" &&
+                          currentPhase === "Primeira fase"
+                        ) {
+                          const groups = selected.serieDGroups ?? {};
+                          const letters = Object.keys(groups).sort();
+                          const renderGroup = (letter: string) => {
+                            const group = groups[letter] ?? [];
+                            const table = selected.phaseStandings?.[`Primeira fase - Grupo ${letter}`] ?? {};
+                            const ordered = sortStandingTeams(group, table);
+                            return (
+                              <div className="amazonas-group-table">
+                                <div className="amazonas-group-title">{`GRUPO ${letter}`}</div>
+                                <div className="standings-wrap">
+                                  <table className="standings-table">
+                                    <thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead>
+                                    <tbody>
+                                      {ordered.map((team, index) => {
+                                        const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                                        return (
+                                          <tr key={team} className={index < 4 ? "zone-second-phase" : ""}>
+                                            <td>{index + 1}</td><td className="standing-team">{team}</td>
+                                            <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
+                                            <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          };
+                          return (
+                            <>
+                              <div className="amazonas-groups-grid">
+                                {letters.map((letter) => renderGroup(letter))}
+                              </div>
+                              <div className="standings-legend">
+                                <span><i className="legend-second-phase" /> Classificados para a segunda fase</span>
+                              </div>
+                            </>
+                          );
+                        }
+
+                        if (
                           selected.division === "Série C" &&
                           currentPhase === "Segunda fase"
                         ) {
@@ -5027,7 +5072,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                           );
                         }
 
-                        if (currentPhase.includes("Oitavas de final") || currentPhase.includes("Quartas de final") || currentPhase.includes("Segunda fase") || currentPhase.includes("Play-off de acesso") || currentPhase.includes("Semi final") || currentPhase.includes("Semifinal") || currentPhase.includes("Final")) {
+                        if (currentPhase.includes("Oitavas de final") || currentPhase.includes("Quartas de final") || currentPhase.includes("Terceira fase") || currentPhase.includes("Segunda fase") || currentPhase.includes("Play-off de acesso") || currentPhase.includes("Semi final") || currentPhase.includes("Semifinal") || currentPhase.includes("Final")) {
                           return (
                             <div className="knockout-list">
                               {matches.length === 0 ? (
