@@ -4894,7 +4894,22 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                       simulated && selected.division === "Série A" ? ordered.slice(-4) :
                       simulated && selected.division === "Série B" ? ordered.slice(-4) : []
                     );
-                    const access = selected.accessTeams ?? [];
+                    const semifinalMatches = selected.phaseMatches?.["Semifinal"] ?? [];
+                    const derivedSerieDAccess: string[] = [];
+                    if (selected.division === "Série D" && semifinalMatches.length >= 2) {
+                      for (let index = 0; index + 1 < semifinalMatches.length; index += 2) {
+                        const winner = resolveTwoLeggedTie(
+                          { ...semifinalMatches[index] },
+                          { ...semifinalMatches[index + 1] }
+                        );
+                        if (winner && !derivedSerieDAccess.includes(winner)) {
+                          derivedSerieDAccess.push(winner);
+                        }
+                      }
+                    }
+                    const access = selected.accessTeams?.length
+                      ? selected.accessTeams
+                      : derivedSerieDAccess;
                     const directAccess = selected.division === "Série B" && simulated ? access.filter((club) => ordered.slice(0, 2).includes(club)) : [];
                     const playoffAccess = selected.division === "Série B" && simulated ? access.filter((club) => !directAccess.includes(club)) : [];
                     const genericAccess = selected.division !== "Série B" ? access : [];
@@ -4924,7 +4939,12 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                 <div className="movement-group-title">Acesso via play-off</div>
                                 {playoffAccess.length ? playoffAccess.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>Vencedor do play-off</span></div>) : <div className="movement-empty small">Nenhum definido.</div>}
                               </>
-                            ) : genericAccess.length ? genericAccess.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>Acesso conquistado</span></div>) : <div className="movement-empty small">Nenhum acesso registrado nesta divisão.</div>}
+                            ) : genericAccess.length ? (
+                              <>
+                                {selected.division === "Série D" && <div className="movement-group-title">4 semifinalistas — acesso à Série C</div>}
+                                {genericAccess.map((club) => <div className="movement-club" key={club}><strong>{club}</strong><span>{selected.division === "Série D" ? "Acesso garantido à Série C" : "Acesso conquistado"}</span></div>)}
+                              </>
+                            ) : <div className="movement-empty small">Nenhum acesso registrado nesta divisão.</div>}
                           </div>
 
                           <div className="movement-card movement-relegation">
