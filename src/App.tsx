@@ -166,20 +166,22 @@ function getSerieDSemifinalists(championship: Championship): string[] {
 
 function calculateSerieDStateVacancies(
   championships: Championship[],
-  season: string
+  season: string,
+  extraBlocked: string[] = []
 ): SerieDVacancy[] {
   const guaranteedRelegated = getSerieDGuaranteedRelegated(championships, season);
 
-  const blocked = new Set(
-    championships
+  const blocked = new Set([
+    ...championships
       .filter(
         (item) =>
           item.country === "Brasil" &&
           item.season === season &&
           ["Série A", "Série B", "Série C"].includes(item.division)
       )
-      .flatMap((item) => item.teams ?? [])
-  );
+      .flatMap((item) => item.teams ?? []),
+    ...extraBlocked,
+  ]);
 
   return Object.entries(SERIE_D_STATE_SLOTS).map(([state, slots]) => {
     const ranking = getStateChampionshipRanking(championships, state, season);
@@ -198,6 +200,88 @@ function calculateSerieDStateVacancies(
 
     return { state, slots, selected, skipped, guaranteedRelegated };
   });
+}
+
+function vacanciesStateLabel(championships: Championship[], season: string, club: string): string {
+  const state = championships.find(
+    (item) =>
+      item.country === "Brasil" &&
+      item.season === season &&
+      item.state &&
+      (item.teams ?? []).includes(club)
+  )?.state;
+  return state ?? "";
+}
+
+type SerieDNextSeasonPlan = {
+  season: string;
+  guaranteedRelegated: string[];
+  stateQualified: string[];
+  previousSecondPhase: string[];
+  allTeams: string[];
+  ready: boolean;
+};
+
+function getSerieDNextSeasonPlan(
+  championships: Championship[],
+  currentSeason: string
+): SerieDNextSeasonPlan {
+  const year = Number(currentSeason);
+  const nextSeason = Number.isFinite(year) ? String(year + 1) : currentSeason;
+  const currentSerieD = championships.find(
+    (item) =>
+      item.country === "Brasil" &&
+      item.division === "Série D" &&
+      item.season === currentSeason
+  );
+
+  const access = currentSerieD ? getSerieDSemifinalists(currentSerieD) : [];
+  const guaranteedRelegated = currentSerieD
+    ? getSerieDGuaranteedRelegated(championships, nextSeason)
+    : [];
+
+  const vacancies = calculateSerieDStateVacancies(
+    championships,
+    currentSeason,
+    access
+  );
+
+  const stateQualified = vacancies.flatMap((item) => item.selected);
+  const stateSet = new Set(stateQualified);
+  const accessSet = new Set(access);
+  const guaranteedSet = new Set(guaranteedRelegated);
+
+  const secondPhaseParticipants: string[] = [];
+  const secondPhaseMatches = currentSerieD?.phaseMatches?.["Segunda fase"] ?? [];
+  for (const match of secondPhaseMatches) {
+    for (const club of [match.home, match.away]) {
+      if (
+        club &&
+        !accessSet.has(club) &&
+        !guaranteedSet.has(club) &&
+        !stateSet.has(club) &&
+        !secondPhaseParticipants.includes(club)
+      ) {
+        secondPhaseParticipants.push(club);
+      }
+    }
+  }
+
+  const previousSecondPhase = secondPhaseParticipants.slice(0, 28);
+  const allTeams = [
+    ...guaranteedRelegated,
+    ...stateQualified,
+    ...previousSecondPhase,
+  ].filter((club, index, list) => list.indexOf(club) === index);
+
+  return {
+    season: nextSeason,
+    guaranteedRelegated,
+    stateQualified,
+    previousSecondPhase,
+    allTeams,
+    ready: allTeams.length === 96,
+  };
 }
 
 const ACRE_CHAMPIONSHIPS: Championship[] = [
@@ -1318,7 +1402,7 @@ export default function App() {
   const [season, setSeason] = useState("2026");
   const [division, setDivision] = useState("Estadual");
   const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
-  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history">>({});
+  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason">>({});
 
   useEffect(() => {
     try {
@@ -4981,6 +5065,20 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   Histórico
                 </button>
 
+                {selected.division === "Série D" && selected.country === "Brasil" && (
+                  <button
+                    className={`section-tab ${selectedSection[selected.id] === "serieDNextSeason" ? "active" : ""}`}
+                    onClick={() =>
+                      setSelectedSection((current) => ({
+                        ...current,
+                        [selected.id]: "serieDNextSeason",
+                      }))
+                    }
+                  >
+                    Próxima temporada
+                  </button>
+                )}
+
                 {selected.state && (
                   <button
                     className={`section-tab ${selectedSection[selected.id] === "clubs" ? "active" : ""}`}
@@ -5069,7 +5167,60 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 )}
               </div>
 
-              {selectedSection[selected.id] === "history" ? (
+              {selectedSection[selected.id] === "serieDNextSeason" ? (
+                <div className="competition-block serie-d-next-season-panel">
+                  {(() => {
+                    const plan = getSerieDNextSeasonPlan(championships, selected.season);
+                    const rows = [
+                      ...plan.guaranteedRelegated.map((club) => ({ club, origin: "Rebaixado da Série C — vaga garantida" })),
+                      ...plan.stateQualified.map((club) => {
+                        const state = vacanciesStateLabel(championships, selected.season, club);
+                        return { club, origin: "Vaga estadual" + (state ? " — " + state : "") };
+                      }),
+                      ...plan.previousSecondPhase.map((club) => ({ club, origin: "Classificado para a 2ª fase da Série D anterior" })),
+                    ].filter((row, index, list) => list.findIndex((item) => item.club === row.club) === index);
+
+                    return (
+                      <>
+                        <div className="block-title">CLUBES DA SÉRIE D — TEMPORADA {plan.season}</div>
+                        <div className="history-subtitle">
+                          Composição projetada para a próxima temporada: 4 vagas garantidas da Série C, 64 vagas estaduais e 28 vagas destinadas a clubes da segunda fase da Série D anterior.
+                        </div>
+
+                        <div className="serie-d-next-summary">
+                          <div><span>Vagas garantidas</span><strong>{plan.guaranteedRelegated.length}/4</strong></div>
+                          <div><span>Vagas estaduais</span><strong>{plan.stateQualified.length}/64</strong></div>
+                          <div><span>Vagas da Série D anterior</span><strong>{plan.previousSecondPhase.length}/28</strong></div>
+                          <div><span>Total</span><strong>{plan.allTeams.length}/96</strong></div>
+                        </div>
+
+                        {!plan.ready ? (
+                          <div className="movement-empty">
+                            A composição ainda não está completa. Simule todos os estaduais e as divisões nacionais para que o sistema determine automaticamente os 96 clubes da próxima Série D.
+                          </div>
+                        ) : (
+                          <div className="clubs-table-wrap">
+                            <table className="clubs-table">
+                              <thead>
+                                <tr><th>#</th><th>CLUBE</th><th>ORIGEM DA VAGA</th></tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((row, index) => (
+                                  <tr key={row.club}>
+                                    <td>{index + 1}</td>
+                                    <td className="club-name-cell">{row.club}</td>
+                                    <td>{row.origin}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : selectedSection[selected.id] === "history" ? (
                 <div className="competition-block championship-history-panel">
                   {(() => {
                     const history = { ...(selected.championHistory ?? {}) };
@@ -6129,6 +6280,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .movement-access .movement-card-title { color: #86efac; }
         .movement-relegation .movement-card-title { color: #fca5a5; }
         .movement-subtitle { color: #71809f; font-size: 10px; margin-bottom: 14px; }
+        .serie-d-next-season-panel { width: 100%; }
+        .serie-d-next-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+        .serie-d-next-summary > div { background: #11192b; border: 1px solid #26314a; border-radius: 10px; padding: 12px; }
+        .serie-d-next-summary span { display: block; color: #71809f; font-size: 9px; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+        .serie-d-next-summary strong { color: #eef2ff; font-size: 15px; }
+        @media (max-width: 760px) { .serie-d-next-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
         .championship-history-panel { width: 100%; }
         .history-subtitle { color: #8e9ab4; font-size: 11px; line-height: 1.5; margin: -4px 0 14px; }
         .champion-history-list { border: 1px solid #202a40; border-radius: 10px; overflow: hidden; background: #0b1220; }
