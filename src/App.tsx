@@ -5437,9 +5437,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
   }
 
   function isChampionshipSeasonSimulated(championship: Championship): boolean {
-    if (!championship.champion) return false;
-    const phaseMatches = championship.phaseMatches ?? {};
-    return Object.values(phaseMatches).some((matches) => matches.length > 0);
+    // O campeão só é definido quando a simulação daquela temporada termina.
+    // Isso também cobre formatos que não usam phaseMatches em todas as etapas.
+    return Boolean(championship.champion);
   }
 
   function isCountrySeasonFullySimulated(country: string): boolean {
@@ -5457,8 +5457,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       return;
     }
 
-    const currentYear = Math.max(...countryChampionships.map((item) => Number(item.season) || 2026));
-    const currentSeasonChampionships = countryChampionships.filter((item) => item.season === String(currentYear));
+    const currentYear = Number(
+      countrySeasons[country] ??
+      Math.min(...countryChampionships.map((item) => Number(item.season) || 2026))
+    );
+    const currentSeasonChampionships = countryChampionships.filter(
+      (item) => item.season === String(currentYear)
+    );
     const updatedById = new Map<number, Championship>();
     let simulatedCount = 0;
 
