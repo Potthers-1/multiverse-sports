@@ -5336,8 +5336,8 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       if (updated) {
         updatedById.set(championship.id, {
           ...updated,
-          simulationRound: updated.simulationTotalRounds ?? updated.simulationRound,
-          simulationTotalRounds: updated.simulationTotalRounds ?? updated.simulationRound,
+          simulationRound: buildSimulationUnits(updated).length,
+          simulationTotalRounds: buildSimulationUnits(updated).length,
           simulationVersion: 3,
           simulationPlan: undefined,
         });
@@ -5560,7 +5560,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   disabled={complete}
                   title={complete ? `Temporada atual de ${country} já está 100% simulada` : `Simular a temporada completa de ${country}`}
                 >
-                  ▶
+                  ▶ Temporada completa
                 </button>
               </div>
             );
