@@ -1408,6 +1408,8 @@ const INITIAL_CHAMPIONSHIPS: Championship[] = [
   ...TOCANTINS_CHAMPIONSHIPS,
 ];
 
+const AVAILABLE_COUNTRIES = ["Brasil", "Argentina"];
+
 const STORAGE_KEY = "football-manager-clean-v2";
 
 
@@ -1577,6 +1579,7 @@ export default function App() {
   const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason">>({});
   const [simulationRounds, setSimulationRounds] = useState(1);
   const [countrySeasons, setCountrySeasons] = useState<Record<string, string>>({});
+  const [selectedCountry, setSelectedCountry] = useState("Brasil");
   const [showClubRanking, setShowClubRanking] = useState(false);
   const [clubRankingHistory, setClubRankingHistory] = useState<ClubRankingSeasonRecord[]>([]);
   const roundRobinMatchCache: Record<string, Matchup[]> = {};
@@ -1658,9 +1661,14 @@ export default function App() {
         const savedCountrySeasons = localStorage.getItem("football-manager-country-seasons-v1");
         if (savedCountrySeasons) {
           try {
-            setCountrySeasons(JSON.parse(savedCountrySeasons) as Record<string, string>);
+            const parsedSeasons = JSON.parse(savedCountrySeasons) as Record<string, string>;
+            const withCountries = { ...parsedSeasons };
+            for (const country of AVAILABLE_COUNTRIES) {
+              if (!withCountries[country]) withCountries[country] = "2026";
+            }
+            setCountrySeasons(withCountries);
           } catch {
-            setCountrySeasons({});
+            setCountrySeasons(Object.fromEntries(AVAILABLE_COUNTRIES.map((country) => [country, "2026"])));
           }
         } else {
           const initialCountrySeasons: Record<string, string> = {};
@@ -1676,7 +1684,9 @@ export default function App() {
       } else {
         setClubRankingHistory([]);
         setChampionships(INITIAL_CHAMPIONSHIPS);
-        const initialCountrySeasons: Record<string, string> = {};
+        const initialCountrySeasons: Record<string, string> = Object.fromEntries(
+          AVAILABLE_COUNTRIES.map((country) => [country, "2026"])
+        );
         for (const country of [...new Set(INITIAL_CHAMPIONSHIPS.map((item) => item.country))]) {
           const years = INITIAL_CHAMPIONSHIPS
             .filter((item) => item.country === country)
@@ -2076,13 +2086,13 @@ export default function App() {
     const cleanName = name.trim();
     if (!cleanName) return;
 
-    const selectedSeason = season.trim() || countrySeasons["Brasil"] || "2026";
+    const selectedSeason = season.trim() || countrySeasons[selectedCountry] || "2026";
     const championship: Championship = {
       id: Date.now(),
       name: cleanName,
       season: selectedSeason,
       division,
-      country: "Brasil",
+      country: selectedCountry,
     };
 
     setChampionships((current) => [...current, championship]);
@@ -5485,6 +5495,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     setClubRankingHistory([]);
     setClubHistory({});
     setSelectedId(null);
+    setSelectedCountry("Brasil");
     setShowClubRanking(false);
     setShowCreate(false);
   }
@@ -5573,14 +5584,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
   }
 
   function isCurrentSeasonFullySimulated(): boolean {
-    const brazilChampionships = championships.filter((item) => item.country === "Brasil");
-    if (!brazilChampionships.length) return false;
+    const countryChampionships = championships.filter((item) => item.country === selectedCountry);
+    if (!countryChampionships.length) return false;
 
     const currentYear = Number(
-      countrySeasons["Brasil"] ??
-      Math.min(...brazilChampionships.map((item) => Number(item.season) || 2026))
+      countrySeasons[selectedCountry] ??
+      Math.min(...countryChampionships.map((item) => Number(item.season) || 2026))
     );
-    const currentSeasonChampionships = brazilChampionships.filter(
+    const currentSeasonChampionships = countryChampionships.filter(
       (item) => item.season === String(currentYear)
     );
 
@@ -5591,7 +5602,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
   }
 
   function goToNextSeason() {
-    const country = "Brasil";
+    const country = selectedCountry;
     const countryChampionships = championships.filter((c) => c.country === country);
 
     if (!countryChampionships.length) {
@@ -5774,11 +5785,15 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
     setChampionships(resetChampionships);
 
-    const resetCountrySeasons: Record<string, string> = {};
+    const resetCountrySeasons: Record<string, string> = Object.fromEntries(
+      AVAILABLE_COUNTRIES.map((country) => [country, "2026"])
+    );
     for (const country of [...new Set(resetChampionships.map((item) => item.country))]) {
       resetCountrySeasons[country] = "2026";
     }
     setCountrySeasons(resetCountrySeasons);
+    setSelectedCountry("Brasil");
+    setShowClubRanking(false);
 
     // "Zerar temporada" também apaga todo o histórico acumulado dos clubes.
     localStorage.removeItem("football-manager-club-history-v1");
@@ -5810,12 +5825,23 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
         <div className="sidebar-section">
           <div className="section-title">PAÍSES</div>
-          {[...new Set(championships.map((championship) => championship.country))].sort().map((country) => {
+          {AVAILABLE_COUNTRIES.map((country) => {
+            const countryChampionships = championships.filter((item) => item.country === country);
+            const currentYear = Number(countrySeasons[country] ?? 2026);
+            const hasCurrentSeason = countryChampionships.some((item) => item.season === String(currentYear));
             const complete = isCountrySeasonFullySimulated(country);
+
             return (
               <div key={country} className="country-row">
-                <button className="country active">
-                  {country === "Brasil" ? "🇧🇷" : "🌎"} {country}
+                <button
+                  className={`country ${selectedCountry === country ? "active" : ""}`}
+                  onClick={() => {
+                    setSelectedCountry(country);
+                    setSelectedId(null);
+                    setShowClubRanking(false);
+                  }}
+                >
+                  {country === "Brasil" ? "🇧🇷" : "🇦🇷"} {country}
                 </button>
                 <span className="country-season-label">
                   {countrySeasons[country] ?? "2026"}
@@ -5823,8 +5849,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                 <button
                   className="country-simulate"
                   onClick={() => simulateCompleteCountrySeason(country)}
-                  disabled={complete}
-                  title={complete ? `Temporada atual de ${country} já está 100% simulada` : `Simular a temporada completa de ${country}`}
+                  disabled={!hasCurrentSeason || complete}
+                  title={
+                    complete
+                      ? `Temporada atual de ${country} já está 100% simulada`
+                      : hasCurrentSeason
+                        ? `Simular a temporada completa de ${country}`
+                        : `Ainda não há campeonatos cadastrados para ${country} em ${currentYear}`
+                  }
                 >
                   ▶ Temporada completa
                 </button>
@@ -5832,14 +5864,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
             );
           })}
         </div>
-
         <div className="sidebar-section">
           <div className="section-title">CAMPEONATOS</div>
-          {championships.filter((champ) => !champ.state && champ.division !== "Estadual").length === 0 ? (
+          {championships.filter((champ) => champ.country === selectedCountry && !champ.state && champ.division !== "Estadual").length === 0 ? (
             <div className="empty-sidebar">Nenhum campeonato criado.</div>
           ) : (
             championships
-              .filter((champ) => !champ.state && champ.division !== "Estadual")
+              .filter((champ) => champ.country === selectedCountry && !champ.state && champ.division !== "Estadual")
               .map((champ) => (
                 <button
                   key={champ.id}
@@ -5852,13 +5883,15 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
               ))
           )}
 
-          <button
-            className={showClubRanking ? "champ-link ranking-champ-link selected" : "champ-link ranking-champ-link"}
-            onClick={() => setShowClubRanking((current) => !current)}
-          >
-            <span>🏆 Ranking de clubes</span>
-            <small>Brasil</small>
-          </button>
+          {selectedCountry === "Brasil" && (
+            <button
+              className={showClubRanking ? "champ-link ranking-champ-link selected" : "champ-link ranking-champ-link"}
+              onClick={() => setShowClubRanking((current) => !current)}
+            >
+              <span>🏆 Ranking de clubes</span>
+              <small>Brasil</small>
+            </button>
+          )}
 
           <button
             className={`state-menu-toggle ${estaduaisOpen ? "open" : ""}`}
@@ -5957,7 +5990,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         <header className="topbar">
           <div>
             <div className="country-heading">
-              <div className="eyebrow">BRASIL</div>
+              <div className="eyebrow">{selectedCountry.toUpperCase()}</div>
               <button
                 className="reset-season"
                 onClick={resetSeasonTo2026}
