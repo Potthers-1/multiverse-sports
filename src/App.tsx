@@ -5761,6 +5761,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           )}
 
           <button
+            className={showClubRanking ? "champ-link ranking-champ-link selected" : "champ-link ranking-champ-link"}
+            onClick={() => setShowClubRanking((current) => !current)}
+          >
+            <span>🏆 Ranking de clubes</span>
+            <small>Brasil</small>
+          </button>
+
+          <button
             className={`state-menu-toggle ${estaduaisOpen ? "open" : ""}`}
             onClick={() => setEstaduaisOpen((open) => !open)}
             aria-expanded={estaduaisOpen}
@@ -5844,12 +5852,6 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         </div>
 
         <div className="sidebar-bottom">
-          <button
-            className={showClubRanking ? "new-button ranking-button active" : "new-button ranking-button"}
-            onClick={() => setShowClubRanking((current) => !current)}
-          >
-            🏆 Ranking de clubes
-          </button>
           <button className="new-button" onClick={() => setShowCreate(true)}>
             + Criar campeonato
           </button>
@@ -7566,6 +7568,8 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .sidebar-bottom { margin-top: auto; display: grid; gap: 8px; }
         .top-action:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.35); }
         .ranking-button.active { background: #263a78; }
+        .ranking-champ-link { margin-top: 6px; }
+        .ranking-champ-link.selected { border-color: #3959a8; background: rgba(49, 87, 213, .16); }
         .club-ranking-panel { width: 100%; }
         .ranking-season-badge { color: #aab5cc; font-size: 11px; font-weight: 800; }
         .ranking-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 20px 0; }
