@@ -4674,8 +4674,25 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         window.alert("Não foi possível preparar a simulação deste campeonato.");
         return;
       }
+
+      // Alguns estaduais calculam a classificação da primeira fase com
+      // simulateRoundRobin(), que também gera os jogos numerados por rodada,
+      // mas não os colocavam no phaseMatches do campeonato completo.
+      // Para a simulação gradual, esses jogos precisam fazer parte do plano.
+      const preparedPhaseMatches = { ...(generated.phaseMatches ?? {}) };
+      const firstPhaseName = generated.phases?.[0] ?? "Primeira fase";
+      if (!preparedPhaseMatches[firstPhaseName]?.length) {
+        const cachedFirstPhase = roundRobinMatchCache[
+          roundRobinCacheKey(generated.teams ?? [])
+        ];
+        if (cachedFirstPhase?.length) {
+          preparedPhaseMatches[firstPhaseName] = cachedFirstPhase;
+        }
+      }
+
       plan = {
         ...generated,
+        phaseMatches: preparedPhaseMatches,
         simulationPlan: undefined,
         simulationRound: undefined,
         simulationTotalRounds: undefined,
