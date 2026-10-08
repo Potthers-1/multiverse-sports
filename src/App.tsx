@@ -4566,29 +4566,40 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
   function buildSimulationUnits(championship: Championship): { phase: string; matches: Matchup[] }[] {
     const phaseMatches = championship.phaseMatches ?? {};
+    const declaredPhases = championship.phases ?? [];
+    const phaseOrder = [
+      ...declaredPhases,
+      ...Object.keys(phaseMatches).filter((phase) => !declaredPhases.includes(phase)),
+    ];
     const units: { phase: string; matches: Matchup[] }[] = [];
-    for (const phase of Object.keys(phaseMatches)) {
+
+    // Uma unidade de simulação é SEMPRE uma rodada completa.
+    // Primeiro respeitamos a ordem oficial das fases do campeonato.
+    for (const phase of phaseOrder) {
       const matches = phaseMatches[phase] ?? [];
       if (!matches.length) continue;
-      const hasRounds = matches.every((match) => match.round !== undefined);
-      if (hasRounds) {
-        [...new Set(matches.map((match) => match.round as number))]
-          .sort((a, b) => a - b)
-          .forEach((round) => units.push({ phase, matches: matches.filter((match) => match.round === round) }));
-      } else {
-        const grouped: Matchup[][] = [];
-        for (const match of matches) {
-          let target = -1;
-          for (let index = 0; index < grouped.length; index += 1) {
-            const used = new Set(grouped[index].flatMap((item) => [item.home, item.away]));
-            if (!used.has(match.home) && !used.has(match.away)) { target = index; break; }
-          }
-          if (target === -1) { target = grouped.length; grouped.push([]); }
-          grouped[target].push(match);
+
+      // Alguns formatos especiais não salvam o número da rodada.
+      // Nesse caso, reconstruímos as rodadas pelo calendário, sem
+      // transformar cada partida em uma "rodada" individual.
+      const normalized = matches.some((match) => match.round === undefined)
+        ? assignRoundNumbers(matches)
+        : matches;
+
+      const rounds = [...new Set(
+        normalized
+          .map((match) => match.round)
+          .filter((round): round is number => round !== undefined)
+      )].sort((a, b) => a - b);
+
+      for (const round of rounds) {
+        const roundMatches = normalized.filter((match) => match.round === round);
+        if (roundMatches.length) {
+          units.push({ phase, matches: roundMatches });
         }
-        grouped.forEach((roundMatches) => units.push({ phase, matches: roundMatches }));
       }
     }
+
     return units;
   }
 
@@ -4652,7 +4663,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       simulationRound: progress,
       simulationTotalRounds: allUnits.length,
       simulationPlan: complete ? undefined : plan,
-      simulationVersion: 3,
+      simulationVersion: 4,
     };
   }
 
@@ -4666,7 +4677,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     }
 
     let plan = current.simulationPlan;
-    let previousProgress = current.simulationVersion === 3 ? (current.simulationRound ?? 0) : 0;
+    let previousProgress = current.simulationVersion === 3
+      ? (current.simulationRound ?? 0)
+      : 0;
 
     if (!plan) {
       const generated = simulateChampionshipFully(current);
@@ -4675,16 +4688,16 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         return;
       }
 
-      // Alguns estaduais calculam a classificação da primeira fase com
-      // simulateRoundRobin(), que também gera os jogos numerados por rodada,
-      // mas não os colocavam no phaseMatches do campeonato completo.
-      // Para a simulação gradual, esses jogos precisam fazer parte do plano.
+      // O simulador completo é usado apenas para montar o calendário
+      // e os resultados futuros que ficam guardados no plano. Nada além
+      // das rodadas liberadas será mostrado ao usuário.
       const preparedPhaseMatches = { ...(generated.phaseMatches ?? {}) };
       const firstPhaseName = generated.phases?.[0] ?? "Primeira fase";
+
       if (!preparedPhaseMatches[firstPhaseName]?.length) {
-        const cachedFirstPhase = roundRobinMatchCache[
-          roundRobinCacheKey(generated.teams ?? [])
-        ];
+        const cachedFirstPhase =
+          roundRobinMatchCache[roundRobinCacheKey(generated.teams ?? [])];
+
         if (cachedFirstPhase?.length) {
           preparedPhaseMatches[firstPhaseName] = cachedFirstPhase;
         }
@@ -4693,18 +4706,45 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       plan = {
         ...generated,
         phaseMatches: preparedPhaseMatches,
+        champion: undefined,
+        accessTeams: undefined,
+        relegatedTeams: undefined,
         simulationPlan: undefined,
         simulationRound: undefined,
         simulationTotalRounds: undefined,
-        simulationVersion: 3,
+        simulationVersion: 4,
       };
       previousProgress = 0;
+    } else {
+      // Migração de planos antigos: se a primeira fase ficou sem partidas
+      // numeradas, recuperamos o calendário antes de calcular o progresso.
+      const firstPhaseName = plan.phases?.[0] ?? "Primeira fase";
+      const firstPhaseMatches = plan.phaseMatches?.[firstPhaseName] ?? [];
+
+      if (!firstPhaseMatches.length) {
+        const cachedFirstPhase =
+          roundRobinMatchCache[roundRobinCacheKey(plan.teams ?? [])];
+
+        if (cachedFirstPhase?.length) {
+          plan = {
+            ...plan,
+            phaseMatches: {
+              ...(plan.phaseMatches ?? {}),
+              [firstPhaseName]: cachedFirstPhase,
+            },
+          };
+        }
+      }
     }
+
     const progressPlan = {
       ...plan,
       simulationRound: previousProgress,
-      simulationTotalRounds: current.simulationTotalRounds ?? plan.simulationTotalRounds,
-      simulationVersion: 3,
+      simulationTotalRounds: undefined,
+      champion: undefined,
+      accessTeams: undefined,
+      relegatedTeams: undefined,
+      simulationVersion: 4,
     };
     const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
