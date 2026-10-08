@@ -4696,16 +4696,59 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         phase === firstPhaseName ? (plan.teams ?? []) : []
       );
 
-      // Amazonas usa duas tabelas visuais por grupo. Elas são derivadas
-      // diretamente das partidas já liberadas, evitando que a tela mostre
-      // zeros enquanto o campeonato está sendo simulado gradualmente.
+      // Formatos por grupos precisam de tabelas separadas durante a
+      // simulação gradual. Filtramos as partidas pelo grupo para que
+      // uma tabela nunca incorpore resultados do outro grupo.
       if (plan.state === "Amazonas" && plan.division === "1ª Divisão") {
         const groups = plan.amazonasGroups;
         if (groups && (phase === "1º Turno" || phase === "2º Turno")) {
+          const matchesForGroup = (group: string[]) =>
+            matches.filter(
+              (match) => group.includes(match.home) && group.includes(match.away)
+            );
+
           phaseStandings[phase + " - Grupo A"] =
-            calculateStandingFromMatches(matches, groups.A);
+            calculateStandingFromMatches(matchesForGroup(groups.A), groups.A);
           phaseStandings[phase + " - Grupo B"] =
-            calculateStandingFromMatches(matches, groups.B);
+            calculateStandingFromMatches(matchesForGroup(groups.B), groups.B);
+        }
+      }
+
+      if (plan.state === "Ceará" && plan.division === "1ª Divisão") {
+        if (phase === "Primeira fase" && plan.cearaGroups) {
+          const matchesForGroup = (group: string[]) =>
+            matches.filter(
+              (match) => group.includes(match.home) && group.includes(match.away)
+            );
+
+          phaseStandings["Primeira fase - Grupo A"] =
+            calculateStandingFromMatches(
+              matchesForGroup(plan.cearaGroups.A),
+              plan.cearaGroups.A
+            );
+          phaseStandings["Primeira fase - Grupo B"] =
+            calculateStandingFromMatches(
+              matchesForGroup(plan.cearaGroups.B),
+              plan.cearaGroups.B
+            );
+        }
+
+        if (phase === "Segunda fase" && plan.cearaSecondGroups) {
+          const matchesForGroup = (group: string[]) =>
+            matches.filter(
+              (match) => group.includes(match.home) && group.includes(match.away)
+            );
+
+          phaseStandings["Segunda fase - Grupo C"] =
+            calculateStandingFromMatches(
+              matchesForGroup(plan.cearaSecondGroups.C),
+              plan.cearaSecondGroups.C
+            );
+          phaseStandings["Segunda fase - Grupo D"] =
+            calculateStandingFromMatches(
+              matchesForGroup(plan.cearaSecondGroups.D),
+              plan.cearaSecondGroups.D
+            );
         }
       }
     });
