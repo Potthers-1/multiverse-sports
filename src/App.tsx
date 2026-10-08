@@ -6929,7 +6929,17 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                           );
                         }
 
-                        if (currentPhase.includes("Oitavas de final") || currentPhase.includes("Quartas de final") || currentPhase.includes("Terceira fase") || currentPhase.includes("Segunda fase") || currentPhase.includes("Play-off de acesso") || currentPhase.includes("Semi final") || currentPhase.includes("Semifinal") || currentPhase.includes("Final")) {
+                        if (
+                          (currentPhase.includes("Oitavas de final") ||
+                            currentPhase.includes("Quartas de final") ||
+                            currentPhase.includes("Terceira fase") ||
+                            currentPhase.includes("Segunda fase") ||
+                            currentPhase.includes("Play-off de acesso") ||
+                            currentPhase.includes("Semi final") ||
+                            currentPhase.includes("Semifinal") ||
+                            currentPhase.includes("Final")) &&
+                          !(selected.state === "Ceará" && currentPhase === "Segunda fase")
+                        ) {
                           return (
                             <div className="knockout-list">
                               {matches.length === 0 ? (
