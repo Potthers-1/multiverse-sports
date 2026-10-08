@@ -405,26 +405,17 @@ const AMAZONAS_CHAMPIONSHIPS: Championship[] = [
       "São Raimundo - AM",
     ],
     phases: [
-      "1º Turno",
-      "Quartas de final - 1º Turno",
-      "Semi final - 1º Turno",
-      "Final do 1º Turno",
-      "2º Turno",
-      "Quartas de final - 2º Turno",
-      "Semi final - 2º Turno",
-      "Final do 2º Turno",
-      "Final geral",
+      "Primeira fase",
+      "Semifinal",
+      "Final",
     ],
     rules: [
-      "1º turno: 2 grupos de 4 times; cada time enfrenta todos os times do outro grupo, totalizando 4 rodadas.",
-      "1º A e 1º B avançam diretamente às semifinais; 2º A, 3º A, 2º B e 3º B disputam as quartas.",
-      "Quartas, semifinais e final do turno são em jogo único, com pênaltis automáticos em caso de empate.",
-      "O campeão do 1º turno garante vaga na Final geral.",
-      "2º turno: 2 grupos de 4 times; os times jogam entre si dentro do próprio grupo, totalizando 3 rodadas.",
-      "1º A e 1º B avançam diretamente às semifinais; 2º A, 3º A, 2º B e 3º B disputam as quartas.",
-      "Quartas, semifinais e final do turno são em jogo único, com pênaltis automáticos em caso de empate.",
-      "O campeão do 2º turno garante vaga na Final geral.",
-      "Final geral em jogo único entre os campeões dos dois turnos. Se o mesmo time vencer os dois turnos, a final geral não é disputada.",
+      "Primeira fase em turno único: os 8 clubes se enfrentam uma vez, totalizando 7 rodadas.",
+      "Os 4 primeiros colocados avançam às semifinais.",
+      "Semifinais em jogo único: 1º colocado x 4º colocado e 2º colocado x 3º colocado.",
+      "Final em jogo único entre os vencedores das semifinais.",
+      "Empates no mata-mata são decididos automaticamente por pênaltis.",
+      "O último colocado da classificação geral é rebaixado para a 2ª Divisão.",
     ],
   },
 ];
@@ -1827,45 +1818,6 @@ export default function App() {
     );
   }
 
-  function drawAmazonasGroups() {
-    const championship = championships.find((item) => item.id === selectedId);
-    if (!championship || championship.state !== "Amazonas") return;
-    const championshipId = championship.id;
-
-    const teams = [...(championship.teams ?? [])];
-    for (let i = teams.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [teams[i], teams[j]] = [teams[j], teams[i]];
-    }
-
-    const groups = {
-      A: teams.slice(0, 4),
-      B: teams.slice(4, 8),
-    };
-
-    const updated: Championship = {
-      ...championship,
-      amazonasGroups: groups,
-      standings: undefined,
-      phaseStandings: undefined,
-      phaseMatches: undefined,
-      firstTurnWinner: undefined,
-      secondTurnWinner: undefined,
-    };
-
-    setChampionships((current) =>
-      current.map((item) => (item.id === selectedId ? updated : item))
-    );
-    setSelectedPhase((current) => ({
-      ...current,
-      [championshipId]: "1º Turno",
-    }));
-    setSelectedSection((current) => ({
-      ...current,
-      [championshipId]: "competition",
-    }));
-  }
-
   function drawRioGrandeDoSulGroups() {
     const championship = championships.find((item) => item.id === selectedId);
     if (!championship || championship.state !== "Rio Grande do Sul") return;
@@ -2253,10 +2205,10 @@ export default function App() {
     if (
       championship.state === "Amazonas" &&
       championship.division === "1ª Divisão" &&
-      (phase === "1º Turno" || phase === "2º Turno")
+      phase === "Primeira fase"
     ) {
-      if (index === 0) return "amazonas-group-first";
-      if (index === 1 || index === 2) return "amazonas-group-qualified";
+      if (index < 4) return "zone-second-phase";
+      if (index === 7) return "zone-relegation";
     }
 
     // No Espírito Santo, os 8 primeiros avançam às quartas de final.
@@ -2808,115 +2760,58 @@ export default function App() {
     const teams = championship.teams ?? [];
     if (teams.length < 8) return championship;
 
-    const shuffle = (items: string[]) => {
-      const result = [...items];
-      for (let i = result.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [result[i], result[j]] = [result[j], result[i]];
-      }
-      return result;
-    };
+    const firstStandings = simulateRoundRobin(teams);
+    const ordered = sortStandingTeams(teams, firstStandings);
+    const qualified = ordered.slice(0, 4);
 
-    const drawnGroups = championship.amazonasGroups
-      ? championship.amazonasGroups
-      : (() => {
-          const drawn = shuffle(teams);
-          return { A: drawn.slice(0, 4), B: drawn.slice(4, 8) };
-        })();
+    const semiMatches: Matchup[] = [];
+    const semiWinners: string[] = [];
 
-    const groupA = drawnGroups.A;
-    const groupB = drawnGroups.B;
+    const semiPairs = [
+      [qualified[0], qualified[3]],
+      [qualified[1], qualified[2]],
+    ];
 
-    function simulateCrossGroup(firstGroup: string[], secondGroup: string[]) {
-      const table: Record<string, Standing> = {};
-      [...firstGroup, ...secondGroup].forEach((team) => {
-        table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-      });
-      for (const home of firstGroup) {
-        for (const away of secondGroup) {
-          const match = simulateKnockoutMatch(home, away);
-          const hg = match.homeScore ?? 0;
-          const ag = match.awayScore ?? 0;
-          table[home].j++; table[away].j++;
-          table[home].gp += hg; table[home].gc += ag;
-          table[away].gp += ag; table[away].gc += hg;
-          if (hg > ag) { table[home].v++; table[away].d++; table[home].pts += 3; }
-          else if (hg < ag) { table[away].v++; table[home].d++; table[away].pts += 3; }
-          else { table[home].e++; table[away].e++; table[home].pts++; table[away].pts++; }
-        }
-      }
-      Object.values(table).forEach((row) => { row.sg = row.gp - row.gc; });
-      return table;
-    }
-
-    function winnerOf(match: Matchup) {
-      return match.penaltyWinner ?? (
-        (match.homeScore ?? 0) > (match.awayScore ?? 0) ? match.home : match.away
+    for (const [teamA, teamB] of semiPairs) {
+      const match = simulateSingleKnockoutMatch(teamA, teamB);
+      semiMatches.push(match);
+      semiWinners.push(
+        match.penaltyWinner ??
+        ((match.homeScore ?? 0) > (match.awayScore ?? 0) ? match.home : match.away)
       );
     }
 
-    function simulateTurn(crossGroup: boolean) {
-      const table = crossGroup
-        ? simulateCrossGroup(groupA, groupB)
-        : { ...simulateRoundRobin(groupA), ...simulateRoundRobin(groupB) };
-      const orderedA = sortStandingTeams(groupA, table);
-      const orderedB = sortStandingTeams(groupB, table);
-
-      const quarterMatches = [
-        simulateSingleKnockoutMatch(orderedA[1], orderedB[2]),
-        simulateSingleKnockoutMatch(orderedB[1], orderedA[2]),
-      ];
-      const quarterWinners = quarterMatches.map(winnerOf);
-
-      const semiMatches = [
-        simulateSingleKnockoutMatch(orderedA[0], quarterWinners[0]),
-        simulateSingleKnockoutMatch(orderedB[0], quarterWinners[1]),
-      ];
-      const semiWinners = semiMatches.map(winnerOf);
-      const finalMatch = simulateSingleKnockoutMatch(semiWinners[0], semiWinners[1]);
-
-      return {
-        table,
-        quarterMatches,
-        semiMatches,
-        finalMatch,
-        winner: winnerOf(finalMatch),
-      };
-    }
-
-    const firstTurn = simulateTurn(true);
-    const secondTurn = simulateTurn(false);
     const finalMatches: Matchup[] = [];
+    let champion: string | undefined;
 
-    if (firstTurn.winner !== secondTurn.winner) {
-      finalMatches.push(simulateSingleKnockoutMatch(firstTurn.winner, secondTurn.winner));
+    if (semiWinners.length === 2) {
+      const finalMatch = simulateSingleKnockoutMatch(semiWinners[0], semiWinners[1]);
+      finalMatches.push(finalMatch);
+      champion =
+        finalMatch.penaltyWinner ??
+        ((finalMatch.homeScore ?? 0) > (finalMatch.awayScore ?? 0)
+          ? finalMatch.home
+          : finalMatch.away);
     }
 
     return {
       ...championship,
-      standings: firstTurn.table,
-      amazonasGroups: drawnGroups,
+      amazonasGroups: undefined,
+      standings: firstStandings,
       phaseStandings: {
         ...(championship.phaseStandings ?? {}),
-        "1º Turno": firstTurn.table,
-        "2º Turno": secondTurn.table,
-        "1º Turno - Grupo A": Object.fromEntries(groupA.map((team) => [team, firstTurn.table[team]])),
-        "1º Turno - Grupo B": Object.fromEntries(groupB.map((team) => [team, firstTurn.table[team]])),
-        "2º Turno - Grupo A": Object.fromEntries(groupA.map((team) => [team, secondTurn.table[team]])),
-        "2º Turno - Grupo B": Object.fromEntries(groupB.map((team) => [team, secondTurn.table[team]])),
+        "Primeira fase": firstStandings,
       },
       phaseMatches: {
         ...(championship.phaseMatches ?? {}),
-        "Quartas de final - 1º Turno": firstTurn.quarterMatches,
-        "Semi final - 1º Turno": firstTurn.semiMatches,
-        "Final do 1º Turno": [firstTurn.finalMatch],
-        "Quartas de final - 2º Turno": secondTurn.quarterMatches,
-        "Semi final - 2º Turno": secondTurn.semiMatches,
-        "Final do 2º Turno": [secondTurn.finalMatch],
-        "Final geral": finalMatches,
+        "Semifinal": semiMatches,
+        "Final": finalMatches,
       },
-      firstTurnWinner: firstTurn.winner,
-      secondTurnWinner: secondTurn.winner,
+      champion,
+      relegatedTeams: ordered.length ? [ordered[ordered.length - 1]] : [],
+      accessTeams: undefined,
+      firstTurnWinner: undefined,
+      secondTurnWinner: undefined,
     };
   }
 
@@ -6333,15 +6228,6 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   </button>
                 )}
 
-                {selected.state === "Amazonas" && selected.division === "1ª Divisão" && (
-                  <button
-                    className="section-tab"
-                    onClick={drawAmazonasGroups}
-                  >
-                    🎲 Sortear grupos
-                  </button>
-                )}
-
                 {selected.state === "Rio de Janeiro" && selected.division === "1ª Divisão" && (
                   <button
                     className="section-tab"
@@ -6797,56 +6683,6 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                   );
                                 })
                               )}
-                            </div>
-                          );
-                        }
-
-                        if (
-                          selected.state === "Amazonas" &&
-                          (currentPhase === "1º Turno" || currentPhase === "2º Turno")
-                        ) {
-                          const prefix = currentPhase === "1º Turno" ? "1º Turno" : "2º Turno";
-                          const groupATable = selected.phaseStandings?.[prefix + " - Grupo A"] ?? {};
-                          const groupBTable = selected.phaseStandings?.[prefix + " - Grupo B"] ?? {};
-                          const groupA = selected.amazonasGroups?.A ?? [];
-                          const groupB = selected.amazonasGroups?.B ?? [];
-
-                          const renderGroupTable = (title: string, group: string[], table: Record<string, Standing>) => {
-                            const ordered = sortStandingTeams(group, table);
-                            return (
-                              <div className="amazonas-group-table">
-                                <div className="amazonas-group-title">{title}</div>
-                                <div className="standings-wrap">
-                                  <table className="standings-table">
-                                    <thead>
-                                      <tr>
-                                        <th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {ordered.map((team, index) => {
-                                        const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-                                        return (
-                                          <tr key={team} className={getRowClass(selected, currentPhase, index)}>
-                                            <td>{index + 1}</td>
-                                            <td className="standing-team">{clubLink(team)}</td>
-                                            <td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td>
-                                            <td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td>
-                                            <td className="standing-points">{row.pts}</td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            );
-                          };
-
-                          return (
-                            <div className="amazonas-groups-grid">
-                              {renderGroupTable("GRUPO A", groupA, groupATable)}
-                              {renderGroupTable("GRUPO B", groupB, groupBTable)}
                             </div>
                           );
                         }
