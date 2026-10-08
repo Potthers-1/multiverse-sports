@@ -1920,6 +1920,10 @@ export default function App() {
       phaseMatches: undefined,
       champion: undefined,
       accessTeams: undefined,
+      simulationPlan: undefined,
+      simulationRound: undefined,
+      simulationTotalRounds: undefined,
+      simulationVersion: undefined,
     };
 
     setChampionships((current) =>
@@ -3487,7 +3491,7 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
 
   function simulateCearaFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
-    if (teams.length < 10) return championship;
+    if (teams.length !== 10) return championship;
 
     const shuffle = (items: string[]) => {
       const result = [...items];
@@ -3498,52 +3502,32 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
       return result;
     };
 
+    // 1ª fase: dois grupos de 5, turno único dentro de cada grupo.
+    // As duas tabelas jogam em paralelo e cada rodada contém as partidas
+    // dos dois grupos.
     const groups = championship.cearaGroups
-      ? championship.cearaGroups
+      ? {
+          A: [...championship.cearaGroups.A],
+          B: [...championship.cearaGroups.B],
+        }
       : (() => {
           const drawn = shuffle(teams);
           return { A: drawn.slice(0, 5), B: drawn.slice(5, 10) };
         })();
 
-    const simulateGroupRoundRobin = (group: string[]) => {
-      const table: Record<string, Standing> = {};
-      group.forEach((team) => {
-        table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-      });
+    const groupAResult = simulateRoundRobinWithMatches(groups.A);
+    const groupBResult = simulateRoundRobinWithMatches(groups.B);
 
-      for (let i = 0; i < group.length; i++) {
-        for (let j = i + 1; j < group.length; j++) {
-          const home = group[i];
-          const away = group[j];
-          const homeGoals = Math.floor(Math.random() * 5);
-          const awayGoals = Math.floor(Math.random() * 5);
-          const h = table[home];
-          const a = table[away];
+    const firstPhaseMatches = [
+      ...groupAResult.matches,
+      ...groupBResult.matches,
+    ].sort((a, b) => (a.round ?? 0) - (b.round ?? 0));
 
-          h.j++; a.j++;
-          h.gp += homeGoals; h.gc += awayGoals; h.sg = h.gp - h.gc;
-          a.gp += awayGoals; a.gc += homeGoals; a.sg = a.gp - a.gc;
+    const groupAOrdered = sortStandingTeams(groups.A, groupAResult.table);
+    const groupBOrdered = sortStandingTeams(groups.B, groupBResult.table);
 
-          if (homeGoals > awayGoals) {
-            h.v++; a.d++; h.pts += 3;
-          } else if (homeGoals < awayGoals) {
-            a.v++; h.d++; a.pts += 3;
-          } else {
-            h.e++; a.e++; h.pts++; a.pts++;
-          }
-        }
-      }
-
-      return table;
-    };
-
-    const groupATable = simulateGroupRoundRobin(groups.A);
-    const groupBTable = simulateGroupRoundRobin(groups.B);
-    const groupAOrdered = sortStandingTeams(groups.A, groupATable);
-    const groupBOrdered = sortStandingTeams(groups.B, groupBTable);
-
-    // Os seis classificados da primeira fase são sorteados novamente,
-    // independentemente dos grupos A e B originais.
+    // Os 3 melhores de cada grupo avançam e são sorteados novamente
+    // para formar os grupos C e D da 2ª fase.
     const qualified = [
       ...groupAOrdered.slice(0, 3),
       ...groupBOrdered.slice(0, 3),
@@ -3554,35 +3538,19 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
       D: secondDraw.slice(3, 6),
     };
 
-    const secondPhaseTable: Record<string, Standing> = {};
-    [...secondGroups.C, ...secondGroups.D].forEach((team) => {
-      secondPhaseTable[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-    });
+    // 2ª fase: grupos C e D, turno único.
+    const groupCResult = simulateRoundRobinWithMatches(secondGroups.C);
+    const groupDResult = simulateRoundRobinWithMatches(secondGroups.D);
 
-    for (const home of secondGroups.C) {
-      for (const away of secondGroups.D) {
-        const homeGoals = Math.floor(Math.random() * 5);
-        const awayGoals = Math.floor(Math.random() * 5);
-        const h = secondPhaseTable[home];
-        const a = secondPhaseTable[away];
+    const secondPhaseMatches = [
+      ...groupCResult.matches,
+      ...groupDResult.matches,
+    ].sort((a, b) => (a.round ?? 0) - (b.round ?? 0));
 
-        h.j++; a.j++;
-        h.gp += homeGoals; h.gc += awayGoals; h.sg = h.gp - h.gc;
-        a.gp += awayGoals; a.gc += homeGoals; a.sg = a.gp - a.gc;
+    const groupCOrdered = sortStandingTeams(secondGroups.C, groupCResult.table);
+    const groupDOrdered = sortStandingTeams(secondGroups.D, groupDResult.table);
 
-        if (homeGoals > awayGoals) {
-          h.v++; a.d++; h.pts += 3;
-        } else if (homeGoals < awayGoals) {
-          a.v++; h.d++; a.pts += 3;
-        } else {
-          h.e++; a.e++; h.pts++; a.pts++;
-        }
-      }
-    }
-
-    const groupCOrdered = sortStandingTeams(secondGroups.C, secondPhaseTable);
-    const groupDOrdered = sortStandingTeams(secondGroups.D, secondPhaseTable);
-
+    // Os 2 primeiros de cada grupo avançam às semifinais.
     const semiPairs: [string, string][] = [
       [groupCOrdered[0], groupDOrdered[1]],
       [groupDOrdered[0], groupCOrdered[1]],
@@ -3590,6 +3558,7 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
 
     const semiMatches: Matchup[] = [];
     const semiWinners: string[] = [];
+
     for (const [teamA, teamB] of semiPairs) {
       const leg1 = simulateKnockoutMatch(teamA, teamB);
       const leg2 = simulateKnockoutMatch(teamB, teamA);
@@ -3599,6 +3568,7 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
 
     const finalMatches: Matchup[] = [];
     let champion: string | undefined;
+
     if (semiWinners.length === 2) {
       const finalLeg1 = simulateKnockoutMatch(semiWinners[0], semiWinners[1]);
       const finalLeg2 = simulateKnockoutMatch(semiWinners[1], semiWinners[0]);
@@ -3606,20 +3576,36 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
       champion = resolveTwoLeggedTie(finalLeg1, finalLeg2);
     }
 
+    // IMPORTANTE: todas as fases ficam no plano, mas a simulação gradual
+    // só libera as rodadas na ordem:
+    // 1ª fase (5) -> 2ª fase (3) -> semifinais (2) -> final (2).
     return {
       ...championship,
       cearaGroups: groups,
       cearaSecondGroups: secondGroups,
-      standings: secondPhaseTable,
+      standings: {
+        ...groupCResult.table,
+        ...groupDResult.table,
+      },
       phaseStandings: {
         ...(championship.phaseStandings ?? {}),
-        "Primeira fase - Grupo A": Object.fromEntries(groupAOrdered.map((team) => [team, groupATable[team]])),
-        "Primeira fase - Grupo B": Object.fromEntries(groupBOrdered.map((team) => [team, groupBTable[team]])),
-        "Segunda fase - Grupo C": Object.fromEntries(groupCOrdered.map((team) => [team, secondPhaseTable[team]])),
-        "Segunda fase - Grupo D": Object.fromEntries(groupDOrdered.map((team) => [team, secondPhaseTable[team]])),
+        "Primeira fase": {
+          ...groupAResult.table,
+          ...groupBResult.table,
+        },
+        "Primeira fase - Grupo A": groupAResult.table,
+        "Primeira fase - Grupo B": groupBResult.table,
+        "Segunda fase": {
+          ...groupCResult.table,
+          ...groupDResult.table,
+        },
+        "Segunda fase - Grupo C": groupCResult.table,
+        "Segunda fase - Grupo D": groupDResult.table,
       },
       phaseMatches: {
         ...(championship.phaseMatches ?? {}),
+        "Primeira fase": firstPhaseMatches,
+        "Segunda fase": secondPhaseMatches,
         "Semi final": semiMatches,
         "Final": finalMatches,
       },
@@ -3627,7 +3613,6 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
       accessTeams: semiWinners,
     };
   }
-
 
   function simulateGoiasFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
@@ -4769,6 +4754,21 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     ) {
       // Plano antigo/quebrado do Amazonas: descarta somente o plano interno
       // e recria o calendário correto. A temporada salva fora dele continua.
+      plan = undefined;
+      previousProgress = 0;
+    }
+
+    if (
+      current.state === "Ceará" &&
+      current.division === "1ª Divisão" &&
+      plan &&
+      (
+        (plan.phaseMatches?.["Primeira fase"] ?? []).length < 20 ||
+        (plan.phaseMatches?.["Segunda fase"] ?? []).length < 6
+      )
+    ) {
+      // Plano antigo/quebrado do Ceará: recria somente o plano interno,
+      // preservando o restante da temporada e das demais competições.
       plan = undefined;
       previousProgress = 0;
     }
