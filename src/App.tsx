@@ -5790,7 +5790,6 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         pernambucoGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoGroups,
         pernambucoSecondGroups: championship.state === "Pernambuco" ? undefined : championship.pernambucoSecondGroups,
         saoPauloPots: championship.state === "São Paulo" ? undefined : championship.saoPauloPots,
-        secondTurnWinner: undefined,
       };
     });
 
