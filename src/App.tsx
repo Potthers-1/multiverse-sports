@@ -1606,37 +1606,25 @@ export default function App() {
           const definition = INITIAL_CHAMPIONSHIPS.find((item) => item.id === champ.id);
           const base = definition
             ? {
+                // Os dados já simulados pelo usuário têm prioridade.
+                // A definição atual só completa metadados que estiverem ausentes.
+                ...definition,
                 ...champ,
                 name: definition.name,
                 country: definition.country,
                 state: definition.state,
                 division: definition.division,
                 teams: champ.teams?.length ? champ.teams : definition.teams,
-                phases: definition.phases,
-                rules: definition.rules,
+                phases: champ.phases?.length ? champ.phases : definition.phases,
+                rules: champ.rules?.length ? champ.rules : definition.rules,
               }
             : champ;
 
-          // Migra dados da versão anterior da simulação gradual.
-          // Progresso parcial antigo não deve ser reaproveitado no novo modelo individual.
-          if (base.simulationVersion !== 3 && !base.champion) {
-            return {
-              ...base,
-              phaseStandings: undefined,
-              phaseMatches: undefined,
-              standings: undefined,
-              accessTeams: undefined,
-              relegatedTeams: undefined,
-              simulationPlan: undefined,
-              simulationRound: undefined,
-              simulationTotalRounds: undefined,
-              simulationVersion: 3,
-            };
-          }
-
+          // Migração não destrutiva: uma atualização do sistema jamais
+          // apaga resultados, classificação, partidas ou progresso salvo.
           return {
             ...base,
-            simulationVersion: 3,
+            simulationVersion: Math.max(base.simulationVersion ?? 1, 4),
           };
         });
 
@@ -1702,7 +1690,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(championships));
+    try {
+      const serialized = JSON.stringify(championships);
+      const previous = localStorage.getItem(STORAGE_KEY);
+
+      // Backup automático independente do arquivo principal.
+      if (previous && previous !== serialized) {
+        localStorage.setItem(
+          "football-manager-championships-backup-v1",
+          previous
+        );
+      }
+
+      localStorage.setItem(STORAGE_KEY, serialized);
+    } catch {
+      // Mantém o sistema funcionando caso o armazenamento esteja cheio.
+    }
   }, [championships]);
 
   useEffect(() => {
