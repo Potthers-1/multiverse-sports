@@ -629,7 +629,6 @@ const CEARA_CHAMPIONSHIPS: Championship[] = [
       "Os 3 melhores colocados de cada grupo avançam à segunda fase.",
       "Na segunda fase, os seis classificados da primeira fase são sorteados automaticamente em dois novos grupos de 3, Grupos C e D.",
       "Os grupos C e D se enfrentam em turno único, totalizando 3 jogos por equipe.",
-      "Os grupos C e D se enfrentam em turno único, totalizando 3 jogos por equipe.",
       "Os 2 primeiros colocados de cada grupo da segunda fase avançam às semifinais.",
       "Semifinais em jogos de ida e volta.",
       "Final em jogos de ida e volta.",
@@ -7164,6 +7163,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                                 selected.cearaSecondGroups?.C ?? [],
                                 selected.cearaSecondGroups?.D ?? [],
                               ];
+                          const cearaPhaseMatches = selected.phaseMatches?.[currentPhase] ?? [];
+                          const fallbackTable = (group: string[]) =>
+                            calculateStandingFromMatches(
+                              cearaPhaseMatches.filter(
+                                (match) => group.includes(match.home) && group.includes(match.away)
+                              ),
+                              group
+                            );
                           const renderCearaGroup = (title: string, group: string[], table: Record<string, Standing>, qualifiedCount: number) => {
                             const ordered = sortStandingTeams(group, table);
                             return (
@@ -7198,8 +7205,22 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
 
                           return (
                             <div className="amazonas-groups-grid">
-                              {renderCearaGroup(groupKeys[0], groupTeams[0], isFirst ? selected.phaseStandings?.[groupKeys[0]] ?? {} : selected.phaseStandings?.[groupKeys[0]] ?? {}, isFirst ? 3 : 2)}
-                              {renderCearaGroup(groupKeys[1], groupTeams[1], isFirst ? selected.phaseStandings?.[groupKeys[1]] ?? {} : selected.phaseStandings?.[groupKeys[1]] ?? {}, isFirst ? 3 : 2)}
+                              {renderCearaGroup(
+                                groupKeys[0],
+                                groupTeams[0],
+                                Object.keys(selected.phaseStandings?.[groupKeys[0]] ?? {}).length
+                                  ? selected.phaseStandings?.[groupKeys[0]] ?? {}
+                                  : fallbackTable(groupTeams[0]),
+                                isFirst ? 3 : 2
+                              )}
+                              {renderCearaGroup(
+                                groupKeys[1],
+                                groupTeams[1],
+                                Object.keys(selected.phaseStandings?.[groupKeys[1]] ?? {}).length
+                                  ? selected.phaseStandings?.[groupKeys[1]] ?? {}
+                                  : fallbackTable(groupTeams[1]),
+                                isFirst ? 3 : 2
+                              )}
                             </div>
                           );
                         }
