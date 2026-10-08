@@ -4677,7 +4677,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     }
 
     let plan = current.simulationPlan;
-    let previousProgress = current.simulationVersion === 3
+    let previousProgress = (current.simulationVersion ?? 0) >= 4
       ? (current.simulationRound ?? 0)
       : 0;
 
