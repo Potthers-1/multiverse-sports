@@ -5944,6 +5944,64 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     );
   }
 
+  function resetChampionshipCurrentSeason(championshipId: number) {
+    const championship = championships.find((item) => item.id === championshipId);
+    if (!championship) return;
+
+    const confirmed = window.confirm(
+      `Zerar os jogos de "${championship.name}" na temporada ${championship.season}? Isso apagará apenas a simulação desta competição e não afetará os outros campeonatos.`
+    );
+    if (!confirmed) return;
+
+    const definition = INITIAL_CHAMPIONSHIPS.find((item) => item.id === championship.id);
+
+    setChampionships((current) =>
+      current.map((item) => {
+        if (item.id !== championshipId) return item;
+
+        return {
+          ...item,
+          teams: definition ? [...(definition.teams ?? [])] : [...(item.teams ?? [])],
+          standings: undefined,
+          phaseStandings: undefined,
+          phaseMatches: undefined,
+          firstTurnWinner: undefined,
+          secondTurnWinner: undefined,
+          champion: undefined,
+          accessTeams: undefined,
+          relegatedTeams: undefined,
+          simulationPlan: undefined,
+          simulationRound: undefined,
+          simulationTotalRounds: undefined,
+          simulationVersion: undefined,
+          serieDGroups: undefined,
+          amazonasGroups: item.state === "Amazonas" ? undefined : item.amazonasGroups,
+          cearaGroups: item.state === "Ceará" ? undefined : item.cearaGroups,
+          cearaSecondGroups: item.state === "Ceará" ? undefined : item.cearaSecondGroups,
+          paranaGroups: item.state === "Paraná" ? undefined : item.paranaGroups,
+          pernambucoGroups: item.state === "Pernambuco" ? undefined : item.pernambucoGroups,
+          pernambucoSecondGroups: item.state === "Pernambuco" ? undefined : item.pernambucoSecondGroups,
+          saoPauloPots: item.state === "São Paulo" ? undefined : item.saoPauloPots,
+        };
+      })
+    );
+
+    setSelectedPhase((current) => ({
+      ...current,
+      [championshipId]: championship.phases?.[0] ?? "Primeira fase",
+    }));
+    setSelectedSection((current) => ({
+      ...current,
+      [championshipId]: "competition",
+    }));
+
+    setSelectedClub(null);
+
+    window.alert(
+      `Os jogos de "${championship.name}" foram zerados. A temporada ${championship.season} continua a mesma e os demais campeonatos não foram alterados.`
+    );
+  }
+
   function resetSeasonTo2026() {
     const country = selectedCountry;
     if (
@@ -6359,6 +6417,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   title={selected.champion ? "Campeonato já concluído" : "Simular a quantidade de rodadas selecionada"}
                 >
                   ▶ Simular {simulationRounds} {simulationRounds === 1 ? "rodada" : "rodadas"}
+                </button>
+                <button
+                  className="danger-link"
+                  onClick={() => resetChampionshipCurrentSeason(selected.id)}
+                  title="Zerar somente os jogos desta competição na temporada atual"
+                >
+                  ↺ Zerar jogos
                 </button>
                 <button className="danger-link" onClick={() => deleteChampionship(selected.id)}>
                   Excluir campeonato
