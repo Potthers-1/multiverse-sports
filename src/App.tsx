@@ -3297,8 +3297,9 @@ export default function App() {
     const secondMatches:Matchup[]=[];
     for(let r=0;r<5;r++) for(let i=0;i<5;i++) secondMatches.push(match(secondGroups.A[i],secondGroups.B[(i+r)%5],r+1));
     pm["2º Turno - Fase de grupos"]=secondMatches;
-    ps["2º Turno - Grupo A"]=table(secondMatches,secondGroups.A);
-    ps["2º Turno - Grupo B"]=table(secondMatches,secondGroups.B);
+    const secondTableA=table(secondMatches,secondGroups.A), secondTableB=table(secondMatches,secondGroups.B);
+    ps["2º Turno - Grupo A"]=Object.fromEntries(secondGroups.A.map(club=>[club,secondTableA[club]]));
+    ps["2º Turno - Grupo B"]=Object.fromEntries(secondGroups.B.map(club=>[club,secondTableB[club]]));
     const a=ordered(secondGroups.A,ps["2º Turno - Grupo A"]), b=ordered(secondGroups.B,ps["2º Turno - Grupo B"]);
     const sp=ko([[a[1],a[2]],[b[1],b[2]]]); pm["2º Turno - Segunda fase"]=sp;
     const semi:Matchup[]=[];
