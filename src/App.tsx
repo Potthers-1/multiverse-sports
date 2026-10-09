@@ -4183,20 +4183,34 @@ function simulateRondoniaFirstDivision(championship: Championship): Championship
       firstPhaseMatches.push({ home, away, homeScore, awayScore, round });
     };
 
-    // 12 rodadas oficiais de calendário: confrontos entre os grupos em turno único.
-    // Cada par de grupos disputa quatro rodadas; a simulação parcial libera uma rodada por clique.
-    const pairings: [string[], string[]][] = [
-      [groups.A, groups.B], [groups.A, groups.C], [groups.B, groups.C],
-    ];
-    pairings.forEach(([left, right], pairIndex) => {
-      for (let round = 0; round < 4; round++) {
-        for (let i = 0; i < 4; i++) {
-          const home = left[i];
-          const away = right[(i + round) % 4];
-          play(home, away, pairIndex * 4 + round + 1);
-        }
-      }
+    // Monta oito rodadas completas: cada clube enfrenta os quatro times de cada
+    // um dos outros grupos, uma vez, sem disputar duas partidas na mesma rodada.
+    const pending: [string, string][] = [];
+    [[groups.A, groups.B], [groups.A, groups.C], [groups.B, groups.C]].forEach(([left, right]) => {
+      left.forEach((home) => right.forEach((away) => pending.push([home, away])));
     });
+    for (let round = 1; round <= 8; round++) {
+      const used = new Set<string>();
+      const selected: [string, string][] = [];
+      const chooseMatching = (remaining: [string, string][]): boolean => {
+        if (remaining.length === 0) return true;
+        const [home, away] = remaining[0];
+        if (!used.has(home) && !used.has(away)) {
+          used.add(home); used.add(away); selected.push([home, away]);
+          const rest = remaining.filter(([h, a]) => h !== home && a !== away);
+          if (chooseMatching(rest)) return true;
+          selected.pop(); used.delete(home); used.delete(away);
+        }
+        return chooseMatching(remaining.slice(1));
+      };
+      chooseMatching(pending);
+      if (!selected.length) break;
+      selected.forEach(([home, away]) => play(home, away, round));
+      for (const [home, away] of selected) {
+        const index = pending.findIndex(([h, a]) => h === home && a === away);
+        if (index >= 0) pending.splice(index, 1);
+      }
+    }
 
     const groupAOrdered = sortStandingTeams(groups.A, table);
     const groupBOrdered = sortStandingTeams(groups.B, table);
