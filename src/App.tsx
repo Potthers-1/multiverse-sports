@@ -3257,30 +3257,57 @@ export default function App() {
   }
 
   function simulatePernambucoFirstDivision(championship: Championship): Championship {
-    const pre = ["Sport - PE","Retrô - PE","Decisão - PE","Náutico - PE","Santa Cruz - PE","Maguary - PE","Vitória das Tabocas - PE"];
-    const first = (championship.teams??[]).filter(t=>!pre.includes(t)).slice(0,24);
-    if(first.length!==24) return championship;
-    const shuffle=(a:string[])=>{const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;};
-    const groups=championship.pernambucoGroups??(()=>{const d=shuffle(first);return {A:d.slice(0,6),B:d.slice(6,12),C:d.slice(12,18),D:d.slice(18,24)}})();
-    const sim=(list:string[])=>{const table:Record<string,Standing>={};const matches:Matchup[]=[];list.forEach(t=>table[t]={j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0});for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){const home=list[i],away=list[j],hg=Math.floor(Math.random()*5),ag=Math.floor(Math.random()*5),h=table[home],a=table[away];h.j++;a.j++;h.gp+=hg;h.gc+=ag;h.sg=h.gp-h.gc;a.gp+=ag;a.gc+=hg;a.sg=a.gp-a.gc;if(hg>ag){h.v++;a.d++;h.pts+=3}else if(hg<ag){a.v++;h.d++;a.pts+=3}else{h.e++;a.e++;h.pts++;a.pts++}matches.push({home,away,homeScore:hg,awayScore:ag})}return {table,matches};};
-    const ps:Record<string,Record<string,Standing>>={},pm:Record<string,Matchup[]>={};
-    for(const l of ["A","B","C","D"] as const){const r=sim(groups[l]);ps[`1º Turno - Grupo ${l}`]=r.table;pm["1º Turno - Fase de grupos"]=[...(pm["1º Turno - Fase de grupos"]??[]),...r.matches];}
-    const g={A:sortStandingTeams(groups.A,ps["1º Turno - Grupo A"]),B:sortStandingTeams(groups.B,ps["1º Turno - Grupo B"]),C:sortStandingTeams(groups.C,ps["1º Turno - Grupo C"]),D:sortStandingTeams(groups.D,ps["1º Turno - Grupo D"])};
-    const win=(m:Matchup)=>m.penaltyWinner??((m.homeScore??0)>(m.awayScore??0)?m.home:m.away);
-    const ko=(pairs:[string,string][])=>pairs.map(([h,a])=>resolveKnockoutTie(simulateKnockoutMatch(h,a)));
+    const teams = championship.teams ?? [];
+    const reserved = ["Sport - PE","Retrô - PE","Decisão - PE","Náutico - PE","Santa Cruz - PE","Maguary - PE","Vitória das Tabocas - PE"];
+    const first = teams.filter(t => !reserved.includes(t));
+    if (first.length !== 24 || reserved.some(t => !teams.includes(t))) return championship;
+    const shuffle = (items: string[]) => { const a=[...items]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+    const groups = championship.pernambucoGroups ?? (()=>{const a=shuffle(first);return {A:a.slice(0,6),B:a.slice(6,12),C:a.slice(12,18),D:a.slice(18,24)}})();
+    const pm: Record<string, Matchup[]> = {};
+    const ps: Record<string, Record<string, Standing>> = {};
+    const match=(home:string,away:string,round:number):Matchup=>({home,away,round,homeScore:Math.floor(Math.random()*5),awayScore:Math.floor(Math.random()*5)});
+    const table=(ms:Matchup[],ts:string[])=>calculateStandingFromMatches(ms,ts);
+    const ordered=(ts:string[],t:Record<string,Standing>)=>sortStandingTeams(ts,t);
+    const win=(m:Matchup)=>resolveKnockoutTie(m);
+    const ko=(pairs:[string,string][])=>pairs.map(([a,b])=>win(match(a,b,1)));
+    const firstMatches:Matchup[]=[];
+    for(const key of ["A","B","C","D"] as const){
+      const g=groups[key];
+      for(let r=0;r<5;r++){
+        const rotation=[...g];
+        for(let k=0;k<r;k++) rotation.splice(1,0,rotation.pop()!);
+        for(let i=0;i<3;i++) firstMatches.push(match(rotation[i],rotation[5-i],r+1));
+      }
+      ps[`1º Turno - Grupo ${key}`]=table(firstMatches.filter(m=>g.includes(m.home)&&g.includes(m.away)),g);
+    }
+    pm["1º Turno - Fase de grupos"]=firstMatches;
+    const g={A:ordered(groups.A,ps["1º Turno - Grupo A"]),B:ordered(groups.B,ps["1º Turno - Grupo B"]),C:ordered(groups.C,ps["1º Turno - Grupo C"]),D:ordered(groups.D,ps["1º Turno - Grupo D"])};
     const oit=ko([[g.A[0],g.B[3]],[g.A[1],g.B[2]],[g.A[2],g.B[1]],[g.A[3],g.B[0]],[g.C[0],g.D[3]],[g.C[1],g.D[2]],[g.C[2],g.D[1]],[g.C[3],g.D[0]]]);
     pm["1º Turno - Oitavas de final"]=oit;
     const q=ko([[win(oit[0]),win(oit[3])],[win(oit[1]),win(oit[2])],[win(oit[4]),win(oit[7])],[win(oit[5]),win(oit[6])]]);
     pm["1º Turno - Quartas de final"]=q;
-    const qr=q.map(win), quad=sim(qr); ps["1º Turno - Quadrangular final"]=quad.table;pm["1º Turno - Quadrangular final"]=quad.matches;
-    const qord=sortStandingTeams(qr,quad.table), second=shuffle([...qord.slice(0,3),...pre]), sg={A:second.slice(0,5),B:second.slice(5,10)};
-    ps["2º Turno - Grupo A"]={};ps["2º Turno - Grupo B"]={};const sm:Matchup[]=[];
-    for(const h of sg.A)for(const a of sg.B){const hg=Math.floor(Math.random()*5),ag=Math.floor(Math.random()*5),ht=(ps["2º Turno - Grupo A"][h]??={j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0}),at=(ps["2º Turno - Grupo B"][a]??={j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0});ht.j++;at.j++;ht.gp+=hg;ht.gc+=ag;ht.sg=ht.gp-ht.gc;at.gp+=ag;at.gc+=hg;at.sg=at.gp-at.gc;if(hg>ag){ht.v++;at.d++;ht.pts+=3}else if(hg<ag){at.v++;ht.d++;at.pts+=3}else{ht.e++;at.e++;ht.pts++;at.pts++}sm.push({home:h,away:a,homeScore:hg,awayScore:ag})}
-    pm["2º Turno - Fase de grupos"]=sm;
-    const A=sortStandingTeams(sg.A,ps["2º Turno - Grupo A"]),B=sortStandingTeams(sg.B,ps["2º Turno - Grupo B"]),sp=ko([[A[1],A[2]],[B[1],B[2]]]);pm["2º Turno - Segunda fase"]=sp;
-    const l11=simulateKnockoutMatch(A[0],win(sp[0])),l12=simulateKnockoutMatch(win(sp[0]),A[0]),l21=simulateKnockoutMatch(B[0],win(sp[1])),l22=simulateKnockoutMatch(win(sp[1]),B[0]);pm["2º Turno - Semifinal"]=[l11,l12,l21,l22];
-    const sw1=resolveTwoLeggedTie(l11,l12),sw2=resolveTwoLeggedTie(l21,l22),f1=simulateKnockoutMatch(sw1,sw2),f2=simulateKnockoutMatch(sw2,sw1),champion=resolveTwoLeggedTie(f1,f2);pm["2º Turno - Final"]=[f1,f2];
-    return {...championship,pernambucoGroups:groups,pernambucoSecondGroups:sg,standings:quad.table,phaseStandings:ps,phaseMatches:pm,champion};
+    const qWinners=q.map(win), quad:Matchup[]=[];
+    const quadPairs:[[number,number],[number,number]][]=[[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]]];
+    quadPairs.forEach((round,r)=>round.forEach(([a,b])=>quad.push(match(qWinners[a],qWinners[b],r+1))));
+    pm["1º Turno - Quadrangular final"]=quad;
+    ps["1º Turno - Quadrangular final"]=table(quad,qWinners);
+    const quadOrder=ordered(qWinners,ps["1º Turno - Quadrangular final"]);
+    const secondTeams=shuffle([...quadOrder.slice(0,3),...reserved]);
+    const secondGroups={A:secondTeams.slice(0,5),B:secondTeams.slice(5,10)};
+    const secondMatches:Matchup[]=[];
+    for(let r=0;r<5;r++) for(let i=0;i<5;i++) secondMatches.push(match(secondGroups.A[i],secondGroups.B[(i+r)%5],r+1));
+    pm["2º Turno - Fase de grupos"]=secondMatches;
+    ps["2º Turno - Grupo A"]=table(secondMatches,secondGroups.A);
+    ps["2º Turno - Grupo B"]=table(secondMatches,secondGroups.B);
+    const a=ordered(secondGroups.A,ps["2º Turno - Grupo A"]), b=ordered(secondGroups.B,ps["2º Turno - Grupo B"]);
+    const sp=ko([[a[1],a[2]],[b[1],b[2]]]); pm["2º Turno - Segunda fase"]=sp;
+    const semi:Matchup[]=[];
+    [[a[0],win(sp[0])],[b[0],win(sp[1])]].forEach(([x,y])=>{semi.push(match(x,y,1),match(y,x,2));});
+    pm["2º Turno - Semifinal"]=semi;
+    const finalists=[resolveTwoLeggedTie(semi[0],semi[1]),resolveTwoLeggedTie(semi[2],semi[3])];
+    const final=[match(finalists[0],finalists[1],1),match(finalists[1],finalists[0],2)];
+    pm["2º Turno - Final"]=final;
+    return {...championship,pernambucoGroups:groups,pernambucoSecondGroups:secondGroups,standings:ps["1º Turno - Quadrangular final"],phaseStandings:ps,phaseMatches:pm,champion:resolveTwoLeggedTie(final[0],final[1])};
   }
 
   function simulateParanaFirstDivision(championship: Championship): Championship {
@@ -4828,6 +4855,22 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         phaseStandings["Primeira fase - Grupo C"] = standingsForGroup(groups.C);
       }
 
+      if (plan.state === "Pernambuco" && plan.division === "1ª Divisão") {
+        if (plan.pernambucoGroups && phase === "1º Turno - Fase de grupos") {
+          for (const key of ["A","B","C","D"] as const) {
+            const group = plan.pernambucoGroups[key];
+            phaseStandings[`1º Turno - Grupo ${key}`] = calculateStandingFromMatches(matches.filter(m => group.includes(m.home) && group.includes(m.away)), group);
+          }
+        }
+        if (plan.pernambucoSecondGroups && phase === "2º Turno - Fase de grupos") {
+          for (const key of ["A","B"] as const) {
+            const group = plan.pernambucoSecondGroups[key];
+            const full = calculateStandingFromMatches(matches.filter(m => group.includes(m.home) || group.includes(m.away)), group);
+            phaseStandings[`2º Turno - Grupo ${key}`] = Object.fromEntries(group.map(club => [club, full[club]]));
+          }
+        }
+      }
+
       if (plan.state === "Ceará" && plan.division === "1ª Divisão") {
         if (phase === "Primeira fase" && plan.cearaGroups) {
           const matchesForGroup = (group: string[]) =>
@@ -4933,6 +4976,18 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     }
 
     if (
+      current.state === "Pernambuco" && current.division === "1ª Divisão" && plan &&
+      ((current.simulationVersion ?? 0) < 7 ||
+       (plan.phaseMatches?.["1º Turno - Fase de grupos"] ?? []).length !== 60 ||
+       (plan.phaseMatches?.["1º Turno - Oitavas de final"] ?? []).length !== 8 ||
+       (plan.phaseMatches?.["1º Turno - Quartas de final"] ?? []).length !== 4 ||
+       (plan.phaseMatches?.["1º Turno - Quadrangular final"] ?? []).length !== 6 ||
+       (plan.phaseMatches?.["2º Turno - Fase de grupos"] ?? []).length !== 25 ||
+       (plan.phaseMatches?.["2º Turno - Semifinal"] ?? []).length !== 4 ||
+       (plan.phaseMatches?.["2º Turno - Final"] ?? []).length !== 2)
+    ) { plan = undefined; previousProgress = 0; }
+
+    if (
       current.state === "Paraná" &&
       current.division === "1ª Divisão" &&
       plan &&
@@ -5032,7 +5087,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       champion: undefined,
       accessTeams: undefined,
       relegatedTeams: undefined,
-      simulationVersion: current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
+      simulationVersion: current.state === "Pernambuco" ? 7 : current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
     };
     const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
