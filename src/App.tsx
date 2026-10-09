@@ -4160,66 +4160,55 @@ function simulateRondoniaFirstDivision(championship: Championship): Championship
       }
       return result;
     };
-
-    const groups = championship.minasGeraisGroups
-      ? championship.minasGeraisGroups
-      : (() => {
-          const drawn = shuffle(teams);
-          return {
-            A: drawn.slice(0, 4),
-            B: drawn.slice(4, 8),
-            C: drawn.slice(8, 12),
-          };
-        })();
+    const groups = championship.minasGeraisGroups ?? (() => {
+      const drawn = shuffle(teams);
+      return { A: drawn.slice(0, 4), B: drawn.slice(4, 8), C: drawn.slice(8, 12) };
+    })();
 
     const table: Record<string, Standing> = {};
     [...groups.A, ...groups.B, ...groups.C].forEach((team) => {
       table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
     });
-
-    const play = (home: string, away: string) => {
-      const homeGoals = Math.floor(Math.random() * 5);
-      const awayGoals = Math.floor(Math.random() * 5);
-      const h = table[home];
-      const a = table[away];
-
+    const firstPhaseMatches: Matchup[] = [];
+    const play = (home: string, away: string, round: number) => {
+      const homeScore = Math.floor(Math.random() * 5);
+      const awayScore = Math.floor(Math.random() * 5);
+      const h = table[home], a = table[away];
       h.j++; a.j++;
-      h.gp += homeGoals; h.gc += awayGoals; h.sg = h.gp - h.gc;
-      a.gp += awayGoals; a.gc += homeGoals; a.sg = a.gp - a.gc;
-
-      if (homeGoals > awayGoals) {
-        h.v++; a.d++; h.pts += 3;
-      } else if (homeGoals < awayGoals) {
-        a.v++; h.d++; a.pts += 3;
-      } else {
-        h.e++; a.e++; h.pts++; a.pts++;
-      }
+      h.gp += homeScore; h.gc += awayScore; h.sg = h.gp - h.gc;
+      a.gp += awayScore; a.gc += homeScore; a.sg = a.gp - a.gc;
+      if (homeScore > awayScore) { h.v++; a.d++; h.pts += 3; }
+      else if (homeScore < awayScore) { a.v++; h.d++; a.pts += 3; }
+      else { h.e++; a.e++; h.pts++; a.pts++; }
+      firstPhaseMatches.push({ home, away, homeScore, awayScore, round });
     };
 
-    // Cada clube enfrenta os 8 clubes dos outros dois grupos.
-    for (const home of groups.A) {
-      for (const away of [...groups.B, ...groups.C]) play(home, away);
-    }
-    for (const home of groups.B) {
-      for (const away of groups.C) play(home, away);
-    }
+    // 12 rodadas oficiais de calendário: confrontos entre os grupos em turno único.
+    // Cada par de grupos disputa quatro rodadas; a simulação parcial libera uma rodada por clique.
+    const pairings: [string[], string[]][] = [
+      [groups.A, groups.B], [groups.A, groups.C], [groups.B, groups.C],
+    ];
+    pairings.forEach(([left, right], pairIndex) => {
+      for (let round = 0; round < 4; round++) {
+        for (let i = 0; i < 4; i++) {
+          const home = left[i];
+          const away = right[(i + round) % 4];
+          play(home, away, pairIndex * 4 + round + 1);
+        }
+      }
+    });
 
     const groupAOrdered = sortStandingTeams(groups.A, table);
     const groupBOrdered = sortStandingTeams(groups.B, table);
     const groupCOrdered = sortStandingTeams(groups.C, table);
-
     const leaders = [groupAOrdered[0], groupBOrdered[0], groupCOrdered[0]];
     const seconds = [groupAOrdered[1], groupBOrdered[1], groupCOrdered[1]];
     const bestSecond = sortStandingTeams(seconds, table)[0];
-
     const semiTeams = leaders.filter((team) => team !== bestSecond);
     const rankedLeaders = sortStandingTeams(semiTeams, table);
-
     const semiPairs: [string, string][] = [
-      [rankedLeaders[0], bestSecond],
-      [rankedLeaders[1], rankedLeaders[2]],
+      [rankedLeaders[0], bestSecond], [rankedLeaders[1], rankedLeaders[2]],
     ];
-
     const semiMatches: Matchup[] = [];
     const semiWinners: string[] = [];
     for (const [teamA, teamB] of semiPairs) {
@@ -4228,17 +4217,12 @@ function simulateRondoniaFirstDivision(championship: Championship): Championship
       semiMatches.push(leg1, leg2);
       semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
     }
-
     let finalMatches: Matchup[] = [];
     let champion: string | undefined;
     if (semiWinners.length === 2) {
       const final = simulateSingleKnockoutMatch(semiWinners[0], semiWinners[1]);
       finalMatches = [final];
-      champion = final.penaltyWinner ?? (
-        (final.homeScore ?? 0) > (final.awayScore ?? 0)
-          ? final.home
-          : final.away
-      );
+      champion = final.penaltyWinner ?? ((final.homeScore ?? 0) > (final.awayScore ?? 0) ? final.home : final.away);
     }
 
     return {
@@ -4247,12 +4231,14 @@ function simulateRondoniaFirstDivision(championship: Championship): Championship
       standings: table,
       phaseStandings: {
         ...(championship.phaseStandings ?? {}),
+        "Primeira fase": table,
         "Primeira fase - Grupo A": Object.fromEntries(groupAOrdered.map((team) => [team, table[team]])),
         "Primeira fase - Grupo B": Object.fromEntries(groupBOrdered.map((team) => [team, table[team]])),
         "Primeira fase - Grupo C": Object.fromEntries(groupCOrdered.map((team) => [team, table[team]])),
       },
       phaseMatches: {
         ...(championship.phaseMatches ?? {}),
+        "Primeira fase": firstPhaseMatches,
         "Semi final": semiMatches,
         "Final": finalMatches,
       },
