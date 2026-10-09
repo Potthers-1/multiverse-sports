@@ -4304,7 +4304,7 @@ function simulateRondoniaFirstDivision(championship: Championship): Championship
 
 function simulateRioGrandeDoSulFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
-    if (teams.length < 12) return championship;
+    if (teams.length !== 12) return championship;
 
     const shuffle = (items: string[]) => {
       const result = [...items];
@@ -4315,86 +4315,69 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       return result;
     };
 
-    const groups = championship.rioGrandeDoSulGroups
-      ? championship.rioGrandeDoSulGroups
-      : (() => {
-          const drawn = shuffle(teams);
-          return { A: drawn.slice(0, 6), B: drawn.slice(6, 12) };
-        })();
+    // Sorteio estável: não mudar os grupos a cada clique de simulação.
+    const groups = championship.rioGrandeDoSulGroups ?? (() => {
+      const drawn = shuffle(teams);
+      return { A: drawn.slice(0, 6), B: drawn.slice(6, 12) };
+    })();
 
-    const table: Record<string, Standing> = {};
-    [...groups.A, ...groups.B].forEach((team) => {
-      table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-    });
-
-    // Primeira fase: Grupo A x Grupo B, turno único.
-    for (const home of groups.A) {
-      for (const away of groups.B) {
-        const homeGoals = Math.floor(Math.random() * 5);
-        const awayGoals = Math.floor(Math.random() * 5);
-        const h = table[home];
-        const a = table[away];
-
-        h.j++; a.j++;
-        h.gp += homeGoals; h.gc += awayGoals; h.sg = h.gp - h.gc;
-        a.gp += awayGoals; a.gc += homeGoals; a.sg = a.gp - a.gc;
-
-        if (homeGoals > awayGoals) {
-          h.v++; a.d++; h.pts += 3;
-        } else if (homeGoals < awayGoals) {
-          a.v++; h.d++; a.pts += 3;
-        } else {
-          h.e++; a.e++; h.pts++; a.pts++;
-        }
+    // 6 rodadas exatas, com 6 partidas por rodada; cada clube joga uma vez
+    // por rodada e enfrenta os seis clubes do grupo oposto uma única vez.
+    const firstPhaseMatches: Matchup[] = [];
+    for (let round = 0; round < 6; round++) {
+      for (let index = 0; index < 6; index++) {
+        firstPhaseMatches.push({
+          home: groups.A[index],
+          away: groups.B[(index + round) % 6],
+          homeScore: Math.floor(Math.random() * 5),
+          awayScore: Math.floor(Math.random() * 5),
+          round: round + 1,
+        });
       }
     }
 
-    const groupAOrdered = sortStandingTeams(groups.A, table);
-    const groupBOrdered = sortStandingTeams(groups.B, table);
-    const qualifiedA = groupAOrdered.slice(0, 4);
-    const qualifiedB = groupBOrdered.slice(0, 4);
+    const table = calculateStandingFromMatches(firstPhaseMatches, teams);
+    const orderedA = sortStandingTeams(groups.A, table);
+    const orderedB = sortStandingTeams(groups.B, table);
+    const qualifiedA = orderedA.slice(0, 4);
+    const qualifiedB = orderedB.slice(0, 4);
 
-    // Quartas: jogo único. Confrontos entre equipes classificadas.
+    // Quartas em jogo único, conforme o regulamento; empate vai aos pênaltis.
     const quarterPairs: [string, string][] = [
       [qualifiedA[0], qualifiedB[3]],
       [qualifiedA[1], qualifiedB[2]],
       [qualifiedB[0], qualifiedA[3]],
       [qualifiedB[1], qualifiedA[2]],
     ];
-
     const quarterMatches: Matchup[] = [];
     const quarterWinners: string[] = [];
     for (const [home, away] of quarterPairs) {
-      const match = simulateSingleKnockoutMatch(home, away);
+      const match = { ...simulateSingleKnockoutMatch(home, away), round: 1 };
       quarterMatches.push(match);
-      const winner = match.penaltyWinner ?? (
+      quarterWinners.push(match.penaltyWinner ?? (
         (match.homeScore ?? 0) > (match.awayScore ?? 0) ? home : away
-      );
-      quarterWinners.push(winner);
+      ));
     }
 
-    const semiPairs: [string, string][] = [
+    const twoLeggedRound = (pairs: [string, string][]) => {
+      const matches: Matchup[] = [];
+      const winners: string[] = [];
+      for (const [home, away] of pairs) {
+        const first = { ...simulateKnockoutMatch(home, away), round: 1 };
+        const second = { ...simulateKnockoutMatch(away, home), round: 2 };
+        matches.push(first, second);
+        winners.push(resolveTwoLeggedTie(first, second));
+      }
+      return { matches, winners };
+    };
+
+    const semifinals = twoLeggedRound([
       [quarterWinners[0], quarterWinners[3]],
       [quarterWinners[1], quarterWinners[2]],
-    ];
-
-    const semiMatches: Matchup[] = [];
-    const semiWinners: string[] = [];
-    for (const [teamA, teamB] of semiPairs) {
-      const leg1 = simulateKnockoutMatch(teamA, teamB);
-      const leg2 = simulateKnockoutMatch(teamB, teamA);
-      semiMatches.push(leg1, leg2);
-      semiWinners.push(resolveTwoLeggedTie(leg1, leg2));
-    }
-
-    const finalMatches: Matchup[] = [];
-    let champion: string | undefined;
-    if (semiWinners.length === 2) {
-      const leg1 = simulateKnockoutMatch(semiWinners[0], semiWinners[1]);
-      const leg2 = simulateKnockoutMatch(semiWinners[1], semiWinners[0]);
-      finalMatches.push(leg1, leg2);
-      champion = resolveTwoLeggedTie(leg1, leg2);
-    }
+    ]);
+    const final = twoLeggedRound([[semifinals.winners[0], semifinals.winners[1]]]);
+    const groupTable = (group: string[]) =>
+      Object.fromEntries(group.map((club) => [club, table[club]]));
 
     return {
       ...championship,
@@ -4402,16 +4385,18 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       standings: table,
       phaseStandings: {
         ...(championship.phaseStandings ?? {}),
-        "Primeira fase - Grupo A": Object.fromEntries(groupAOrdered.map((team) => [team, table[team]])),
-        "Primeira fase - Grupo B": Object.fromEntries(groupBOrdered.map((team) => [team, table[team]])),
+        "Primeira fase": table,
+        "Primeira fase - Grupo A": groupTable(orderedA),
+        "Primeira fase - Grupo B": groupTable(orderedB),
       },
       phaseMatches: {
-        ...(championship.phaseMatches ?? {}),
+        "Primeira fase": firstPhaseMatches,
         "Quartas de final": quarterMatches,
-        "Semi final": semiMatches,
-        "Final": finalMatches,
+        "Semi final": semifinals.matches,
+        "Final": final.matches,
       },
-      champion,
+      accessTeams: [...qualifiedA, ...qualifiedB],
+      champion: final.winners[0],
     };
   }
 
@@ -4713,6 +4698,24 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       }
 
       if (
+        plan.state === "Rio Grande do Sul" &&
+        plan.division === "1ª Divisão" &&
+        phase === "Primeira fase" &&
+        plan.rioGrandeDoSulGroups
+      ) {
+        const groups = plan.rioGrandeDoSulGroups;
+        const standingsForGroup = (group: string[]) => {
+          const groupMatches = matches.filter(
+            (match) => group.includes(match.home) || group.includes(match.away)
+          );
+          const fullTable = calculateStandingFromMatches(groupMatches, group);
+          return Object.fromEntries(group.map((club) => [club, fullTable[club]]));
+        };
+        phaseStandings["Primeira fase - Grupo A"] = standingsForGroup(groups.A);
+        phaseStandings["Primeira fase - Grupo B"] = standingsForGroup(groups.B);
+      }
+
+      if (
         plan.state === "Paraná" &&
         plan.division === "1ª Divisão" &&
         phase === "Primeira fase" &&
@@ -4829,6 +4832,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       simulationTotalRounds: allUnits.length,
       simulationPlan: complete ? undefined : plan,
       simulationVersion:
+        plan.state === "Rio Grande do Sul" && plan.division === "1ª Divisão" ? 7 :
+        plan.state === "Rio de Janeiro" && plan.division === "1ª Divisão" ? 8 :
+        plan.state === "Pernambuco" && plan.division === "1ª Divisão" ? 7 :
         plan.state === "Paraná" && plan.division === "1ª Divisão" ? 6 :
         plan.state === "Minas Gerais" && plan.division === "1ª Divisão" ? 5 : 4,
     };
@@ -4921,6 +4927,24 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       previousProgress = 0;
     }
 
+    if (
+      current.state === "Rio Grande do Sul" &&
+      current.division === "1ª Divisão" &&
+      plan &&
+      (
+        (current.simulationVersion ?? 0) < 7 ||
+        (plan.phaseMatches?.["Primeira fase"] ?? []).length !== 36 ||
+        (plan.phaseMatches?.["Quartas de final"] ?? []).length !== 4 ||
+        (plan.phaseMatches?.["Semi final"] ?? []).length !== 4 ||
+        (plan.phaseMatches?.["Final"] ?? []).length !== 2
+      )
+    ) {
+      // Descarta somente o plano interno antigo do RS, preservando os demais
+      // campeonatos e os dados salvos fora do plano de simulação.
+      plan = undefined;
+      previousProgress = 0;
+    }
+
     if (current.state === "Rio de Janeiro" && current.division === "1ª Divisão" && plan &&
       ((current.simulationVersion ?? 0) < 8 ||
        (plan.phaseMatches?.["Taça Guanabara"] ?? []).length !== 36 ||
@@ -4964,7 +4988,12 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         simulationPlan: undefined,
         simulationRound: undefined,
         simulationTotalRounds: undefined,
-        simulationVersion: 5,
+        simulationVersion:
+          current.state === "Rio Grande do Sul" && current.division === "1ª Divisão" ? 7 :
+          current.state === "Rio de Janeiro" && current.division === "1ª Divisão" ? 8 :
+          current.state === "Pernambuco" && current.division === "1ª Divisão" ? 7 :
+          current.state === "Paraná" && current.division === "1ª Divisão" ? 6 :
+          current.state === "Minas Gerais" && current.division === "1ª Divisão" ? 5 : 5,
       };
       previousProgress = 0;
     } else {
