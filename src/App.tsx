@@ -4012,62 +4012,46 @@ function simulateRondoniaFirstDivision(championship: Championship): Championship
     const teams = championship.teams ?? [];
     if (teams.length !== 7) return championship;
 
-    const standings: Record<string, Standing> = {};
-    teams.forEach((team) => {
-      standings[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-    });
-
-    // Turno + returno: cada clube enfrenta os outros 6 duas vezes.
-    for (let leg = 0; leg < 2; leg++) {
-      for (let i = 0; i < teams.length; i++) {
-        for (let j = i + 1; j < teams.length; j++) {
-          const home = leg === 0 ? teams[i] : teams[j];
-          const away = leg === 0 ? teams[j] : teams[i];
-          const homeGoals = Math.floor(Math.random() * 5);
-          const awayGoals = Math.floor(Math.random() * 5);
-
-          standings[home].j++;
-          standings[away].j++;
-          standings[home].gp += homeGoals;
-          standings[home].gc += awayGoals;
-          standings[away].gp += awayGoals;
-          standings[away].gc += homeGoals;
-
-          if (homeGoals > awayGoals) {
-            standings[home].v++;
-            standings[home].pts += 3;
-            standings[away].d++;
-          } else if (homeGoals < awayGoals) {
-            standings[away].v++;
-            standings[away].pts += 3;
-            standings[home].d++;
-          } else {
-            standings[home].e++;
-            standings[away].e++;
-            standings[home].pts++;
-            standings[away].pts++;
-          }
-        }
+    // Calendário circular de 12 rodadas para 7 clubes: cada rodada tem
+    // 3 partidas e um clube de folga; cada par se enfrenta em casa e fora.
+    const rotating = [...teams];
+    const firstPhaseMatches: Matchup[] = [];
+    for (let round = 0; round < 6; round++) {
+      for (let i = 0; i < 3; i++) {
+        const left = rotating[i];
+        const right = rotating[6 - i];
+        firstPhaseMatches.push({
+          home: left,
+          away: right,
+          homeScore: Math.floor(Math.random() * 5),
+          awayScore: Math.floor(Math.random() * 5),
+          round: round + 1,
+        });
       }
+      rotating.splice(1, 0, rotating.pop()!);
     }
-
-    Object.values(standings).forEach((row) => {
-      row.sg = row.gp - row.gc;
-    });
-
+    const firstLeg = [...firstPhaseMatches];
+    const secondLeg = firstLeg.map((match) => ({
+      home: match.away,
+      away: match.home,
+      homeScore: Math.floor(Math.random() * 5),
+      awayScore: Math.floor(Math.random() * 5),
+      round: (match.round ?? 0) + 6,
+    }));
+    const allFirstPhaseMatches = [...firstLeg, ...secondLeg];
+    const standings = calculateStandingFromMatches(allFirstPhaseMatches, teams);
     const ordered = sortStandingTeams(teams, standings);
     const qualified = ordered.slice(0, 4);
 
-    const playTwoLegs = (home: string, away: string) => {
-      const leg1 = simulateKnockoutMatch(home, away);
-      const leg2 = simulateKnockoutMatch(away, home);
-      const winner = resolveTwoLeggedTie(leg1, leg2);
-      return { matches: [leg1, leg2], winner };
+    const playTwoLegs = (home: string, away: string, startRound: number) => {
+      const leg1 = { ...simulateKnockoutMatch(home, away), round: startRound };
+      const leg2 = { ...simulateKnockoutMatch(away, home), round: startRound + 1 };
+      return { matches: [leg1, leg2], winner: resolveTwoLeggedTie(leg1, leg2) };
     };
 
-    const semi1 = playTwoLegs(qualified[0], qualified[3]);
-    const semi2 = playTwoLegs(qualified[1], qualified[2]);
-    const final = playTwoLegs(semi1.winner, semi2.winner);
+    const semi1 = playTwoLegs(qualified[0], qualified[3], 1);
+    const semi2 = playTwoLegs(qualified[1], qualified[2], 2);
+    const final = playTwoLegs(semi1.winner, semi2.winner, 1);
 
     return {
       ...championship,
@@ -4077,10 +4061,11 @@ function simulateRondoniaFirstDivision(championship: Championship): Championship
         "Primeira fase": standings,
       },
       phaseMatches: {
-        ...(championship.phaseMatches ?? {}),
+        "Primeira fase": allFirstPhaseMatches,
         "Semi final": [...semi1.matches, ...semi2.matches],
         "Final": final.matches,
       },
+      accessTeams: qualified,
       champion: final.winner,
     };
   }
@@ -4698,6 +4683,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       }
 
       if (
+        plan.state === "Rondônia" &&
+        plan.division === "1ª Divisão" &&
+        phase === "Primeira fase"
+      ) {
+        phaseStandings["Primeira fase"] = calculateStandingFromMatches(matches, plan.teams ?? []);
+      }
+
+      if (
         plan.state === "Rio Grande do Sul" &&
         plan.division === "1ª Divisão" &&
         phase === "Primeira fase" &&
@@ -4832,6 +4825,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       simulationTotalRounds: allUnits.length,
       simulationPlan: complete ? undefined : plan,
       simulationVersion:
+        plan.state === "Rondônia" && plan.division === "1ª Divisão" ? 8 :
         plan.state === "Rio Grande do Sul" && plan.division === "1ª Divisão" ? 7 :
         plan.state === "Rio de Janeiro" && plan.division === "1ª Divisão" ? 8 :
         plan.state === "Pernambuco" && plan.division === "1ª Divisão" ? 7 :
@@ -4928,6 +4922,23 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     }
 
     if (
+      current.state === "Rondônia" &&
+      current.division === "1ª Divisão" &&
+      plan &&
+      (
+        (current.simulationVersion ?? 0) < 8 ||
+        (plan.phaseMatches?.["Primeira fase"] ?? []).length !== 42 ||
+        (plan.phaseMatches?.["Semi final"] ?? []).length !== 4 ||
+        (plan.phaseMatches?.["Final"] ?? []).length !== 2
+      )
+    ) {
+      // Reconstrói somente o plano de simulação de Rondônia; preserva os
+      // outros campeonatos e os dados da temporada fora do plano.
+      plan = undefined;
+      previousProgress = 0;
+    }
+
+    if (
       current.state === "Rio Grande do Sul" &&
       current.division === "1ª Divisão" &&
       plan &&
@@ -4989,6 +5000,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         simulationRound: undefined,
         simulationTotalRounds: undefined,
         simulationVersion:
+          current.state === "Rondônia" && current.division === "1ª Divisão" ? 8 :
           current.state === "Rio Grande do Sul" && current.division === "1ª Divisão" ? 7 :
           current.state === "Rio de Janeiro" && current.division === "1ª Divisão" ? 8 :
           current.state === "Pernambuco" && current.division === "1ª Divisão" ? 7 :
@@ -5025,7 +5037,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       champion: undefined,
       accessTeams: undefined,
       relegatedTeams: undefined,
-      simulationVersion: current.state === "Rio de Janeiro" ? 8 : current.state === "Pernambuco" ? 7 : current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
+      simulationVersion: current.state === "Rondônia" ? 8 : current.state === "Rio Grande do Sul" ? 7 : current.state === "Rio de Janeiro" ? 8 : current.state === "Pernambuco" ? 7 : current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
     };
     const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
