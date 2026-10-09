@@ -3269,7 +3269,7 @@ export default function App() {
     const table=(ms:Matchup[],ts:string[])=>calculateStandingFromMatches(ms,ts);
     const ordered=(ts:string[],t:Record<string,Standing>)=>sortStandingTeams(ts,t);
     const win=(m:Matchup):string=>{const resolved=resolveKnockoutTie(m);return resolved.penaltyWinner ?? ((resolved.homeScore ?? 0) >= (resolved.awayScore ?? 0) ? resolved.home : resolved.away);};
-    const ko=(pairs:[string,string][])=>pairs.map(([a,b])=>win(match(a,b,1)));
+    const ko=(pairs:[string,string][]):Matchup[]=>pairs.map(([a,b])=>resolveKnockoutTie(match(a,b,1)));
     const firstMatches:Matchup[]=[];
     for(const key of ["A","B","C","D"] as const){
       const g=groups[key];
