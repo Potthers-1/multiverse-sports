@@ -3295,7 +3295,7 @@ export default function App() {
     const secondTeams=shuffle([...quadOrder.slice(0,3),...reserved]);
     const secondGroups={A:secondTeams.slice(0,5),B:secondTeams.slice(5,10)};
     const secondMatches:Matchup[]=[];
-    for(let r=0;r<5;r++) for(let i=0;i<5;i++) secondMatches.push(match(secondGroups.A[i],secondGroups.B[(i+r)%5],r+1));
+    for(let r=0;r<4;r++) for(let i=0;i<5;i++) secondMatches.push(match(secondGroups.A[i],secondGroups.B[(i+r)%5],r+1));
     pm["2º Turno - Fase de grupos"]=secondMatches;
     const secondTableA=table(secondMatches,secondGroups.A), secondTableB=table(secondMatches,secondGroups.B);
     ps["2º Turno - Grupo A"]=Object.fromEntries(secondGroups.A.map(club=>[club,secondTableA[club]]));
@@ -4983,7 +4983,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
        (plan.phaseMatches?.["1º Turno - Oitavas de final"] ?? []).length !== 8 ||
        (plan.phaseMatches?.["1º Turno - Quartas de final"] ?? []).length !== 4 ||
        (plan.phaseMatches?.["1º Turno - Quadrangular final"] ?? []).length !== 6 ||
-       (plan.phaseMatches?.["2º Turno - Fase de grupos"] ?? []).length !== 25 ||
+       (plan.phaseMatches?.["2º Turno - Fase de grupos"] ?? []).length !== 20 ||
        (plan.phaseMatches?.["2º Turno - Semifinal"] ?? []).length !== 4 ||
        (plan.phaseMatches?.["2º Turno - Final"] ?? []).length !== 2)
     ) { plan = undefined; previousProgress = 0; }
