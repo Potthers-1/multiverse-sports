@@ -3284,33 +3284,95 @@ export default function App() {
   }
 
   function simulateParanaFirstDivision(championship: Championship): Championship {
-  const teams = championship.teams ?? [];
-  if (teams.length < 12) return championship;
-  const shuffle = (items: string[]) => {
-    const r=[...items]; for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];} return r;
-  };
-  const groups = championship.paranaGroups ?? (()=>{const d=shuffle(teams);return {A:d.slice(0,6),B:d.slice(6,12)};})();
-  const table: Record<string, Standing> = {};
-  [...groups.A,...groups.B].forEach(t=>table[t]={j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0});
-  for(const home of groups.A) for(const away of groups.B){
-    const hg=Math.floor(Math.random()*5), ag=Math.floor(Math.random()*5), h=table[home], a=table[away];
-    h.j++;a.j++;h.gp+=hg;h.gc+=ag;h.sg=h.gp-h.gc;a.gp+=ag;a.gc+=hg;a.sg=a.gp-a.gc;
-    if(hg>ag){h.v++;a.d++;h.pts+=3;}else if(hg<ag){a.v++;h.d++;a.pts+=3;}else{h.e++;a.e++;h.pts++;a.pts++;}
+    const teams = championship.teams ?? [];
+    if (teams.length !== 12) return championship;
+
+    const shuffle = (items: string[]) => {
+      const result = [...items];
+      for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    };
+
+    // Sorteio único e estável dos dois grupos, com seis clubes em cada.
+    const groups = championship.paranaGroups ?? (() => {
+      const drawn = shuffle(teams);
+      return { A: drawn.slice(0, 6), B: drawn.slice(6, 12) };
+    })();
+
+    const firstPhaseMatches: Matchup[] = [];
+    // Calendário circular: seis rodadas completas, seis partidas por rodada.
+    // Cada clube enfrenta cada integrante do outro grupo exatamente uma vez.
+    for (let round = 0; round < 6; round++) {
+      for (let index = 0; index < 6; index++) {
+        const home = groups.A[index];
+        const away = groups.B[(index + round) % 6];
+        firstPhaseMatches.push({
+          home,
+          away,
+          homeScore: Math.floor(Math.random() * 5),
+          awayScore: Math.floor(Math.random() * 5),
+          round: round + 1,
+        });
+      }
+    }
+
+    const table = calculateStandingFromMatches(firstPhaseMatches, teams);
+    const orderedA = sortStandingTeams(groups.A, table);
+    const orderedB = sortStandingTeams(groups.B, table);
+    const qualifiedA = orderedA.slice(0, 4);
+    const qualifiedB = orderedB.slice(0, 4);
+
+    const twoLeggedRound = (pairs: [string, string][]) => {
+      const matches: Matchup[] = [];
+      const winners: string[] = [];
+      for (const [home, away] of pairs) {
+        const first = { ...simulateKnockoutMatch(home, away), round: 1 };
+        const second = { ...simulateKnockoutMatch(away, home), round: 2 };
+        matches.push(first, second);
+        winners.push(resolveTwoLeggedTie(first, second));
+      }
+      return { matches, winners };
+    };
+
+    // Chaveamento por classificação: 1º x 4º e 2º x 3º de cada grupo.
+    const quarters = twoLeggedRound([
+      [qualifiedA[0], qualifiedA[3]],
+      [qualifiedA[1], qualifiedA[2]],
+      [qualifiedB[0], qualifiedB[3]],
+      [qualifiedB[1], qualifiedB[2]],
+    ]);
+    const semifinals = twoLeggedRound([
+      [quarters.winners[0], quarters.winners[1]],
+      [quarters.winners[2], quarters.winners[3]],
+    ]);
+    const final = twoLeggedRound([[semifinals.winners[0], semifinals.winners[1]]]);
+
+    const groupTable = (group: string[]) =>
+      Object.fromEntries(group.map((club) => [club, table[club]]));
+
+    return {
+      ...championship,
+      paranaGroups: groups,
+      standings: table,
+      phaseStandings: {
+        ...(championship.phaseStandings ?? {}),
+        "Primeira fase": table,
+        "Primeira fase - Grupo A": groupTable(orderedA),
+        "Primeira fase - Grupo B": groupTable(orderedB),
+      },
+      phaseMatches: {
+        "Primeira fase": firstPhaseMatches,
+        "Quartas de final": quarters.matches,
+        "Semi final": semifinals.matches,
+        "Final": final.matches,
+      },
+      accessTeams: [...qualifiedA, ...qualifiedB],
+      champion: final.winners[0],
+    };
   }
-  const A=sortStandingTeams(groups.A,table), B=sortStandingTeams(groups.B,table), qa=A.slice(0,4), qb=B.slice(0,4);
-  const twoLegs=(pairs:[string,string][])=>{
-    const matches:Matchup[]=[], winners:string[]=[];
-    for(const [x,y] of pairs){const l1=simulateKnockoutMatch(x,y),l2=simulateKnockoutMatch(y,x);matches.push(l1,l2);winners.push(resolveTwoLeggedTie(l1,l2));}
-    return {matches,winners};
-  };
-  const q=twoLegs([[qa[0],qb[3]],[qa[1],qb[2]],[qb[0],qa[3]],[qb[1],qa[2]]]);
-  const s=twoLegs([[q.winners[0],q.winners[3]],[q.winners[1],q.winners[2]]]);
-  const fin=twoLegs([[s.winners[0],s.winners[1]]]);
-  return {...championship,paranaGroups:groups,standings:table,
-    phaseStandings:{...(championship.phaseStandings??{}),"Primeira fase - Grupo A":Object.fromEntries(A.map(t=>[t,table[t]])),"Primeira fase - Grupo B":Object.fromEntries(B.map(t=>[t,table[t]]))},
-    phaseMatches:{...(championship.phaseMatches??{}),"Quartas de final":q.matches,"Semi final":s.matches,"Final":fin.matches},
-    accessTeams:[...qa,...qb],champion:fin.winners[0]};
-}
 
 function simulateSaoPauloFirstDivision(championship: Championship): Championship {
   const teams = championship.teams ?? [];
@@ -4724,6 +4786,26 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       }
 
       if (
+        plan.state === "Paraná" &&
+        plan.division === "1ª Divisão" &&
+        phase === "Primeira fase" &&
+        plan.paranaGroups
+      ) {
+        const groups = plan.paranaGroups;
+        const standingsForGroup = (group: string[]) => {
+          // Os clubes jogam contra o outro grupo: contar jogos com qualquer
+          // clube da chave e devolver apenas os seis integrantes da chave.
+          const groupMatches = matches.filter(
+            (match) => group.includes(match.home) || group.includes(match.away)
+          );
+          const fullTable = calculateStandingFromMatches(groupMatches, group);
+          return Object.fromEntries(group.map((club) => [club, fullTable[club]]));
+        };
+        phaseStandings["Primeira fase - Grupo A"] = standingsForGroup(groups.A);
+        phaseStandings["Primeira fase - Grupo B"] = standingsForGroup(groups.B);
+      }
+
+      if (
         plan.state === "Minas Gerais" &&
         plan.division === "1ª Divisão" &&
         phase === "Primeira fase" &&
@@ -4803,7 +4885,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       simulationRound: progress,
       simulationTotalRounds: allUnits.length,
       simulationPlan: complete ? undefined : plan,
-      simulationVersion: plan.state === "Minas Gerais" && plan.division === "1ª Divisão" ? 5 : 4,
+      simulationVersion:
+        plan.state === "Paraná" && plan.division === "1ª Divisão" ? 6 :
+        plan.state === "Minas Gerais" && plan.division === "1ª Divisão" ? 5 : 4,
     };
   }
 
@@ -4844,6 +4928,24 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     ) {
       // Plano antigo/quebrado do Ceará: recria somente o plano interno,
       // preservando o restante da temporada e das demais competições.
+      plan = undefined;
+      previousProgress = 0;
+    }
+
+    if (
+      current.state === "Paraná" &&
+      current.division === "1ª Divisão" &&
+      plan &&
+      (
+        (current.simulationVersion ?? 0) < 6 ||
+        (plan.phaseMatches?.["Primeira fase"] ?? []).length !== 36 ||
+        (plan.phaseMatches?.["Quartas de final"] ?? []).length !== 8 ||
+        (plan.phaseMatches?.["Semi final"] ?? []).length !== 4 ||
+        (plan.phaseMatches?.["Final"] ?? []).length !== 2
+      )
+    ) {
+      // Descarta somente o plano interno antigo de Paraná; o sorteio e o
+      // calendário são reconstruídos na próxima tentativa de simulação.
       plan = undefined;
       previousProgress = 0;
     }
@@ -4930,7 +5032,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       champion: undefined,
       accessTeams: undefined,
       relegatedTeams: undefined,
-      simulationVersion: current.state === "Minas Gerais" ? 5 : 4,
+      simulationVersion: current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
     };
     const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
