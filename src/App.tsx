@@ -3268,7 +3268,7 @@ export default function App() {
     const match=(home:string,away:string,round:number):Matchup=>({home,away,round,homeScore:Math.floor(Math.random()*5),awayScore:Math.floor(Math.random()*5)});
     const table=(ms:Matchup[],ts:string[])=>calculateStandingFromMatches(ms,ts);
     const ordered=(ts:string[],t:Record<string,Standing>)=>sortStandingTeams(ts,t);
-    const win=(m:Matchup)=>resolveKnockoutTie(m);
+    const win=(m:Matchup):string=>{const resolved=resolveKnockoutTie(m);return resolved.penaltyWinner ?? ((resolved.homeScore ?? 0) >= (resolved.awayScore ?? 0) ? resolved.home : resolved.away);};
     const ko=(pairs:[string,string][])=>pairs.map(([a,b])=>win(match(a,b,1)));
     const firstMatches:Matchup[]=[];
     for(const key of ["A","B","C","D"] as const){
@@ -3287,7 +3287,7 @@ export default function App() {
     const q=ko([[win(oit[0]),win(oit[3])],[win(oit[1]),win(oit[2])],[win(oit[4]),win(oit[7])],[win(oit[5]),win(oit[6])]]);
     pm["1º Turno - Quartas de final"]=q;
     const qWinners=q.map(win), quad:Matchup[]=[];
-    const quadPairs:[[number,number],[number,number]][]=[[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]]];
+    const quadPairs: [number,number][][]=[[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]]];
     quadPairs.forEach((round,r)=>round.forEach(([a,b])=>quad.push(match(qWinners[a],qWinners[b],r+1))));
     pm["1º Turno - Quadrangular final"]=quad;
     ps["1º Turno - Quadrangular final"]=table(quad,qWinners);
@@ -3303,7 +3303,7 @@ export default function App() {
     const a=ordered(secondGroups.A,ps["2º Turno - Grupo A"]), b=ordered(secondGroups.B,ps["2º Turno - Grupo B"]);
     const sp=ko([[a[1],a[2]],[b[1],b[2]]]); pm["2º Turno - Segunda fase"]=sp;
     const semi:Matchup[]=[];
-    [[a[0],win(sp[0])],[b[0],win(sp[1])]].forEach(([x,y])=>{semi.push(match(x,y,1),match(y,x,2));});
+    ([[a[0],win(sp[0])],[b[0],win(sp[1])] ] as [string,string][]).forEach(([x,y])=>{semi.push(match(x,y,1),match(y,x,2));});
     pm["2º Turno - Semifinal"]=semi;
     const finalists=[resolveTwoLeggedTie(semi[0],semi[1]),resolveTwoLeggedTie(semi[2],semi[3])];
     const final=[match(finalists[0],finalists[1],1),match(finalists[1],finalists[0],2)];
