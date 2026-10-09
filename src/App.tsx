@@ -4190,27 +4190,37 @@ function simulateRondoniaFirstDivision(championship: Championship): Championship
       left.forEach((home) => right.forEach((away) => pending.push([home, away])));
     });
     for (let round = 1; round <= 8; round++) {
-      const used = new Set<string>();
       const selected: [string, string][] = [];
-      const chooseMatching = (remaining: [string, string][]): boolean => {
-        if (remaining.length === 0) return true;
-        const [home, away] = remaining[0];
-        if (!used.has(home) && !used.has(away)) {
-          used.add(home); used.add(away); selected.push([home, away]);
-          const rest = remaining.filter(([h, a]) => h !== home && a !== away);
+      const chooseMatching = (remainingTeams: string[]): boolean => {
+        if (remainingTeams.length === 0) return selected.length === 6;
+        const team = remainingTeams[0];
+        const candidates = pending.filter(([home, away]) =>
+          (home === team && remainingTeams.includes(away)) ||
+          (away === team && remainingTeams.includes(home))
+        );
+        for (const pair of candidates) {
+          const opponent = pair[0] === team ? pair[1] : pair[0];
+          selected.push(pair);
+          const rest = remainingTeams.filter((club) => club !== team && club !== opponent);
           if (chooseMatching(rest)) return true;
-          selected.pop(); used.delete(home); used.delete(away);
+          selected.pop();
         }
-        return chooseMatching(remaining.slice(1));
+        return false;
       };
-      chooseMatching(pending);
-      if (!selected.length) break;
+
+      const completeMatching = chooseMatching([...groups.A, ...groups.B, ...groups.C]);
+      if (!completeMatching) {
+        // O campeonato só avança com rodadas completas; evita calendários
+        // parciais ou partidas duplicadas caso os grupos estejam corrompidos.
+        return championship;
+      }
       selected.forEach(([home, away]) => play(home, away, round));
       for (const [home, away] of selected) {
         const index = pending.findIndex(([h, a]) => h === home && a === away);
         if (index >= 0) pending.splice(index, 1);
       }
     }
+    if (pending.length !== 0 || firstPhaseMatches.length !== 48) return championship;
 
     const groupAOrdered = sortStandingTeams(groups.A, table);
     const groupBOrdered = sortStandingTeams(groups.B, table);
@@ -4720,17 +4730,20 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         plan.minasGeraisGroups
       ) {
         const groups = plan.minasGeraisGroups;
-        const matchesForGroup = (group: string[]) =>
-          matches.filter(
-            (match) => group.includes(match.home) && group.includes(match.away)
+        const standingsForGroup = (group: string[]) => {
+          // Em Minas, cada clube joga contra os outros grupos. Por isso a
+          // tabela do grupo usa todas as partidas dos seus quatro clubes,
+          // mesmo quando o adversário pertence a outro grupo.
+          const matchesForGroup = matches.filter(
+            (match) => group.includes(match.home) || group.includes(match.away)
           );
+          const fullTable = calculateStandingFromMatches(matchesForGroup, group);
+          return Object.fromEntries(group.map((team) => [team, fullTable[team]]));
+        };
 
-        phaseStandings["Primeira fase - Grupo A"] =
-          calculateStandingFromMatches(matchesForGroup(groups.A), groups.A);
-        phaseStandings["Primeira fase - Grupo B"] =
-          calculateStandingFromMatches(matchesForGroup(groups.B), groups.B);
-        phaseStandings["Primeira fase - Grupo C"] =
-          calculateStandingFromMatches(matchesForGroup(groups.C), groups.C);
+        phaseStandings["Primeira fase - Grupo A"] = standingsForGroup(groups.A);
+        phaseStandings["Primeira fase - Grupo B"] = standingsForGroup(groups.B);
+        phaseStandings["Primeira fase - Grupo C"] = standingsForGroup(groups.C);
       }
 
       if (plan.state === "Ceará" && plan.division === "1ª Divisão") {
@@ -4835,6 +4848,21 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       previousProgress = 0;
     }
 
+    if (
+      current.state === "Minas Gerais" &&
+      current.division === "1ª Divisão" &&
+      plan &&
+      (
+        (plan.phaseMatches?.["Primeira fase"] ?? []).length !== 48 ||
+        (plan.phaseMatches?.["Semi final"] ?? []).length !== 4 ||
+        (plan.phaseMatches?.["Final"] ?? []).length !== 1
+      )
+    ) {
+      // Recria planos antigos de Minas com calendário e tabelas incorretos.
+      plan = undefined;
+      previousProgress = 0;
+    }
+
     if (!plan) {
       const generated = simulateChampionshipFully(current);
       if (!generated) {
@@ -4860,13 +4888,16 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       plan = {
         ...generated,
         phaseMatches: preparedPhaseMatches,
-        champion: undefined,
-        accessTeams: undefined,
-        relegatedTeams: undefined,
+        // Mantém o resultado final dentro do plano privado para que ele
+        // possa ser revelado quando todas as rodadas forem liberadas.
+        // O progresso parcial esconde esses campos na temporada visível.
+        champion: current.state === "Minas Gerais" ? generated.champion : undefined,
+        accessTeams: current.state === "Minas Gerais" ? generated.accessTeams : undefined,
+        relegatedTeams: current.state === "Minas Gerais" ? generated.relegatedTeams : undefined,
         simulationPlan: undefined,
         simulationRound: undefined,
         simulationTotalRounds: undefined,
-        simulationVersion: 4,
+        simulationVersion: 5,
       };
       previousProgress = 0;
     } else {
@@ -4898,7 +4929,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       champion: undefined,
       accessTeams: undefined,
       relegatedTeams: undefined,
-      simulationVersion: 4,
+      simulationVersion: current.state === "Minas Gerais" ? 5 : 4,
     };
     const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
