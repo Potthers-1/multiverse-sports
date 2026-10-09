@@ -4713,6 +4713,26 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         }
       }
 
+      if (
+        plan.state === "Minas Gerais" &&
+        plan.division === "1ª Divisão" &&
+        phase === "Primeira fase" &&
+        plan.minasGeraisGroups
+      ) {
+        const groups = plan.minasGeraisGroups;
+        const matchesForGroup = (group: string[]) =>
+          matches.filter(
+            (match) => group.includes(match.home) && group.includes(match.away)
+          );
+
+        phaseStandings["Primeira fase - Grupo A"] =
+          calculateStandingFromMatches(matchesForGroup(groups.A), groups.A);
+        phaseStandings["Primeira fase - Grupo B"] =
+          calculateStandingFromMatches(matchesForGroup(groups.B), groups.B);
+        phaseStandings["Primeira fase - Grupo C"] =
+          calculateStandingFromMatches(matchesForGroup(groups.C), groups.C);
+      }
+
       if (plan.state === "Ceará" && plan.division === "1ª Divisão") {
         if (phase === "Primeira fase" && plan.cearaGroups) {
           const matchesForGroup = (group: string[]) =>
