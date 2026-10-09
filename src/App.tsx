@@ -4803,7 +4803,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       simulationRound: progress,
       simulationTotalRounds: allUnits.length,
       simulationPlan: complete ? undefined : plan,
-      simulationVersion: 4,
+      simulationVersion: plan.state === "Minas Gerais" && plan.division === "1ª Divisão" ? 5 : 4,
     };
   }
 
@@ -4853,6 +4853,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       current.division === "1ª Divisão" &&
       plan &&
       (
+        (current.simulationVersion ?? 0) < 5 ||
         (plan.phaseMatches?.["Primeira fase"] ?? []).length !== 48 ||
         (plan.phaseMatches?.["Semi final"] ?? []).length !== 4 ||
         (plan.phaseMatches?.["Final"] ?? []).length !== 1
