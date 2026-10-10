@@ -1712,6 +1712,19 @@ export default function App() {
 
 
   useEffect(() => {
+    if (argentinaClubs.filter((club) => club.division === "Primera Nacional").length !== 36) return;
+    setChampionships((current) => {
+      const year = countrySeasons["Argentina"] || "2026";
+      if (current.some((item) => item.country === "Argentina" && item.season === year && item.division === "Primera Nacional" && item.name === "Primera Nacional")) return current;
+      const teams = argentinaClubs.filter((club) => club.division === "Primera Nacional").map((club) => club.name);
+      const shuffled = [...teams];
+      for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
+      return [...current, { id: Date.now() + 9, name: "Primera Nacional", season: year, division: "Primera Nacional", country: "Argentina", teams, argentinaGroups: { A: shuffled.slice(0, 18), B: shuffled.slice(18, 36) }, rules: ["36 clubes divididos em dois grupos de 18 equipes.", "Cada grupo disputa turno e returno, totalizando 34 partidas por clube.", "Os líderes dos grupos disputam uma final em jogo único pelo título e pela primeira vaga de acesso.", "A segunda vaga é decidida em torneio eliminatório de quatro fases; a primeira fase é em jogo único e as fases seguintes em ida e volta.", "Os dois últimos colocados de cada grupo são rebaixados para a competição correspondente à filiação de cada clube."] } as Championship];
+    });
+  }, [argentinaClubs, countrySeasons]);
+
+
+  useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -5651,8 +5664,38 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     };
   }
 
+function simulateArgentinaSegundaDivision(championship: Championship): Championship {
+    const teams = [...(championship.teams ?? [])];
+    if (teams.length !== 36) return championship;
+    const groups = championship.argentinaGroups ?? { A: teams.slice(0, 18), B: teams.slice(18, 36) };
+    const a = simulateDoubleRoundRobin(groups.A);
+    const b = simulateDoubleRoundRobin(groups.B);
+    const sortedA = sortStandingTeams(groups.A, a);
+    const sortedB = sortStandingTeams(groups.B, b);
+    const final = simulateSingleKnockoutMatch(sortedA[0], sortedB[0]);
+    const winner = (m: Matchup) => m.penaltyWinner ?? ((m.homeScore ?? 0) >= (m.awayScore ?? 0) ? m.home : m.away);
+    const titleWinner = winner(final);
+    const titleLoser = titleWinner === final.home ? final.away : final.home;
+    const pairs: Array<[string, string]> = [[sortedB[4], sortedA[4]], [sortedA[1], sortedB[7]], [sortedB[3], sortedA[5]], [sortedB[1], sortedA[7]], [sortedA[3], sortedB[5]], [sortedB[2], sortedA[6]], [sortedA[2], sortedB[6]]];
+    const first = pairs.map(([home, away]) => ({ ...simulateSingleKnockoutMatch(home, away), round: 1 }));
+    const phaseMatches: Record<string, Matchup[]> = { "Fase de grupos": [...a.matches, ...b.matches], "Final pelo título e acesso": [{ ...final, round: 1 }], "Torneio pelo segundo acesso — 1ª fase": first };
+    const phaseStandings: Record<string, Record<string, Standing>> = { "Grupo A": Object.fromEntries(sortedA.map((club) => [club, a[club]])), "Grupo B": Object.fromEntries(sortedB.map((club) => [club, b[club]])) };
+    let survivors = first.map(winner);
+    const names = ["Torneio pelo segundo acesso — 2ª fase", "Torneio pelo segundo acesso — Semifinais", "Torneio pelo segundo acesso — Final"];
+    for (let round = 0; round < names.length; round++) {
+      const entrants = round === 0 ? [titleLoser, ...survivors] : survivors;
+      const matches: Matchup[] = [];
+      for (let i = 0; i + 1 < entrants.length; i += 2) matches.push({ ...simulateSingleKnockoutMatch(entrants[i], entrants[i + 1]), round: 1 });
+      phaseMatches[names[round]] = matches;
+      survivors = matches.map(winner);
+    }
+    const relegatedTeams = [...sortedA.slice(-2), ...sortedB.slice(-2)];
+    return { ...championship, argentinaGroups: groups, phases: ["Fase de grupos", "Final pelo título e acesso", "Torneio pelo segundo acesso — 1ª fase", ...names], standings: { ...a, ...b }, phaseStandings, phaseMatches, champion: titleWinner, accessTeams: [titleWinner, survivors[0]].filter(Boolean), relegatedTeams };
+  }
+
 function simulateChampionshipFully(championship: Championship): Championship | null {
     if (championship.country === "Argentina" && championship.division === "Primera División" && /Torneo (Apertura|Clausura)/.test(championship.name)) return simulateArgentinaPrimeraDivision(championship);
+    if (championship.country === "Argentina" && championship.division === "Primera Nacional") return simulateArgentinaSegundaDivision(championship);
     if (!championship) return null;
 
     if (championship.division === "Série A" && championship.country === "Brasil") {
