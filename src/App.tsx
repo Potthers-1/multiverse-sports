@@ -6720,6 +6720,51 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
               </div>
             </div>
 
+            {selected.champion && (
+              <section className="season-champion-panel">
+                {(() => {
+                  const firstPhase = selected.phases?.[0] ?? "Primeira fase";
+                  const table = selected.phaseStandings?.[firstPhase] ?? selected.standings ?? {};
+                  const ordered = sortStandingTeams(selected.teams ?? Object.keys(table), table);
+                  const championStats = table[selected.champion];
+                  const playedRows = ordered
+                    .map((club) => ({ club, stats: table[club] }))
+                    .filter((item) => item.stats && item.stats.j > 0);
+                  const bestAttack = [...playedRows].sort((a, b) => b.stats.gp - a.stats.gp || b.stats.pts - a.stats.pts)[0];
+                  const bestDefense = [...playedRows].sort((a, b) => a.stats.gc - b.stats.gc || b.stats.pts - a.stats.pts)[0];
+                  const mostWins = [...playedRows].sort((a, b) => b.stats.v - a.stats.v || b.stats.pts - a.stats.pts)[0];
+                  const totalMatches = Object.values(selected.phaseMatches ?? {}).reduce((sum, matches) => sum + matches.length, 0);
+                  return (
+                    <>
+                      <div className="season-champion-kicker">🏆 TEMPORADA ENCERRADA • {selected.season}</div>
+                      <div className="season-champion-main">
+                        <div className="season-trophy">🏆</div>
+                        <div>
+                          <div className="season-champion-label">CAMPEÃO</div>
+                          <h2>{selected.champion}</h2>
+                          <p>{selected.name} • {selected.division} • {selected.season}</p>
+                        </div>
+                      </div>
+                      <div className="season-summary-grid">
+                        {championStats && championStats.j > 0 && (
+                          <>
+                            <div><span>Pontos do campeão</span><strong>{championStats.pts}</strong></div>
+                            <div><span>Vitórias do campeão</span><strong>{championStats.v}</strong></div>
+                            <div><span>Gols do campeão</span><strong>{championStats.gp}</strong></div>
+                          </>
+                        )}
+                        {bestAttack && <div><span>Melhor ataque</span><strong>{bestAttack.club}</strong><small>{bestAttack.stats.gp} gols</small></div>}
+                        {bestDefense && <div><span>Melhor defesa</span><strong>{bestDefense.club}</strong><small>{bestDefense.stats.gc} gols sofridos</small></div>}
+                        {mostWins && <div><span>Mais vitórias</span><strong>{mostWins.club}</strong><small>{mostWins.stats.v} vitórias</small></div>}
+                        {totalMatches > 0 && <div><span>Partidas registradas</span><strong>{totalMatches}</strong></div>}
+                      </div>
+                      <p className="season-summary-note">Resumo estatístico baseado nos dados disponíveis nesta competição.</p>
+                    </>
+                  );
+                })()}
+              </section>
+            )}
+
             <div className="phase-area">
               <div className="section-tabs">
                 <button
@@ -8334,6 +8379,20 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .danger-link { border: 0; background: transparent; color: #ed7180; font-size: 12px; }
         .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 22px 0; }
         .info-grid div { background: #0c1323; border: 1px solid #202a40; border-radius: 11px; padding: 15px; }
+        .season-champion-panel { max-width: 1100px; margin: 0 auto 22px; padding: 22px; border: 1px solid rgba(234,179,8,.35); border-radius: 15px; background: radial-gradient(ellipse at top left, rgba(234,179,8,.12), transparent 58%), #101729; }
+        .season-champion-kicker { color: #fcd34d; font-size: 10px; font-weight: 900; letter-spacing: .12em; margin-bottom: 17px; }
+        .season-champion-main { display: flex; align-items: center; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid #303047; }
+        .season-trophy { display: grid; place-items: center; flex: 0 0 62px; height: 62px; border-radius: 16px; background: rgba(234,179,8,.12); font-size: 32px; }
+        .season-champion-label { color: #fcd34d; font-size: 10px; font-weight: 900; letter-spacing: .15em; margin-bottom: 4px; }
+        .season-champion-main h2 { color: #fff3c4; font-size: 24px; margin: 0; }
+        .season-champion-main p { color: #8e9ab4; font-size: 11px; margin-top: 6px; }
+        .season-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin-top: 17px; }
+        .season-summary-grid > div { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 12px; border: 1px solid #26314a; border-radius: 9px; background: rgba(8,14,27,.55); }
+        .season-summary-grid span { color: #8e9ab4; font-size: 10px; }
+        .season-summary-grid strong { color: #eef2ff; font-size: 13px; overflow-wrap: anywhere; }
+        .season-summary-grid small { color: #fcd34d; font-size: 10px; }
+        .season-summary-note { margin-top: 13px; color: #64728e; font-size: 10px; }
+        @media (max-width: 560px) { .season-champion-panel { padding: 16px; } .season-champion-main h2 { font-size: 19px; } .season-trophy { flex-basis: 50px; height: 50px; font-size: 26px; } }
         .info-grid span { display: block; color: #71809f; font-size: 11px; }
         .info-grid strong { display: block; margin-top: 6px; }
         .empty-state { text-align: center; padding: 65px 20px 50px; color: #8e9ab4; }
