@@ -1468,6 +1468,7 @@ const ARGENTINA_PRIMERA_DIVISION_CLUBS: Array<Omit<ArgentinaClub, "id">> = [
   { name: "Estudiantes (La Plata)", affiliation: "AFA direta", region: "", division: "Primera División" },
   { name: "Estudiantes de Río Cuarto", affiliation: "Indireta / Conselho Federal", region: "Federación Regional de Fútbol de Río Cuarto", division: "Primera División" },
   { name: "Gimnasia y Esgrima (Mendoza)", affiliation: "Indireta / Conselho Federal", region: "Federación Mendocina de Fútbol", division: "Primera División" },
+  { name: "Gimnasia y Esgrima La Plata", affiliation: "AFA direta", region: "", division: "Primera División" },
   { name: "Huracán", affiliation: "AFA direta", region: "", division: "Primera División" },
   { name: "Independiente", affiliation: "AFA direta", region: "", division: "Primera División" },
   { name: "Independiente Rivadavia", affiliation: "Indireta / Conselho Federal", region: "Federación Mendocina de Fútbol", division: "Primera División" },
