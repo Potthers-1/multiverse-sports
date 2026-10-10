@@ -1769,7 +1769,7 @@ export default function App() {
       const teams = argentinaClubs.filter((club) => club.division === "Primera Nacional").map((club) => club.name);
       const shuffled = [...teams];
       for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
-      return [...current, { id: Date.now() + 9, name: "Primera Nacional", season: year, division: "Primera Nacional", country: "Argentina", teams, argentinaGroups: { A: shuffled.slice(0, 18), B: shuffled.slice(18, 36) }, rules: ["36 clubes divididos em dois grupos de 18 equipes.", "Cada grupo disputa turno e returno, totalizando 34 partidas por clube.", "Os líderes dos grupos disputam uma final em jogo único pelo título e pela primeira vaga de acesso.", "O torneio reduzido pela segunda vaga de acesso só começa depois de concluída a final geral pelo título.", "A segunda vaga é decidida em torneio eliminatório de quatro fases; a primeira fase é em jogo único e as fases seguintes em ida e volta.", "Os dois últimos colocados de cada grupo são rebaixados para a competição correspondente à filiação de cada clube."] } as Championship];
+      return [...current, { id: Date.now() + 9, name: "Primera Nacional", season: year, division: "Primera Nacional", country: "Argentina", teams, argentinaGroups: { A: shuffled.slice(0, 18), B: shuffled.slice(18, 36) }, phases: ["Fase de grupos", "Final pelo título e acesso", "Torneio pelo segundo acesso — 1ª fase", "Torneio pelo segundo acesso — 2ª fase", "Torneio pelo segundo acesso — Semifinais", "Torneio pelo segundo acesso — Final"], rules: ["36 clubes divididos em dois grupos de 18 equipes.", "Cada grupo disputa turno e returno, totalizando 34 partidas por clube.", "As classificações são exibidas em tabelas separadas: Grupo A e Grupo B.", "Os líderes dos grupos disputam uma final em jogo único pelo título e pela primeira vaga de acesso.", "O torneio reduzido pela segunda vaga de acesso só começa depois de concluída a final geral pelo título.", "A segunda vaga é decidida em torneio eliminatório de quatro fases; a primeira fase é em jogo único e as fases seguintes em ida e volta.", "Os dois últimos colocados de cada grupo são rebaixados para a competição correspondente à filiação de cada clube."] } as Championship];
     });
   }, [argentinaClubs, countrySeasons]);
 
@@ -4934,7 +4934,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       // uma tabela nunca incorpore resultados do outro grupo.
       if (
         plan.country === "Argentina" &&
-        plan.division === "Primera División" &&
+        ["Primera División", "Primera Nacional"].includes(plan.division) &&
         phase === "Fase de grupos" &&
         plan.argentinaGroups
       ) {
