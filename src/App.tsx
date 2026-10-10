@@ -5168,6 +5168,57 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     if (!current) return;
 
     const isArgentinaPrimera = current.country === "Argentina" && current.division === "Primera División";
+
+    // Caminho isolado para a Primera División: não passa pelo fluxo genérico,
+    // que pode manter planos antigos vazios e informar zero rodadas.
+    if (isArgentinaPrimera) {
+      const validPlan = (candidate?: Championship) =>
+        Boolean(candidate &&
+          (candidate.teams ?? []).length === 30 &&
+          (candidate.phaseMatches?.["Fase de grupos"] ?? []).length === 435 &&
+          (candidate.phaseMatches?.["Oitavas de final"] ?? []).length === 8 &&
+          (candidate.phaseMatches?.["Quartas de final"] ?? []).length === 4 &&
+          (candidate.phaseMatches?.["Semifinais"] ?? []).length === 2 &&
+          (candidate.phaseMatches?.["Final"] ?? []).length === 1);
+
+      let fullPlan = current.simulationPlan;
+      let previousProgress = current.simulationRound ?? 0;
+      if (!validPlan(fullPlan)) {
+        const generated = simulateArgentinaPrimeraDivision(current);
+        if (!validPlan(generated)) {
+          window.alert("Não foi possível gerar o calendário da Primera División. Confira se há exatamente 30 clubes cadastrados.");
+          return;
+        }
+        fullPlan = { ...generated, simulationVersion: 12 };
+        previousProgress = 0;
+      }
+
+      const requestedRounds = Math.max(1, Math.floor(Number(roundCount) || 1));
+      const progressPlan: Championship = {
+        ...fullPlan!,
+        simulationRound: previousProgress,
+        simulationTotalRounds: undefined,
+        simulationVersion: 12,
+      };
+      const updated = applySimulationProgress(progressPlan, requestedRounds);
+      setChampionships((items) =>
+        items.map((item) => item.id === championshipId ? updated : item)
+      );
+      setSelectedPhase((items) => ({
+        ...items,
+        [championshipId]: getCurrentSimulationPhase(updated),
+      }));
+
+      const simulatedNow = Math.max(0, (updated.simulationRound ?? 0) - previousProgress);
+      const finished = (updated.simulationRound ?? 0) >= (updated.simulationTotalRounds ?? Number.POSITIVE_INFINITY);
+      window.alert(
+        finished
+          ? "Campeonato concluído: 100% das rodadas foram simuladas."
+          : "Foram simuladas " + simulatedNow + " rodada(s). O campeonato pode continuar a partir daqui."
+      );
+      return;
+    }
+
     if (current.champion && !isArgentinaPrimera) {
       window.alert("Este campeonato já está 100% simulado.");
       return;
