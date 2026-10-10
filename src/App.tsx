@@ -7618,7 +7618,7 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                       <div className="block-title">
                         {(() => {
                           const currentPhase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
-                          return currentPhase.includes("Semi final") || currentPhase.includes("Semifinal") || currentPhase.includes("Final")
+                          return currentPhase.includes("Semi final") || currentPhase.includes("Semifinal") || currentPhase.includes("Final") || currentPhase.includes("Torneio pelo segundo acesso")
                             ? currentPhase.toUpperCase()
                             : `TABELA — ${currentPhase}`;
                         })()}
@@ -7627,6 +7627,43 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                       {(() => {
                         const currentPhase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
                         const matches = selected.phaseMatches?.[currentPhase] ?? [];
+
+                        if (
+                          selected.country === "Argentina" &&
+                          selected.division === "Primera Nacional" &&
+                          currentPhase.startsWith("Torneio pelo segundo acesso")
+                        ) {
+                          return (
+                            <div className="argentina-knockout-matches">
+                              {matches.length === 0 ? (
+                                <div className="standing-note">Os confrontos desta fase aparecerão após a simulação da competição.</div>
+                              ) : (
+                                matches.map((match, index) => {
+                                  const hasScore = match.homeScore !== undefined && match.awayScore !== undefined;
+                                  const homeWon = match.penaltyWinner
+                                    ? match.penaltyWinner === match.home
+                                    : (match.homeScore ?? -1) > (match.awayScore ?? -1);
+                                  const awayWon = match.penaltyWinner
+                                    ? match.penaltyWinner === match.away
+                                    : (match.awayScore ?? -1) > (match.homeScore ?? -1);
+                                  const isTwoLegged = currentPhase !== "Torneio pelo segundo acesso — 1ª fase";
+                                  const legLabel = isTwoLegged ? (index % 2 === 0 ? "IDA" : "VOLTA") : "JOGO ÚNICO";
+                                  return (
+                                    <div className="competition-block" key={`${currentPhase}-${index}-${match.home}-${match.away}`}>
+                                      <div className="block-title">{isTwoLegged ? `CONFRONTO ${Math.floor(index / 2) + 1} — ${legLabel}` : `CONFRONTO ${index + 1} — JOGO ÚNICO`}</div>
+                                      <div className="argentina-knockout-match">
+                                        <div className={homeWon ? "knockout-team knockout-winner" : "knockout-team"}>{clubLink(match.home)}</div>
+                                        <strong className="knockout-score">{hasScore ? `${match.homeScore} × ${match.awayScore}` : "vs."}</strong>
+                                        <div className={awayWon ? "knockout-team knockout-winner" : "knockout-team"}>{clubLink(match.away)}</div>
+                                        {match.penaltyWinner && <div className="standing-note">Classificado nos pênaltis: {clubLink(match.penaltyWinner)}</div>}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          );
+                        }
 
                         if (selected.country === "Argentina" && ["Primera División", "Primera Nacional"].includes(selected.division) && currentPhase === "Fase de grupos") {
                           const groupSize = selected.division === "Primera Nacional" ? 18 : 15;
