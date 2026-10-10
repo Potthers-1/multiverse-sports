@@ -1642,7 +1642,7 @@ export default function App() {
   const [season, setSeason] = useState("2026");
   const [division, setDivision] = useState("Estadual");
   const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
-  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason" | "argentinaOverall">>({});
+  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason" | "argentinaOverall" | "argentinaOverallHistory">>({});
   const [simulationRounds, setSimulationRounds] = useState(1);
   const [countrySeasons, setCountrySeasons] = useState<Record<string, string>>({});
   const [selectedCountry, setSelectedCountry] = useState("Brasil");
@@ -7083,8 +7083,8 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                   </button>
                 )}
 
-                {selected.country === "Argentina" && selected.division === "Primera División" && selectedSection[selected.id] === "argentinaOverall" && (
-                  <button className={`section-tab ${selectedSection[selected.id] === "history" ? "active" : ""}`} onClick={() => setSelectedSection((current) => ({ ...current, [selected.id]: "history" }))}>Histórico de campeões</button>
+                {selected.country === "Argentina" && selected.division === "Primera División" && (selectedSection[selected.id] === "argentinaOverall" || selectedSection[selected.id] === "argentinaOverallHistory") && (
+                  <button className={`section-tab ${selectedSection[selected.id] === "argentinaOverallHistory" ? "active" : ""}`} onClick={() => setSelectedSection((current) => ({ ...current, [selected.id]: "argentinaOverallHistory" }))}>Histórico de campeões</button>
                 )}
                 <button
                   className={`section-tab ${selectedSection[selected.id] === "history" ? "active" : ""}`}
@@ -7387,7 +7387,10 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                     );
                   })() : null}
                 </div>
-              ) : (selectedSection[selected.id] ?? "competition") === "argentinaOverall" && selected.country === "Argentina" && selected.division === "Primera División" ? (() => {
+              ) : (selectedSection[selected.id] ?? "competition") === "argentinaOverallHistory" && selected.country === "Argentina" && selected.division === "Primera División" ? (() => {
+                const records = championships.filter((item) => item.country === "Argentina" && item.division === "Primera División" && item.name === "Torneo Apertura" && item.championHistory && Object.keys(item.championHistory).length > 0).map((item) => ({ season: item.season, champion: item.championHistory?.[item.season] })).filter((item) => item.champion).sort((a, b) => Number(b.season) - Number(a.season));
+                return <div className="competition-content"><div className="competition-block standings-block full-width-block"><div className="block-title">HISTÓRICO DE CAMPEÕES — CLASSIFICAÇÃO GERAL</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>TEMPORADA</th><th>CAMPEÃO GERAL</th></tr></thead><tbody>{records.length ? records.map((item) => <tr key={item.season}><td>{item.season}</td><td>{item.champion}</td></tr>) : <tr><td colSpan={2}>Ainda não há campeões gerais registrados. O campeão será registrado após Apertura e Clausura serem concluídos.</td></tr>}</tbody></table></div></div></div>;
+              })() : (selectedSection[selected.id] ?? "competition") === "argentinaOverall" && selected.country === "Argentina" && selected.division === "Primera División" ? (() => {
                 const seasonChamps = championships.filter((item) => item.country === "Argentina" && item.season === selected.season && item.division === "Primera División" && (item.name === "Torneo Apertura" || item.name === "Torneo Clausura"));
                 const aggregate: Record<string, Standing> = {};
                 for (const tournament of seasonChamps) {
