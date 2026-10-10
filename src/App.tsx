@@ -5670,27 +5670,93 @@ function simulateArgentinaSegundaDivision(championship: Championship): Champions
     const groups = championship.argentinaGroups ?? { A: teams.slice(0, 18), B: teams.slice(18, 36) };
     const a = simulateDoubleRoundRobin(groups.A);
     const b = simulateDoubleRoundRobin(groups.B);
-    const sortedA = sortStandingTeams(groups.A, a);
-    const sortedB = sortStandingTeams(groups.B, b);
-    const final = simulateSingleKnockoutMatch(sortedA[0], sortedB[0]);
+    const sortedA = sortStandingTeams(groups.A, a.table);
+    const sortedB = sortStandingTeams(groups.B, b.table);
     const winner = (m: Matchup) => m.penaltyWinner ?? ((m.homeScore ?? 0) >= (m.awayScore ?? 0) ? m.home : m.away);
+    const simulateTwoLeggedTie = (home: string, away: string, round: number) => {
+      const leg1 = { ...simulateSingleKnockoutMatch(home, away), round };
+      const leg2 = { ...simulateSingleKnockoutMatch(away, home), round };
+      const tieWinner = resolveTwoLeggedTie(leg1, leg2);
+      return { matches: [leg1, leg2], winner: tieWinner };
+    };
+    const final = simulateSingleKnockoutMatch(sortedA[0], sortedB[0]);
+    final.round = 1;
     const titleWinner = winner(final);
     const titleLoser = titleWinner === final.home ? final.away : final.home;
-    const pairs: Array<[string, string]> = [[sortedB[4], sortedA[4]], [sortedA[1], sortedB[7]], [sortedB[3], sortedA[5]], [sortedB[1], sortedA[7]], [sortedA[3], sortedB[5]], [sortedB[2], sortedA[6]], [sortedA[2], sortedB[6]]];
+    // Ordem do regulamento: 5ºB x 5ºA; 2ºA x 8ºB; 4ºB x 6ºA;
+    // 2ºB x 8ºA; 4ºA x 6ºB; 3ºB x 7ºA; 3ºA x 7ºB.
+    const pairs: Array<[string, string]> = [
+      [sortedB[4], sortedA[4]],
+      [sortedA[1], sortedB[7]],
+      [sortedB[3], sortedA[5]],
+      [sortedB[1], sortedA[7]],
+      [sortedA[3], sortedB[5]],
+      [sortedB[2], sortedA[6]],
+      [sortedA[2], sortedB[6]],
+    ];
     const first = pairs.map(([home, away]) => ({ ...simulateSingleKnockoutMatch(home, away), round: 1 }));
-    const phaseMatches: Record<string, Matchup[]> = { "Fase de grupos": [...a.matches, ...b.matches], "Final pelo título e acesso": [{ ...final, round: 1 }], "Torneio pelo segundo acesso — 1ª fase": first };
-    const phaseStandings: Record<string, Record<string, Standing>> = { "Grupo A": Object.fromEntries(sortedA.map((club) => [club, a[club]])), "Grupo B": Object.fromEntries(sortedB.map((club) => [club, b[club]])) };
-    let survivors = first.map(winner);
-    const names = ["Torneio pelo segundo acesso — 2ª fase", "Torneio pelo segundo acesso — Semifinais", "Torneio pelo segundo acesso — Final"];
-    for (let round = 0; round < names.length; round++) {
-      const entrants = round === 0 ? [titleLoser, ...survivors] : survivors;
-      const matches: Matchup[] = [];
-      for (let i = 0; i + 1 < entrants.length; i += 2) matches.push({ ...simulateSingleKnockoutMatch(entrants[i], entrants[i + 1]), round: 1 });
-      phaseMatches[names[round]] = matches;
-      survivors = matches.map(winner);
-    }
+    const phaseMatches: Record<string, Matchup[]> = {
+      "Fase de grupos": [...a.matches, ...b.matches],
+      "Final pelo título e acesso": [final],
+      "Torneio pelo segundo acesso — 1ª fase": first,
+    };
+    const phaseStandings: Record<string, Record<string, Standing>> = {
+      "Grupo A": Object.fromEntries(sortedA.map((club) => [club, a.table[club]])),
+      "Grupo B": Object.fromEntries(sortedB.map((club) => [club, b.table[club]])),
+    };
+    // Na 2ª fase, o perdedor da final enfrenta o vencedor do jogo 1.
+    // Os demais confrontos seguem a ordem dos vencedores dos jogos enviados:
+    // jogo 2 x jogo 3, jogo 4 x jogo 5 e jogo 6 x jogo 7.
+    const firstWinners = first.map(winner);
+    const secondPhasePairs: Array<[string, string]> = [
+      [titleLoser, firstWinners[0]],
+      [firstWinners[1], firstWinners[2]],
+      [firstWinners[3], firstWinners[4]],
+      [firstWinners[5], firstWinners[6]],
+    ];
+    const secondPhaseMatches: Matchup[] = [];
+    let survivors: string[] = [];
+    secondPhasePairs.forEach(([home, away]) => {
+      const tie = simulateTwoLeggedTie(home, away, 1);
+      secondPhaseMatches.push(...tie.matches);
+      survivors.push(tie.winner);
+    });
+    phaseMatches["Torneio pelo segundo acesso — 2ª fase"] = secondPhaseMatches;
+
+    const semifinalPairs: Array<[string, string]> = [
+      [survivors[0], survivors[1]],
+      [survivors[2], survivors[3]],
+    ];
+    const semifinalMatches: Matchup[] = [];
+    survivors = [];
+    semifinalPairs.forEach(([home, away]) => {
+      const tie = simulateTwoLeggedTie(home, away, 1);
+      semifinalMatches.push(...tie.matches);
+      survivors.push(tie.winner);
+    });
+    phaseMatches["Torneio pelo segundo acesso — Semifinais"] = semifinalMatches;
+
+    const finalTie = simulateTwoLeggedTie(survivors[0], survivors[1], 1);
+    phaseMatches["Torneio pelo segundo acesso — Final"] = finalTie.matches;
     const relegatedTeams = [...sortedA.slice(-2), ...sortedB.slice(-2)];
-    return { ...championship, argentinaGroups: groups, phases: ["Fase de grupos", "Final pelo título e acesso", "Torneio pelo segundo acesso — 1ª fase", ...names], standings: { ...a, ...b }, phaseStandings, phaseMatches, champion: titleWinner, accessTeams: [titleWinner, survivors[0]].filter(Boolean), relegatedTeams };
+    return {
+      ...championship,
+      argentinaGroups: groups,
+      phases: [
+        "Fase de grupos",
+        "Final pelo título e acesso",
+        "Torneio pelo segundo acesso — 1ª fase",
+        "Torneio pelo segundo acesso — 2ª fase",
+        "Torneio pelo segundo acesso — Semifinais",
+        "Torneio pelo segundo acesso — Final",
+      ],
+      standings: { ...a.table, ...b.table },
+      phaseStandings,
+      phaseMatches,
+      champion: titleWinner,
+      accessTeams: [titleWinner, finalTie.winner],
+      relegatedTeams,
+    };
   }
 
 function simulateChampionshipFully(championship: Championship): Championship | null {
