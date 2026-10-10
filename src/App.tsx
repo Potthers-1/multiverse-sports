@@ -5167,7 +5167,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     const current = championships.find((item) => item.id === championshipId);
     if (!current) return;
 
-    const isArgentinaPrimera = current.country === "Argentina" && current.division === "Primera División" && /Torneo (Apertura|Clausura)/.test(current.name);
+    const isArgentinaPrimera = current.country === "Argentina" && current.division === "Primera División";
     if (current.champion && !isArgentinaPrimera) {
       window.alert("Este campeonato já está 100% simulado.");
       return;
@@ -5854,7 +5854,7 @@ function simulateArgentinaSegundaDivision(championship: Championship): Champions
   }
 
 function simulateChampionshipFully(championship: Championship): Championship | null {
-    if (championship.country === "Argentina" && championship.division === "Primera División" && /Torneo (Apertura|Clausura)/.test(championship.name)) return simulateArgentinaPrimeraDivision(championship);
+    if (championship.country === "Argentina" && championship.division === "Primera División") return simulateArgentinaPrimeraDivision(championship);
     if (championship.country === "Argentina" && championship.division === "Primera Nacional") return simulateArgentinaSegundaDivision(championship);
     if (!championship) return null;
 
