@@ -4700,6 +4700,26 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       }
 
       if (
+        plan.state === "Santa Catarina" &&
+        plan.division === "1ª Divisão" &&
+        phase === "Primeira fase" &&
+        plan.santaCatarinaGroups
+      ) {
+        const groups = plan.santaCatarinaGroups;
+        const standingsForGroup = (group: string[]) => {
+          // A fase cruza os grupos: cada clube joga contra os seis do grupo oposto.
+          // A tabela individual soma apenas os jogos disputados por cada integrante.
+          const groupMatches = matches.filter(
+            (match) => group.includes(match.home) || group.includes(match.away)
+          );
+          const fullTable = calculateStandingFromMatches(groupMatches, group);
+          return Object.fromEntries(group.map((club) => [club, fullTable[club]]));
+        };
+        phaseStandings["Primeira fase - Grupo A"] = standingsForGroup(groups.A);
+        phaseStandings["Primeira fase - Grupo B"] = standingsForGroup(groups.B);
+      }
+
+      if (
         plan.state === "Paraná" &&
         plan.division === "1ª Divisão" &&
         phase === "Primeira fase" &&
