@@ -3298,77 +3298,144 @@ export default function App() {
 
 function simulateSaoPauloFirstDivision(championship: Championship): Championship {
   const teams = championship.teams ?? [];
-  if (teams.length < 16) return championship;
+  if (teams.length !== 16) return championship;
 
   const shuffle = (items: string[]) => {
-    const r = [...items];
-    for (let i = r.length - 1; i > 0; i--) {
+    const result = [...items];
+    for (let i = result.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [r[i], r[j]] = [r[j], r[i]];
+      [result[i], result[j]] = [result[j], result[i]];
     }
-    return r;
+    return result;
   };
 
   const pots = championship.saoPauloPots ?? (() => {
     const drawn = shuffle(teams);
-    return { A: drawn.slice(0,4), B: drawn.slice(4,8), C: drawn.slice(8,12), D: drawn.slice(12,16) };
+    return {
+      A: drawn.slice(0, 4),
+      B: drawn.slice(4, 8),
+      C: drawn.slice(8, 12),
+      D: drawn.slice(12, 16),
+    };
   })();
 
-  const table: Record<string, Standing> = {};
-  teams.forEach(team => table[team] = { j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0 });
+  if ([pots.A, pots.B, pots.C, pots.D].some((pot) => pot.length !== 4)) return championship;
 
-  const played = new Set<string>();
-  const play = (home:string, away:string) => {
-    const key=[home,away].sort().join("|");
-    if(played.has(key)) return;
-    played.add(key);
-    const hg=Math.floor(Math.random()*5), ag=Math.floor(Math.random()*5);
-    const h=table[home], a=table[away];
-    h.j++; a.j++; h.gp+=hg; h.gc+=ag; h.sg=h.gp-h.gc; a.gp+=ag; a.gc+=hg; a.sg=a.gp-a.gc;
-    if(hg>ag){h.v++;a.d++;h.pts+=3;}else if(hg<ag){a.v++;h.d++;a.pts+=3;}else{h.e++;a.e++;h.pts++;a.pts++;}
-  };
+  const potList = [pots.A, pots.B, pots.C, pots.D];
+  const firstPhaseMatches: Matchup[] = [];
 
-  const potList=[pots.A,pots.B,pots.C,pots.D];
-
-  // Os 3 rivais do próprio pote.
-  for(const pot of potList) for(let i=0;i<4;i++) for(let j=i+1;j<4;j++) play(pot[i],pot[j]);
-
-  // Cinco rodadas de confrontos entre potes. Em cada rodada todos os clubes
-  // disputam exatamente um jogo contra outro pote, garantindo 8 jogos por clube.
-  const potPairings = [
-    [[0,1],[2,3]], [[0,2],[1,3]], [[0,3],[1,2]],
-    [[0,1],[2,3]], [[0,2],[1,3]]
-  ] as [number,number][][];
-  for(let round=0;round<5;round++){
-    for(const [pa,pb] of potPairings[round]){
-      const left=potList[pa], right=potList[pb];
-      const offset=Math.floor(Math.random()*4);
-      for(let i=0;i<4;i++) play(left[i],right[(i+offset)%4]);
+  // Os 4 potes jogam turno único dentro do próprio pote: 3 rodadas,
+  // 2 partidas por pote em cada rodada, sem repetir confrontos.
+  for (let potIndex = 0; potIndex < potList.length; potIndex++) {
+    const pot = potList[potIndex];
+    const rotation = [...pot];
+    for (let round = 0; round < 3; round++) {
+      for (let i = 0; i < 2; i++) {
+        firstPhaseMatches.push({
+          home: rotation[i],
+          away: rotation[3 - i],
+          homeScore: Math.floor(Math.random() * 5),
+          awayScore: Math.floor(Math.random() * 5),
+          round: round + 1,
+        });
+      }
+      const fixed = rotation[0];
+      const rest = rotation.slice(1);
+      rest.unshift(rest.pop()!);
+      rotation.splice(0, rotation.length, fixed, ...rest);
     }
   }
 
-  const ordered=sortStandingTeams(teams,table);
-  const qualified=ordered.slice(0,8);
-  const single=(home:string,away:string)=>resolveKnockoutTie(simulateKnockoutMatch(home,away));
-  const winner=(m:Matchup)=>m.penaltyWinner ?? ((m.homeScore??0)>(m.awayScore??0)?m.home:m.away);
+  // Cinco rodadas entre potes. Cada clube enfrenta cinco adversários
+  // de outros potes, sem repetir rivais: 8 jogos por clube no total.
+  const potPairings: [number, number][][] = [
+    [[0, 1], [2, 3]],
+    [[0, 2], [1, 3]],
+    [[0, 3], [1, 2]],
+    [[0, 1], [2, 3]],
+    [[0, 2], [1, 3]],
+  ];
+  const pairingUses: Record<string, number> = {};
+  const played = new Set<string>();
+  for (const match of firstPhaseMatches) {
+    played.add([match.home, match.away].sort().join("|"));
+  }
 
-  const q1=single(qualified[0],qualified[7]);
-  const q2=single(qualified[3],qualified[4]);
-  const q3=single(qualified[1],qualified[6]);
-  const q4=single(qualified[2],qualified[5]);
-  const s1=single(winner(q1),winner(q2));
-  const s2=single(winner(q3),winner(q4));
-  const final1=simulateKnockoutMatch(winner(s1),winner(s2));
-  const final2=simulateKnockoutMatch(winner(s2),winner(s1));
-  const finalWinner=resolveTwoLeggedTie(final1,final2);
+  for (let roundIndex = 0; roundIndex < potPairings.length; roundIndex++) {
+    for (const [leftIndex, rightIndex] of potPairings[roundIndex]) {
+      const left = potList[leftIndex];
+      const right = potList[rightIndex];
+      const key = [leftIndex, rightIndex].sort((a, b) => a - b).join("-");
+      const use = pairingUses[key] ?? 0;
+      pairingUses[key] = use + 1;
+      // Deslocamentos distintos quando o mesmo par de potes se reencontra.
+      const offset = use;
+      for (let i = 0; i < 4; i++) {
+        const home = left[i];
+        const away = right[(i + offset) % 4];
+        const pairKey = [home, away].sort().join("|");
+        if (played.has(pairKey)) continue;
+        played.add(pairKey);
+        firstPhaseMatches.push({
+          home,
+          away,
+          homeScore: Math.floor(Math.random() * 5),
+          awayScore: Math.floor(Math.random() * 5),
+          round: roundIndex + 4,
+        });
+      }
+    }
+  }
+
+  const table = calculateStandingFromMatches(firstPhaseMatches, teams);
+  const ordered = sortStandingTeams(teams, table);
+  const qualified = ordered.slice(0, 8);
+  const quarterPairs: [string, string][] = [
+    [qualified[0], qualified[7]],
+    [qualified[3], qualified[4]],
+    [qualified[1], qualified[6]],
+    [qualified[2], qualified[5]],
+  ];
+
+  const quarters = quarterPairs.map(([home, away], index) => ({
+    ...simulateSingleKnockoutMatch(home, away),
+    round: 1,
+  }));
+  const winner = (match: Matchup) =>
+    match.penaltyWinner ??
+    ((match.homeScore ?? 0) > (match.awayScore ?? 0) ? match.home : match.away);
+
+  const semiPairs: [string, string][] = [
+    [winner(quarters[0]), winner(quarters[1])],
+    [winner(quarters[2]), winner(quarters[3])],
+  ];
+  const semifinals = semiPairs.map(([home, away]) => ({
+    ...simulateSingleKnockoutMatch(home, away),
+    round: 1,
+  }));
+
+  const final1 = { ...simulateKnockoutMatch(winner(semifinals[0]), winner(semifinals[1])), round: 1 };
+  const final2 = { ...simulateKnockoutMatch(winner(semifinals[1]), winner(semifinals[0])), round: 2 };
+  const champion = resolveTwoLeggedTie(final1, final2);
+  const relegatedTeams = ordered.slice(-2);
 
   return {
     ...championship,
-    saoPauloPots:pots,
-    standings:table,
-    phaseStandings:{...(championship.phaseStandings??{}),"Primeira fase":table},
-    phaseMatches:{...(championship.phaseMatches??{}),"Quartas de final":[q1,q2,q3,q4],"Semi final":[s1,s2],"Final":[final1,final2]},
-    champion:finalWinner,
+    saoPauloPots: pots,
+    standings: table,
+    phaseStandings: {
+      ...(championship.phaseStandings ?? {}),
+      "Primeira fase": table,
+    },
+    phaseMatches: {
+      "Primeira fase": firstPhaseMatches,
+      "Quartas de final": quarters,
+      "Semi final": semifinals,
+      "Final": [final1, final2],
+    },
+    accessTeams: qualified,
+    relegatedTeams,
+    champion,
   };
 }
 
@@ -4950,6 +5017,24 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     }
 
     if (
+      current.state === "São Paulo" &&
+      current.division === "1ª Divisão" &&
+      plan &&
+      (
+        (current.simulationVersion ?? 0) < 10 ||
+        (plan.phaseMatches?.["Primeira fase"] ?? []).length !== 64 ||
+        (plan.phaseMatches?.["Quartas de final"] ?? []).length !== 4 ||
+        (plan.phaseMatches?.["Semi final"] ?? []).length !== 2 ||
+        (plan.phaseMatches?.["Final"] ?? []).length !== 2
+      )
+    ) {
+      // Reconstrói somente o plano antigo de São Paulo e reinicia a progressão
+      // desta competição com o calendário de oito rodadas e mata-mata correto.
+      plan = undefined;
+      previousProgress = 0;
+    }
+
+    if (
       current.state === "Santa Catarina" &&
       current.division === "1ª Divisão" &&
       plan &&
@@ -5029,6 +5114,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         simulationRound: undefined,
         simulationTotalRounds: undefined,
         simulationVersion:
+          current.state === "São Paulo" && current.division === "1ª Divisão" ? 10 :
           current.state === "Santa Catarina" && current.division === "1ª Divisão" ? 9 :
           current.state === "Rondônia" && current.division === "1ª Divisão" ? 8 :
           current.state === "Rio Grande do Sul" && current.division === "1ª Divisão" ? 7 :
@@ -5067,7 +5153,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       champion: undefined,
       accessTeams: undefined,
       relegatedTeams: undefined,
-      simulationVersion: current.state === "Santa Catarina" && current.division === "1ª Divisão" ? 9 : current.state === "Rondônia" ? 8 : current.state === "Rio Grande do Sul" ? 7 : current.state === "Rio de Janeiro" ? 8 : current.state === "Pernambuco" ? 7 : current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
+      simulationVersion: current.state === "São Paulo" && current.division === "1ª Divisão" ? 10 : current.state === "Santa Catarina" && current.division === "1ª Divisão" ? 9 : current.state === "Rondônia" ? 8 : current.state === "Rio Grande do Sul" ? 7 : current.state === "Rio de Janeiro" ? 8 : current.state === "Pernambuco" ? 7 : current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
     };
     const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
