@@ -7498,8 +7498,9 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                         const currentPhase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
                         const matches = selected.phaseMatches?.[currentPhase] ?? [];
 
-                        if (selected.country === "Argentina" && selected.division === "Primera División" && currentPhase === "Fase de grupos") {
-                          const groups = selected.argentinaGroups ?? { A: (selected.teams ?? []).slice(0, 15), B: (selected.teams ?? []).slice(15, 30) };
+                        if (selected.country === "Argentina" && ["Primera División", "Primera Nacional"].includes(selected.division) && currentPhase === "Fase de grupos") {
+                          const groupSize = selected.division === "Primera Nacional" ? 18 : 15;
+                          const groups = selected.argentinaGroups ?? { A: (selected.teams ?? []).slice(0, groupSize), B: (selected.teams ?? []).slice(groupSize, groupSize * 2) };
                           const renderGroup = (letter: "A" | "B") => {
                             const group = groups[letter] ?? [];
                             const table = selected.phaseStandings?.[`Grupo ${letter}`] ?? {};
