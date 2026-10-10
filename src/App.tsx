@@ -1642,7 +1642,7 @@ export default function App() {
   const [season, setSeason] = useState("2026");
   const [division, setDivision] = useState("Estadual");
   const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
-  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason">>({});
+  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason" | "argentinaOverall">>({});
   const [simulationRounds, setSimulationRounds] = useState(1);
   const [countrySeasons, setCountrySeasons] = useState<Record<string, string>>({});
   const [selectedCountry, setSelectedCountry] = useState("Brasil");
@@ -6658,6 +6658,10 @@ function simulateChampionshipFully(championship: Championship): Championship | n
               </button>
               {argentinaPrimeraOpen && (
                 <div className="state-menu">
+                  <button className={`champ-link ${selectedSection[selectedId ?? -1] === "argentinaOverall" ? "selected" : ""}`} onClick={() => {
+                    const apertura = championships.find((item) => item.country === "Argentina" && item.season === (countrySeasons["Argentina"] || "2026") && item.division === "Primera División" && item.name === "Torneo Apertura");
+                    if (apertura) { setSelectedId(apertura.id); setSelectedSection((current) => ({ ...current, [apertura.id]: "argentinaOverall" })); }
+                  }}><span>Classificação geral</span><small>Apertura + Clausura</small></button>
                   {["Torneo Apertura", "Torneo Clausura"].map((name) => {
                     const champ = championships.find((item) => item.country === "Argentina" && item.season === (countrySeasons["Argentina"] || "2026") && item.division === "Primera División" && item.name === name);
                     return champ ? <button key={champ.id} className={`champ-link ${selectedId === champ.id ? "selected" : ""}`} onClick={() => setSelectedId(champ.id)}><span>{name}</span><small>{champ.season}</small></button> : <div key={name} className="empty-sidebar">{name} será criado automaticamente quando os 30 clubes estiverem cadastrados.</div>;
@@ -7380,7 +7384,21 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                     );
                   })() : null}
                 </div>
-              ) : (selectedSection[selected.id] ?? "competition") === "competition" ? (
+              ) : (selectedSection[selected.id] ?? "competition") === "argentinaOverall" && selected.country === "Argentina" && selected.division === "Primera División" ? (() => {
+                const seasonChamps = championships.filter((item) => item.country === "Argentina" && item.season === selected.season && item.division === "Primera División" && (item.name === "Torneo Apertura" || item.name === "Torneo Clausura"));
+                const aggregate: Record<string, Standing> = {};
+                for (const tournament of seasonChamps) {
+                  for (const groupName of ["Grupo A", "Grupo B"]) {
+                    for (const [club, row] of Object.entries(tournament.phaseStandings?.[groupName] ?? {})) {
+                      const current = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                      aggregate[club] = { j: current.j + row.j, v: current.v + row.v, e: current.e + row.e, d: current.d + row.d, gp: current.gp + row.gp, gc: current.gc + row.gc, sg: current.sg + row.sg, pts: current.pts + row.pts };
+                    }
+                  }
+                }
+                const clubs = [...new Set(seasonChamps.flatMap((item) => item.teams ?? []))];
+                const ordered = clubs.sort((a, b) => { const x = aggregate[a] ?? { pts: 0, sg: 0, gp: 0, v: 0 }; const y = aggregate[b] ?? { pts: 0, sg: 0, gp: 0, v: 0 }; return y.pts - x.pts || y.sg - x.sg || y.gp - x.gp || y.v - x.v || a.localeCompare(b, "pt-BR"); });
+                return <div className="competition-content"><div className="competition-block standings-block full-width-block"><div className="block-title">CLASSIFICAÇÃO GERAL — APERTURA + CLAUSURA {selected.season}</div><p className="clubs-note">Soma dos pontos e estatísticas dos dois torneios. A classificação é atualizada conforme Apertura e Clausura forem simulados.</p><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((club, index) => { const row = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; return <tr key={club}><td>{index + 1}</td><td>{clubLink(club, "club-link club-link-strong")}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td><strong>{row.pts}</strong></td></tr>; })}</tbody></table></div></div></div>;
+              })() : (selectedSection[selected.id] ?? "competition") === "competition" ? (
                 <>
                   {selected.phases && selected.phases.length > 1 && (
                     <div className="phase-tabs">
