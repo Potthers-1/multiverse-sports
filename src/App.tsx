@@ -3374,7 +3374,7 @@ function simulateSaoPauloFirstDivision(championship: Championship): Championship
 
 function simulateSantaCatarinaFirstDivision(championship: Championship): Championship {
     const teams = championship.teams ?? [];
-    if (teams.length < 12) return championship;
+    if (teams.length !== 12) return championship;
 
     const shuffle = (items: string[]) => {
       const result = [...items];
@@ -3385,73 +3385,62 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
       return result;
     };
 
-    const groups = championship.santaCatarinaGroups
-      ? championship.santaCatarinaGroups
-      : (() => {
-          const drawn = shuffle(teams);
-          return { A: drawn.slice(0, 6), B: drawn.slice(6, 12) };
-        })();
+    // O sorteio é feito uma única vez e preservado durante a simulação gradual.
+    const groups = championship.santaCatarinaGroups ?? (() => {
+      const drawn = shuffle(teams);
+      return { A: drawn.slice(0, 6), B: drawn.slice(6, 12) };
+    })();
 
-    const table: Record<string, Standing> = {};
-    [...groups.A, ...groups.B].forEach((team) => {
-      table[team] = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-    });
+    if (groups.A.length !== 6 || groups.B.length !== 6) return championship;
 
-    // Primeira fase: cada equipe enfrenta as 6 equipes do grupo oposto.
-    for (const home of groups.A) {
-      for (const away of groups.B) {
-        const homeGoals = Math.floor(Math.random() * 5);
-        const awayGoals = Math.floor(Math.random() * 5);
-        const h = table[home];
-        const a = table[away];
-
-        h.j++; a.j++;
-        h.gp += homeGoals; h.gc += awayGoals; h.sg = h.gp - h.gc;
-        a.gp += awayGoals; a.gc += homeGoals; a.sg = a.gp - a.gc;
-
-        if (homeGoals > awayGoals) {
-          h.v++; a.d++; h.pts += 3;
-        } else if (homeGoals < awayGoals) {
-          a.v++; h.d++; a.pts += 3;
-        } else {
-          h.e++; a.e++; h.pts++; a.pts++;
-        }
+    // Primeira fase: turno único entre grupos opostos, 6 rodadas.
+    // Cada clube enfrenta todos os seis adversários do outro grupo.
+    const firstPhaseMatches: Matchup[] = [];
+    for (let round = 0; round < 6; round++) {
+      for (let index = 0; index < 6; index++) {
+        firstPhaseMatches.push({
+          home: groups.A[index],
+          away: groups.B[(index + round) % 6],
+          homeScore: Math.floor(Math.random() * 5),
+          awayScore: Math.floor(Math.random() * 5),
+          round: round + 1,
+        });
       }
     }
 
-    const groupAOrdered = sortStandingTeams(groups.A, table);
-    const groupBOrdered = sortStandingTeams(groups.B, table);
+    const table = calculateStandingFromMatches(firstPhaseMatches, teams);
+    const orderedA = sortStandingTeams(groups.A, table);
+    const orderedB = sortStandingTeams(groups.B, table);
 
-    const simulateTwoLeggedRound = (pairings: [string, string][]) => {
+    const twoLeggedRound = (pairs: [string, string][]) => {
       const matches: Matchup[] = [];
       const winners: string[] = [];
-
-      for (const [teamA, teamB] of pairings) {
-        const leg1 = simulateKnockoutMatch(teamA, teamB);
-        const leg2 = simulateKnockoutMatch(teamB, teamA);
-        matches.push(leg1, leg2);
-        winners.push(resolveTwoLeggedTie(leg1, leg2));
+      for (const [home, away] of pairs) {
+        const first = { ...simulateKnockoutMatch(home, away), round: 1 };
+        const second = { ...simulateKnockoutMatch(away, home), round: 2 };
+        matches.push(first, second);
+        winners.push(resolveTwoLeggedTie(first, second));
       }
-
       return { matches, winners };
     };
 
-    // Quartas: apenas times do mesmo grupo se enfrentam.
-    const quarter = simulateTwoLeggedRound([
-      [groupAOrdered[0], groupAOrdered[3]],
-      [groupAOrdered[1], groupAOrdered[2]],
-      [groupBOrdered[0], groupBOrdered[3]],
-      [groupBOrdered[1], groupBOrdered[2]],
+    // Quartas dentro do próprio grupo: 1º x 4º e 2º x 3º.
+    const quarter = twoLeggedRound([
+      [orderedA[0], orderedA[3]],
+      [orderedA[1], orderedA[2]],
+      [orderedB[0], orderedB[3]],
+      [orderedB[1], orderedB[2]],
     ]);
 
-    const semi = simulateTwoLeggedRound([
+    // Semifinais cruzam os vencedores dos confrontos dos dois grupos.
+    const semi = twoLeggedRound([
       [quarter.winners[0], quarter.winners[3]],
       [quarter.winners[1], quarter.winners[2]],
     ]);
+    const final = twoLeggedRound([[semi.winners[0], semi.winners[1]]]);
 
-    const final = simulateTwoLeggedRound([
-      [semi.winners[0], semi.winners[1]],
-    ]);
+    const groupTable = (group: string[]) =>
+      Object.fromEntries(group.map((club) => [club, table[club]]));
 
     return {
       ...championship,
@@ -3459,15 +3448,17 @@ function simulateSantaCatarinaFirstDivision(championship: Championship): Champio
       standings: table,
       phaseStandings: {
         ...(championship.phaseStandings ?? {}),
-        "Primeira fase - Grupo A": Object.fromEntries(groupAOrdered.map((team) => [team, table[team]])),
-        "Primeira fase - Grupo B": Object.fromEntries(groupBOrdered.map((team) => [team, table[team]])),
+        "Primeira fase": table,
+        "Primeira fase - Grupo A": groupTable(orderedA),
+        "Primeira fase - Grupo B": groupTable(orderedB),
       },
       phaseMatches: {
-        ...(championship.phaseMatches ?? {}),
+        "Primeira fase": firstPhaseMatches,
         "Quartas de final": quarter.matches,
         "Semi final": semi.matches,
         "Final": final.matches,
       },
+      accessTeams: [...orderedA.slice(0, 4), ...orderedB.slice(0, 4)],
       champion: final.winners[0],
     };
   }
@@ -4939,6 +4930,24 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     }
 
     if (
+      current.state === "Santa Catarina" &&
+      current.division === "1ª Divisão" &&
+      plan &&
+      (
+        (current.simulationVersion ?? 0) < 9 ||
+        (plan.phaseMatches?.["Primeira fase"] ?? []).length !== 36 ||
+        (plan.phaseMatches?.["Quartas de final"] ?? []).length !== 8 ||
+        (plan.phaseMatches?.["Semi final"] ?? []).length !== 4 ||
+        (plan.phaseMatches?.["Final"] ?? []).length !== 2
+      )
+    ) {
+      // Descarta somente o plano antigo de Santa Catarina, para que a
+      // simulação gradual volte a usar 6 rodadas de grupos e mata-mata ida/volta.
+      plan = undefined;
+      previousProgress = 0;
+    }
+
+    if (
       current.state === "Rio Grande do Sul" &&
       current.division === "1ª Divisão" &&
       plan &&
@@ -5000,6 +5009,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         simulationRound: undefined,
         simulationTotalRounds: undefined,
         simulationVersion:
+          current.state === "Santa Catarina" && current.division === "1ª Divisão" ? 9 :
           current.state === "Rondônia" && current.division === "1ª Divisão" ? 8 :
           current.state === "Rio Grande do Sul" && current.division === "1ª Divisão" ? 7 :
           current.state === "Rio de Janeiro" && current.division === "1ª Divisão" ? 8 :
@@ -5037,7 +5047,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       champion: undefined,
       accessTeams: undefined,
       relegatedTeams: undefined,
-      simulationVersion: current.state === "Rondônia" ? 8 : current.state === "Rio Grande do Sul" ? 7 : current.state === "Rio de Janeiro" ? 8 : current.state === "Pernambuco" ? 7 : current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
+      simulationVersion: current.state === "Santa Catarina" && current.division === "1ª Divisão" ? 9 : current.state === "Rondônia" ? 8 : current.state === "Rio Grande do Sul" ? 7 : current.state === "Rio de Janeiro" ? 8 : current.state === "Pernambuco" ? 7 : current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
     };
     const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
