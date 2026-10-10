@@ -5181,7 +5181,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     if (isArgentinaPrimera && plan && (
       (current.simulationVersion ?? 0) < 11 ||
       (plan.simulationVersion ?? 0) < 11 ||
-      (plan.phaseMatches?.["Fase de grupos"] ?? []).length !== 210 ||
+      (plan.phaseMatches?.["Fase de grupos"] ?? []).length !== 435 ||
       (plan.phaseMatches?.["Oitavas de final"] ?? []).length !== 8 ||
       (plan.phaseMatches?.["Quartas de final"] ?? []).length !== 4 ||
       (plan.phaseMatches?.["Semifinais"] ?? []).length !== 2 ||
@@ -5715,18 +5715,18 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       groups = { A: shuffled.slice(0, 15), B: shuffled.slice(15, 30) };
     }
 
-    // Cada torneio tem dois grupos de 15: turno único dentro do grupo (14 rodadas).
-    // O calendário é reconstruído do zero e todos os jogos recebem número de rodada.
-    const groupA = simulateRoundRobinWithMatches(groups!.A);
-    const groupB = simulateRoundRobinWithMatches(groups!.B);
-    const fullTable: Record<string, Standing> = { ...groupA.table, ...groupB.table };
-    const groupMatches = [...groupA.matches, ...groupB.matches];
+    // Os grupos definem a chave de cada clube, mas a fase regular é uma
+    // liga única: cada equipe enfrenta os outros 29 clubes (435 partidas).
+    // As tabelas A/B são recortes da classificação da liga completa.
+    const league = simulateRoundRobinWithMatches(teams);
+    const fullTable = league.table;
+    const groupMatches = league.matches;
     const phaseMatches: Record<string, Matchup[]> = { "Fase de grupos": groupMatches };
-    const sortedA = sortStandingTeams(groups!.A, groupA.table);
-    const sortedB = sortStandingTeams(groups!.B, groupB.table);
+    const sortedA = sortStandingTeams(groups!.A, fullTable);
+    const sortedB = sortStandingTeams(groups!.B, fullTable);
     const phaseStandings: Record<string, Record<string, Standing>> = {
-      "Grupo A": Object.fromEntries(sortedA.map((club) => [club, groupA.table[club]])),
-      "Grupo B": Object.fromEntries(sortedB.map((club) => [club, groupB.table[club]])),
+      "Grupo A": Object.fromEntries(sortedA.map((club) => [club, fullTable[club]])),
+      "Grupo B": Object.fromEntries(sortedB.map((club) => [club, fullTable[club]])),
     };
 
     const winner = (match: Matchup) =>
@@ -6396,15 +6396,14 @@ function simulateChampionshipFully(championship: Championship): Championship | n
     // Campeão salvo sozinho não prova que o campeonato foi simulado por completo.
     // Em especial, versões antigas da Primera División gravavam o campeão, mas
     // deixavam Apertura/Clausura sem jogos e sem tabela válida.
-    if (championship.country === "Argentina" && championship.division === "Primera División" &&
-        (championship.name === "Torneo Apertura" || championship.name === "Torneo Clausura")) {
+    if (championship.country === "Argentina" && championship.division === "Primera División") {
       const teams = championship.teams ?? [];
       const matches = championship.phaseMatches?.["Fase de grupos"] ?? [];
       const standingsCount = Object.keys(championship.standings ?? {}).length;
       const hasKnockout = ["Oitavas de final", "Quartas de final", "Semifinais", "Final"].every((phase) =>
         (championship.phaseMatches?.[phase]?.length ?? 0) > 0
       );
-      if (teams.length === 30 && standingsCount >= 30 && matches.length === 210 && hasKnockout && Boolean(championship.champion) && (championship.simulationVersion ?? 0) >= 11) return true;
+      if (teams.length === 30 && standingsCount >= 30 && matches.length === 435 && hasKnockout && Boolean(championship.champion) && (championship.simulationVersion ?? 0) >= 11) return true;
       return false;
     }
     if (championship.champion) return true;
