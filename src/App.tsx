@@ -6372,6 +6372,20 @@ function simulateChampionshipFully(championship: Championship): Championship | n
   }
 
   function isChampionshipSeasonSimulated(championship: Championship): boolean {
+    // Campeão salvo sozinho não prova que o campeonato foi simulado por completo.
+    // Em especial, versões antigas da Primera División gravavam o campeão, mas
+    // deixavam Apertura/Clausura sem jogos e sem tabela válida.
+    if (championship.country === "Argentina" && championship.division === "Primera División" &&
+        (championship.name === "Torneo Apertura" || championship.name === "Torneo Clausura")) {
+      const teams = championship.teams ?? [];
+      const matches = championship.phaseMatches?.["Fase de grupos"] ?? [];
+      const standingsCount = Object.keys(championship.standings ?? {}).length;
+      const hasKnockout = ["Oitavas de final", "Quartas de final", "Semifinais", "Final"].every((phase) =>
+        (championship.phaseMatches?.[phase]?.length ?? 0) > 0
+      );
+      if (teams.length === 30 && standingsCount >= 30 && matches.length >= 435 && hasKnockout && Boolean(championship.champion)) return true;
+      return false;
+    }
     if (championship.champion) return true;
     const total = championship.simulationTotalRounds ?? 0;
     const progress = championship.simulationRound ?? 0;
@@ -7701,8 +7715,13 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                 const seasonChamps = championships.filter((item) => item.country === "Argentina" && item.season === selected.season && item.division === "Primera División" && (item.name === "Torneo Apertura" || item.name === "Torneo Clausura"));
                 const aggregate: Record<string, Standing> = {};
                 for (const tournament of seasonChamps) {
+                  const clubGroups = tournament.argentinaGroups ?? { A: (tournament.teams ?? []).slice(0, 15), B: (tournament.teams ?? []).slice(15, 30) };
                   for (const groupName of ["Grupo A", "Grupo B"]) {
-                    for (const [club, row] of Object.entries(tournament.phaseStandings?.[groupName] ?? {})) {
+                    const groupTeams = groupName === "Grupo A" ? clubGroups.A : clubGroups.B;
+                    const savedGroupTable = tournament.phaseStandings?.[groupName] ?? {};
+                    for (const club of groupTeams) {
+                      const row = savedGroupTable[club] ?? tournament.standings?.[club];
+                      if (!row) continue;
                       const current = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
                       aggregate[club] = { j: current.j + row.j, v: current.v + row.v, e: current.e + row.e, d: current.d + row.d, gp: current.gp + row.gp, gc: current.gc + row.gc, sg: current.sg + row.sg, pts: current.pts + row.pts };
                     }
