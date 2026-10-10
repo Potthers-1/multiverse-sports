@@ -3397,7 +3397,7 @@ function simulateSaoPauloFirstDivision(championship: Championship): Championship
     [qualified[2], qualified[5]],
   ];
 
-  const quarters = quarterPairs.map(([home, away], index) => ({
+  const quarters = quarterPairs.map(([home, away]) => ({
     ...simulateSingleKnockoutMatch(home, away),
     round: 1,
   }));
