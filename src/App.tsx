@@ -7083,6 +7083,9 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                   </button>
                 )}
 
+                {selected.country === "Argentina" && selected.division === "Primera División" && selectedSection[selected.id] === "argentinaOverall" && (
+                  <button className={`section-tab ${selectedSection[selected.id] === "history" ? "active" : ""}`} onClick={() => setSelectedSection((current) => ({ ...current, [selected.id]: "history" }))}>Histórico de campeões</button>
+                )}
                 <button
                   className={`section-tab ${selectedSection[selected.id] === "history" ? "active" : ""}`}
                   onClick={() =>
@@ -7397,7 +7400,8 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                 }
                 const clubs = [...new Set(seasonChamps.flatMap((item) => item.teams ?? []))];
                 const ordered = clubs.sort((a, b) => { const x = aggregate[a] ?? { pts: 0, sg: 0, gp: 0, v: 0 }; const y = aggregate[b] ?? { pts: 0, sg: 0, gp: 0, v: 0 }; return y.pts - x.pts || y.sg - x.sg || y.gp - x.gp || y.v - x.v || a.localeCompare(b, "pt-BR"); });
-                return <div className="competition-content"><div className="competition-block standings-block full-width-block"><div className="block-title">CLASSIFICAÇÃO GERAL — APERTURA + CLAUSURA {selected.season}</div><p className="clubs-note">Soma dos pontos e estatísticas dos dois torneios. A classificação é atualizada conforme Apertura e Clausura forem simulados.</p><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((club, index) => { const row = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; return <tr key={club}><td>{index + 1}</td><td>{clubLink(club, "club-link club-link-strong")}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td><strong>{row.pts}</strong></td></tr>; })}</tbody></table></div></div></div>;
+                const overallChampion = seasonChamps.length === 2 && seasonChamps.every((item) => item.champion) && ordered.length > 0 ? ordered[0] : undefined;
+                return <div className="competition-content"><div className="competition-block standings-block full-width-block"><div className="block-title">CLASSIFICAÇÃO GERAL — APERTURA + CLAUSURA {selected.season}</div><p className="clubs-note">Soma dos pontos e estatísticas dos dois torneios. A classificação é atualizada conforme Apertura e Clausura forem simulados.</p>{overallChampion && <div className="champion-banner"><strong>🏆 CAMPEÃO DA CLASSIFICAÇÃO GERAL: {overallChampion}</strong><span>{aggregate[overallChampion]?.pts ?? 0} pontos somados</span></div>}<div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((club, index) => { const row = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; return <tr key={club}><td>{index + 1}</td><td>{clubLink(club, "club-link club-link-strong")}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td><strong>{row.pts}</strong></td></tr>; })}</tbody></table></div></div></div>;
               })() : (selectedSection[selected.id] ?? "competition") === "competition" ? (
                 <>
                   {selected.phases && selected.phases.length > 1 && (
