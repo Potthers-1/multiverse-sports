@@ -4692,9 +4692,18 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     // ETAPA 1: todos os campeonatos estaduais são simulados primeiro.
     // Isso garante que os resultados estaduais estejam concluídos antes do início das divisões nacionais.
     let updated = sourceChampionships.map((championship) => {
-      if (championship.country !== country || nationalDivisions.has(championship.division)) {
-        return championship;
+      if (championship.country !== country) return championship;
+
+      // Argentina: simular explicitamente as duas divisões antes da etapa nacional brasileira.
+      // Sem este desvio, Apertura/Clausura caíam no simulador genérico e não geravam mata-mata.
+      if (country === "Argentina" && championship.division === "Primera División") {
+        return simulateArgentinaPrimeraDivision(championship);
       }
+      if (country === "Argentina" && championship.division === "Primera Nacional") {
+        return simulateArgentinaSegundaDivision(championship);
+      }
+
+      if (nationalDivisions.has(championship.division)) return championship;
 
       if (championship.state === "Acre" && championship.division === "1ª Divisão") {
         return simulateAcreFirstDivision(championship);
