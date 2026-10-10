@@ -6663,9 +6663,18 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
             </form>
             <div className="argentina-club-list-header"><h3>Clubes cadastrados</h3><input value={argentinaClubSearch} onChange={(event) => setArgentinaClubSearch(event.target.value)} placeholder="Buscar clube..." aria-label="Buscar clube argentino" /></div>
             {argentinaClubs.length === 0 ? <div className="argentina-empty">Nenhum clube cadastrado ainda. Comece pelos clubes da primeira divisão e preencha filiação e região; o cadastro fica salvo neste navegador.</div> : (
-              <div className="argentina-club-table-wrap"><table className="argentina-club-table"><thead><tr><th>Clube</th><th>Divisão</th><th>Filiação</th><th>Região</th><th>Ações</th></tr></thead><tbody>
-                {argentinaClubs.filter((club) => club.name.toLocaleLowerCase().includes(argentinaClubSearch.toLocaleLowerCase())).map((club) => <tr key={club.id}><td>{club.name}</td><td>{club.division ?? "Não definida"}</td><td>{club.affiliation}</td><td>{club.affiliation === "AFA direta" ? "Não se aplica (AFA direta)" : (club.region || "A definir")}</td><td><button className="secondary-button argentina-edit" onClick={() => { setArgentinaClubName(club.name); setArgentinaClubAffiliation(club.affiliation); setArgentinaClubRegion(""); setArgentinaClubDivision(club.division ?? ARGENTINA_DIVISIONS[0]); }} type="button">Editar</button><button className="danger-link" onClick={() => { if (window.confirm(`Remover ${club.name} do cadastro?`)) setArgentinaClubs((current) => current.filter((item) => item.id !== club.id)); }} type="button">Remover</button></td></tr>)}
-              </tbody></table></div>
+              <div className="argentina-federation-groups">
+                {["AFA direta", ...Array.from(new Set(argentinaClubs.filter((club) => club.affiliation !== "AFA direta").map((club) => club.region || "Região a definir"))).sort((a, b) => a.localeCompare(b, "es"))].map((groupName) => {
+                  const groupClubs = argentinaClubs.filter((club) => (groupName === "AFA direta" ? club.affiliation === "AFA direta" : club.affiliation !== "AFA direta" && (club.region || "Região a definir") === groupName) && club.name.toLocaleLowerCase().includes(argentinaClubSearch.toLocaleLowerCase())).sort((a, b) => a.name.localeCompare(b.name, "es"));
+                  if (!groupClubs.length) return null;
+                  return <details className="argentina-federation-group" key={groupName}>
+                    <summary><span>{groupName === "AFA direta" ? "Clubes filiados diretamente à AFA" : groupName}</span><span className="argentina-federation-count">{groupClubs.length} clube(s)</span></summary>
+                    <div className="argentina-club-table-wrap"><table className="argentina-club-table"><thead><tr><th>Clube</th><th>Divisão</th><th>Filiação</th><th>Ações</th></tr></thead><tbody>
+                      {groupClubs.map((club) => <tr key={club.id}><td>{club.name}</td><td>{club.division ?? "Não definida"}</td><td>{club.affiliation}</td><td><button className="secondary-button argentina-edit" onClick={() => { setArgentinaClubName(club.name); setArgentinaClubAffiliation(club.affiliation); setArgentinaClubRegion(club.region || ""); setArgentinaClubDivision(club.division ?? ARGENTINA_DIVISIONS[0]); }} type="button">Editar</button><button className="danger-link" onClick={() => { if (window.confirm(`Remover ${club.name} do cadastro?`)) setArgentinaClubs((current) => current.filter((item) => item.id !== club.id)); }} type="button">Remover</button></td></tr>)}
+                    </tbody></table></div>
+                  </details>;
+                })}
+              </div>
             )}
             <div className="argentina-hint">Importante: por enquanto, este cadastro guarda os dados federativos. As divisões, vagas e regras de promoção/rebaixamento serão conectadas a esses campos quando configurarmos a pirâmide argentina.</div>
           </section>
@@ -8411,6 +8420,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .argentina-club-list-header h3 { font-size: 14px; color: #eef2ff; }
         .argentina-club-list-header input { max-width: 240px; margin: 0; }
         .argentina-club-table-wrap { width: 100%; overflow-x: auto; }
+        .argentina-federation-groups { display: grid; gap: 9px; }
+        .argentina-federation-group { border: 1px solid #26314a; border-radius: 10px; overflow: hidden; background: #0c1323; }
+        .argentina-federation-group summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; color: #eef2ff; font-size: 12px; font-weight: 700; cursor: pointer; list-style-position: inside; }
+        .argentina-federation-group summary:hover { background: #131d32; }
+        .argentina-federation-count { color: #8e9ab4; font-size: 10px; font-weight: 500; white-space: nowrap; }
+        .argentina-federation-group[open] summary { border-bottom: 1px solid #26314a; }
+
         .argentina-club-table { width: 100%; border-collapse: collapse; min-width: 650px; }
         .argentina-club-table th { text-align: left; padding: 10px; color: #71809f; font-size: 9px; text-transform: uppercase; border-bottom: 1px solid #26314a; }
         .argentina-club-table td { padding: 10px; color: #b8c3d8; font-size: 11px; border-bottom: 1px solid #1c2539; }
