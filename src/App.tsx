@@ -6727,9 +6727,10 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
                   const table = selected.phaseStandings?.[firstPhase] ?? selected.standings ?? {};
                   const ordered = sortStandingTeams(selected.teams ?? Object.keys(table), table);
                   const championStats = table[selected.champion];
-                  const playedRows = ordered
-                    .map((club) => ({ club, stats: table[club] }))
-                    .filter((item) => item.stats && item.stats.j > 0);
+                  const playedRows = ordered.flatMap((club) => {
+                    const stats = table[club];
+                    return stats && stats.j > 0 ? [{ club, stats }] : [];
+                  });
                   const bestAttack = [...playedRows].sort((a, b) => b.stats.gp - a.stats.gp || b.stats.pts - a.stats.pts)[0];
                   const bestDefense = [...playedRows].sort((a, b) => a.stats.gc - b.stats.gc || b.stats.pts - a.stats.pts)[0];
                   const mostWins = [...playedRows].sort((a, b) => b.stats.v - a.stats.v || b.stats.pts - a.stats.pts)[0];
