@@ -6500,6 +6500,32 @@ function simulateChampionshipFully(championship: Championship): Championship | n
     const cRelegated = serieC?.relegatedTeams ?? [];
     const dAccess = serieD ? getSerieDSemifinalists(serieD) : [];
 
+    // Movimentação entre as divisões argentinas: usar a soma de Apertura + Clausura.
+    const argentinaApertura = countryChampionships.find((item) => item.season === String(currentYear) && item.division === "Primera División" && item.name === "Torneo Apertura");
+    const argentinaClausura = countryChampionships.find((item) => item.season === String(currentYear) && item.division === "Primera División" && item.name === "Torneo Clausura");
+    const argentinaNacional = countryChampionships.find((item) => item.season === String(currentYear) && item.division === "Primera Nacional");
+    const argentinaFirstDivision = [argentinaApertura, argentinaClausura].filter((item): item is Championship => Boolean(item));
+    const argentinaAggregate: Record<string, Standing> = {};
+    for (const tournament of argentinaFirstDivision) {
+      const rows = tournament.standings ?? Object.assign({}, ...(Object.values(tournament.phaseStandings ?? {}).map((group) => group)));
+      for (const [club, row] of Object.entries(rows)) {
+        const old = argentinaAggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+        argentinaAggregate[club] = { j: old.j + row.j, v: old.v + row.v, e: old.e + row.e, d: old.d + row.d, gp: old.gp + row.gp, gc: old.gc + row.gc, sg: old.sg + row.sg, pts: old.pts + row.pts };
+      }
+    }
+    const argentinaOverallTeams = [...new Set(argentinaFirstDivision.flatMap((item) => item.teams ?? []))].sort((a, b) => {
+      const x = argentinaAggregate[a] ?? { pts: 0, sg: 0, gp: 0, v: 0 };
+      const y = argentinaAggregate[b] ?? { pts: 0, sg: 0, gp: 0, v: 0 };
+      return y.pts - x.pts || y.sg - x.sg || y.gp - x.gp || y.v - x.v || a.localeCompare(b, "pt-BR");
+    });
+    const argentinaMovementReady = country === "Argentina" &&
+      argentinaApertura?.champion && argentinaClausura?.champion &&
+      argentinaNacional?.champion && argentinaNacional.accessTeams?.length;
+    const argentinaRelegated = argentinaMovementReady ? argentinaOverallTeams.slice(-2) : [];
+    const argentinaPromoted = argentinaMovementReady
+      ? [...new Set([argentinaNacional!.champion!, argentinaNacional!.accessTeams!.find((club) => club !== argentinaNacional!.champion!)].filter((club): club is string => Boolean(club)))]
+      : [];
+
     const completedRankingRecords: ClubRankingSeasonRecord[] = countryChampionships
       .filter(
         (item) =>
@@ -6532,6 +6558,16 @@ function simulateChampionshipFully(championship: Championship): Championship | n
     }
 
     const nextTeams = (division: string, fallback: string[]) => {
+      if (country === "Argentina" && division === "Primera División") {
+        return [...fallback.filter((club) => !argentinaRelegated.includes(club)), ...argentinaPromoted]
+          .filter((club, index, list) => list.indexOf(club) === index);
+      }
+
+      if (country === "Argentina" && division === "Primera Nacional") {
+        return [...fallback.filter((club) => !argentinaPromoted.includes(club)), ...argentinaRelegated]
+          .filter((club, index, list) => list.indexOf(club) === index);
+      }
+
       if (division === "Série A") {
         return [...fallback.filter((club) => !aRelegated.includes(club)), ...bAccess]
           .filter((club, index, list) => list.indexOf(club) === index);
@@ -6561,7 +6597,11 @@ function simulateChampionshipFully(championship: Championship): Championship | n
 
         let teams = championship.teams;
 
-        if (!championship.state && championship.division === "Série A") {
+        if (country === "Argentina" && championship.division === "Primera División" && argentinaMovementReady) {
+          teams = nextTeams("Primera División", championship.teams ?? []);
+        } else if (country === "Argentina" && championship.division === "Primera Nacional" && argentinaMovementReady) {
+          teams = nextTeams("Primera Nacional", championship.teams ?? []);
+        } else if (!championship.state && championship.division === "Série A") {
           teams = nextTeams("Série A", serieA?.teams ?? championship.teams ?? []);
         } else if (!championship.state && championship.division === "Série B") {
           teams = nextTeams("Série B", serieB?.teams ?? championship.teams ?? []);
@@ -6593,6 +6633,17 @@ function simulateChampionshipFully(championship: Championship): Championship | n
         };
       })
     );
+
+    if (country === "Argentina" && argentinaMovementReady) {
+      setArgentinaClubs((current) => current.map((club) => ({
+        ...club,
+        division: argentinaPromoted.includes(club.name)
+          ? "Primera División"
+          : argentinaRelegated.includes(club.name)
+            ? "Primera Nacional"
+            : club.division,
+      })));
+    }
 
     setCountrySeasons((current) => ({
       ...current,
