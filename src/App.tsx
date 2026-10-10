@@ -7678,7 +7678,7 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                                 <thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead>
                                 <tbody>{ordered.map((team, index) => {
                                   const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-                                  return <tr key={team} className={index < 8 ? "zone-second-phase" : ""}><td>{index + 1}</td><td className="standing-team">{clubLink(team)}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>;
+                                  return <tr key={team} className={index === 0 ? "zone-title-access" : index < 8 ? "zone-second-phase" : ""}><td>{index + 1}</td><td className="standing-team">{clubLink(team)}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>;
                                 })}</tbody>
                               </table></div>
                             </div>;
