@@ -57,6 +57,7 @@ type Championship = {
   relegatedTeams?: string[];
   amazonasGroups?: { A: string[]; B: string[] };
   rioGroups?: { A: string[]; B: string[] };
+  argentinaGroups?: { A: string[]; B: string[] };
   santaCatarinaGroups?: { A: string[]; B: string[] };
   cearaGroups?: { A: string[]; B: string[] };
   cearaSecondGroups?: { C: string[]; D: string[] };
@@ -2197,6 +2198,40 @@ export default function App() {
     setSelectedId(championship.id);
     setName("");
     setShowCreate(false);
+  }
+
+  function createArgentinaPrimeraDivisionTournaments() {
+    const teams = argentinaClubs.filter((club) => club.division === "Primera División").map((club) => club.name);
+    if (teams.length !== 30) {
+      window.alert(`A Primera División precisa de 30 clubes cadastrados. Atualmente há ${teams.length}.`);
+      return;
+    }
+    const selectedSeason = countrySeasons["Argentina"] || "2026";
+    const existing = championships.filter((c) => c.country === "Argentina" && c.season === selectedSeason && c.division === "Primera División");
+    const missing = ["Apertura", "Clausura"].filter((name) => !existing.some((c) => c.name === `Torneo ${name}`));
+    if (!missing.length) {
+      window.alert(`A Primera División de ${selectedSeason} já tem Apertura e Clausura cadastrados.`);
+      return;
+    }
+    const shuffled = [...teams];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const groups = { A: shuffled.slice(0, 15), B: shuffled.slice(15, 30) };
+    const created = missing.map((part, index): Championship => ({
+      id: Date.now() + index,
+      name: `Torneo ${part}`,
+      season: selectedSeason,
+      division: "Primera División",
+      country: "Argentina",
+      teams: [...teams],
+      argentinaGroups: { A: [...groups.A], B: [...groups.B] },
+      rules: ["30 clubes divididos em Grupo A e Grupo B, com 15 clubes em cada grupo.", "Fase de grupos em turno único: cada clube enfrenta todos os outros 29 clubes, incluindo os do próprio grupo e os do grupo oposto, totalizando 29 rodadas.", "Classificam-se os 8 melhores de cada grupo para as oitavas de final.", "Mata-mata em jogo único: oitavas, quartas, semifinais e final. Empates são decididos por pênaltis."],
+    }));
+    setChampionships((current) => [...current, ...created]);
+    setSelectedCountry("Argentina");
+    window.alert(`Criados: ${created.map((c) => c.name).join(" e ")} ${selectedSeason}.`);
   }
 
   function deleteChampionship(id: number) {
@@ -5521,7 +5556,66 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     };
   }
 
-  function simulateChampionshipFully(championship: Championship): Championship | null {
+  function simulateArgentinaPrimeraDivision(championship: Championship): Championship {
+    const teams = [...(championship.teams ?? [])];
+    if (teams.length !== 30) return championship;
+    const shuffle = (items: string[]) => {
+      const copy = [...items];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    };
+    const groups = championship.argentinaGroups ?? (() => {
+      const shuffled = shuffle(teams);
+      return { A: shuffled.slice(0, 15), B: shuffled.slice(15, 30) };
+    })();
+    // Fase única: todos enfrentam os outros 29 clubes, independentemente do grupo.
+    const league = simulateRoundRobinWithMatches(teams);
+    const fullTable = league.table;
+    const phaseMatches: Record<string, Matchup[]> = { "Fase de grupos": league.matches };
+    const phaseStandings: Record<string, Record<string, Standing>> = {
+      "Grupo A": Object.fromEntries(sortStandingTeams(groups.A, fullTable).map((club) => [club, fullTable[club]])),
+      "Grupo B": Object.fromEntries(sortStandingTeams(groups.B, fullTable).map((club) => [club, fullTable[club]])),
+    };
+    const a = sortStandingTeams(groups.A, fullTable);
+    const b = sortStandingTeams(groups.B, fullTable);
+    const winner = (match: Matchup) => match.penaltyWinner ?? ((match.homeScore ?? 0) >= (match.awayScore ?? 0) ? match.home : match.away);
+    let advancing = Array.from({ length: 8 }, (_, i) => [a[i], b[7 - i]] as [string, string]);
+    const roundNames = ["Oitavas de final", "Quartas de final", "Semifinais", "Final"];
+    for (const phase of roundNames) {
+      const matches = advancing.map(([home, away]) => ({ ...simulateSingleKnockoutMatch(home, away), round: 1 }));
+      phaseMatches[phase] = matches;
+      phaseStandings[phase] = calculateStandingFromMatches(matches);
+      advancing = [];
+      for (const match of matches) {
+        const qualified = winner(match);
+        const loser = qualified === match.home ? match.away : match.home;
+        advancing.push([qualified, loser]);
+      }
+      if (phase !== "Final") {
+        const winners = matches.map(winner);
+        advancing = [];
+        for (let i = 0; i < winners.length; i += 2) advancing.push([winners[i], winners[i + 1]]);
+      }
+    }
+    const final = phaseMatches["Final"][0];
+    const champion = final ? winner(final) : undefined;
+    return {
+      ...championship,
+      teams,
+      argentinaGroups: groups,
+      phases: ["Fase de grupos", ...roundNames],
+      standings: fullTable,
+      phaseStandings,
+      phaseMatches,
+      champion,
+    };
+  }
+
+function simulateChampionshipFully(championship: Championship): Championship | null {
+    if (championship.country === "Argentina" && championship.division === "Primera División" && /Torneo (Apertura|Clausura)/.test(championship.name)) return simulateArgentinaPrimeraDivision(championship);
     if (!championship) return null;
 
     if (championship.division === "Série A" && championship.country === "Brasil") {
@@ -6681,6 +6775,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
               <span className="ranking-season-badge">{argentinaClubs.length} clubes cadastrados</span>
             </div>
             <p className="argentina-intro">Cadastre cada clube uma vez. A filiação define qual pirâmide de acesso ele disputa; a região define para qual federação regional ele retorna em caso de rebaixamento. Essas informações serão usadas para montar as divisões argentinas e movimentar os clubes entre temporadas.</p>
+            <div className="argentina-actions"><button type="button" className="primary-button" onClick={createArgentinaPrimeraDivisionTournaments}>Criar Primera División (Apertura e Clausura)</button><p className="argentina-hint">Disponível quando houver 30 clubes cadastrados na divisão Primera División.</p></div>
             <div className="argentina-mechanics-grid">
               <div className="argentina-mechanic-card"><span>01 • FILIAÇÃO</span><strong>AFA direta</strong><p>Clubes filiados diretamente à AFA entram na pirâmide metropolitana/nacional correspondente às regras configuradas.</p><strong>Indireta / Conselho Federal</strong><p>Clubes ligados por meio de uma liga regional entram na pirâmide do interior.</p></div>
               <div className="argentina-mechanic-card"><span>02 • REGIÃO FEDERATIVA</span><strong>Federação de origem</strong><p>Escolha a região do Conselho Federal. Quando houver rebaixamento, o sistema consultará essa região e as regras da competição para determinar a divisão de destino.</p><p className="argentina-hint">A região é independente da filiação: escolha a região real do clube mesmo que ele dispute uma competição nacional.</p></div>
