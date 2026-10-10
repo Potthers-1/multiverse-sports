@@ -1451,6 +1451,51 @@ const ARGENTINA_REGIONS: string[] = [
   "Federación Regional de Fútbol de Río Cuarto",
   "Federación Mendocina de Fútbol",
   "Federación Santafesina de Fútbol",
+  "Federación Salteña de Fútbol",
+  "Federación Chaqueña de Fútbol",
+  "Federación de Fútbol de Chubut",
+  "Federación Jujeña de Fútbol",
+  "Federación Entrerriana de Fútbol",
+  "Federación Sanjuanina de Fútbol",
+];
+
+const ARGENTINA_PRIMERA_NACIONAL_CLUBS: Array<Omit<ArgentinaClub, "id">> = [
+  { name: "Acassuso", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Agropecuario", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "All Boys", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Almagro", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Almirante Brown", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Atlanta", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Atlético de Rafaela", affiliation: "Indireta / Conselho Federal", region: "Federación Santafesina de Fútbol", division: "Primera Nacional" },
+  { name: "Central Norte (Salta)", affiliation: "Indireta / Conselho Federal", region: "Federación Salteña de Fútbol", division: "Primera Nacional" },
+  { name: "Chacarita Juniors", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Chaco For Ever", affiliation: "Indireta / Conselho Federal", region: "Federación Chaqueña de Fútbol", division: "Primera Nacional" },
+  { name: "Ciudad de Bolívar", affiliation: "Indireta / Conselho Federal", region: "Federación de Fútbol Bonaerense Pampeana", division: "Primera Nacional" },
+  { name: "Colegiales", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Colón", affiliation: "Indireta / Conselho Federal", region: "Federación Santafesina de Fútbol", division: "Primera Nacional" },
+  { name: "Defensores de Belgrano", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Deportivo Madryn", affiliation: "Indireta / Conselho Federal", region: "Federación de Fútbol de Chubut", division: "Primera Nacional" },
+  { name: "Deportivo Maipú", affiliation: "Indireta / Conselho Federal", region: "Federación Mendocina de Fútbol", division: "Primera Nacional" },
+  { name: "Deportivo Morón", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Estudiantes de Caseros", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Ferrocarril Midland", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Ferro Carril Oeste", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Gimnasia y Esgrima (Jujuy)", affiliation: "Indireta / Conselho Federal", region: "Federación Jujeña de Fútbol", division: "Primera Nacional" },
+  { name: "Gimnasia y Tiro (Salta)", affiliation: "Indireta / Conselho Federal", region: "Federación Salteña de Fútbol", division: "Primera Nacional" },
+  { name: "Godoy Cruz", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Güemes (Santiago del Estero)", affiliation: "Indireta / Conselho Federal", region: "Federación Provincial de Fútbol de Santiago del Estero", division: "Primera Nacional" },
+  { name: "Los Andes", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Mitre (Santiago del Estero)", affiliation: "Indireta / Conselho Federal", region: "Federación Provincial de Fútbol de Santiago del Estero", division: "Primera Nacional" },
+  { name: "Nueva Chicago", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Patronato", affiliation: "Indireta / Conselho Federal", region: "Federación Entrerriana de Fútbol", division: "Primera Nacional" },
+  { name: "Quilmes", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Racing de Córdoba", affiliation: "Indireta / Conselho Federal", region: "Federación Cordobesa de Fútbol", division: "Primera Nacional" },
+  { name: "San Martín de San Juan", affiliation: "Indireta / Conselho Federal", region: "Federación Sanjuanina de Fútbol", division: "Primera Nacional" },
+  { name: "San Martín de Tucumán", affiliation: "Indireta / Conselho Federal", region: "Federación Tucumana de Fútbol", division: "Primera Nacional" },
+  { name: "San Miguel", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "San Telmo", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Temperley", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
+  { name: "Tristán Suárez", affiliation: "AFA direta", region: "", division: "Primera Nacional" },
 ];
 
 const ARGENTINA_CLUBS_STORAGE_KEY = "football-manager-argentina-clubs-v1";
@@ -1680,6 +1725,11 @@ export default function App() {
         const index = merged.findIndex((item) => item.name.trim().toLocaleLowerCase() === club.name.trim().toLocaleLowerCase());
         if (index >= 0) merged[index] = { ...merged[index], ...club };
         else merged.push({ id: `argentina-primer-${club.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-")}`, ...club });
+      }
+      for (const club of ARGENTINA_PRIMERA_NACIONAL_CLUBS) {
+        const index = merged.findIndex((item) => item.name.trim().toLocaleLowerCase() === club.name.trim().toLocaleLowerCase());
+        if (index >= 0) merged[index] = { ...merged[index], ...club };
+        else merged.push({ id: "argentina-nacional-" + club.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-"), ...club });
       }
       setArgentinaClubs(merged.sort((a, b) => a.name.localeCompare(b.name, "es")));
     } catch {
