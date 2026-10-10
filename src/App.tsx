@@ -7828,16 +7828,24 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                   (item.name === "Torneo Apertura" || item.name === "Torneo Clausura")
                 );
 
-                // Fonte única e resiliente de clubes: não depende só de item.teams,
-                // que pode estar desatualizado em temporadas salvas anteriormente.
-                const clubs = [...new Set(seasonChamps.flatMap((item) => [
-                  ...(item.teams ?? []),
-                  ...(item.argentinaGroups?.A ?? []),
-                  ...(item.argentinaGroups?.B ?? []),
-                  ...Object.keys(item.standings ?? {}),
-                  ...Object.keys(item.phaseStandings?.["Grupo A"] ?? {}),
-                  ...Object.keys(item.phaseStandings?.["Grupo B"] ?? {}),
-                ]))];
+                // A lista oficial da classificação geral é o elenco da temporada,
+                // não todas as chaves históricas das tabelas. Dados antigos podem
+                // conter clubes de outras temporadas e não devem criar linhas extras.
+                const rosterSource = seasonChamps.find((item) =>
+                  (item.argentinaGroups?.A?.length ?? 0) === 15 &&
+                  (item.argentinaGroups?.B?.length ?? 0) === 15
+                ) ?? seasonChamps.find((item) => (item.teams?.length ?? 0) === 30);
+                const clubs = [...new Set(
+                  rosterSource
+                    ? (rosterSource.argentinaGroups?.A?.length === 15 && rosterSource.argentinaGroups?.B?.length === 15
+                        ? [...rosterSource.argentinaGroups.A, ...rosterSource.argentinaGroups.B]
+                        : rosterSource.teams ?? [])
+                    : seasonChamps.flatMap((item) => [
+                        ...(item.argentinaGroups?.A ?? []),
+                        ...(item.argentinaGroups?.B ?? []),
+                        ...(item.teams ?? []),
+                      ])
+                )].slice(0, 30);
 
                 const aggregate: Record<string, Standing> = {};
                 for (const club of clubs) {
@@ -7869,7 +7877,7 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                   return y.pts - x.pts || y.sg - x.sg || y.gp - x.gp || y.v - x.v || a.localeCompare(b, "pt-BR");
                 });
                 const overallChampion = seasonChamps.length === 2 && seasonChamps.every((item) => item.champion) && ordered.length > 0 ? ordered[0] : undefined;
-                return <div className="competition-content"><div className="competition-block standings-block full-width-block"><div className="block-title">CLASSIFICAÇÃO GERAL — APERTURA + CLAUSURA {selected.season}</div><p className="clubs-note">Soma dos pontos e estatísticas dos dois torneios. Clubes identificados nos grupos e nas tabelas salvas também são incluídos.</p><p className="clubs-note">Clubes na classificação: <strong>{ordered.length} de 30</strong></p>{overallChampion && <div className="champion-banner"><strong>🏆 CAMPEÃO DA CLASSIFICAÇÃO GERAL: {overallChampion}</strong><span>{aggregate[overallChampion]?.pts ?? 0} pontos somados</span></div>}<div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((club, index) => { const row = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; return <tr key={club}><td>{index + 1}</td><td>{clubLink(club, "club-link club-link-strong")}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td><strong>{row.pts}</strong></td></tr>; })}</tbody></table></div></div></div>;
+                return <div className="competition-content"><div className="competition-block standings-block full-width-block"><div className="block-title">CLASSIFICAÇÃO GERAL — APERTURA + CLAUSURA {selected.season}</div><p className="clubs-note">Soma dos pontos e estatísticas dos dois torneios. A lista de clubes segue o elenco oficial da temporada, sem incluir registros antigos de outras temporadas.</p><p className="clubs-note">Clubes na classificação: <strong>{ordered.length} de 30</strong></p>{overallChampion && <div className="champion-banner"><strong>🏆 CAMPEÃO DA CLASSIFICAÇÃO GERAL: {overallChampion}</strong><span>{aggregate[overallChampion]?.pts ?? 0} pontos somados</span></div>}<div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((club, index) => { const row = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; return <tr key={club}><td>{index + 1}</td><td>{clubLink(club, "club-link club-link-strong")}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td><strong>{row.pts}</strong></td></tr>; })}</tbody></table></div></div></div>;
               })() : (selectedSection[selected.id] ?? "competition") === "competition" ? (
                 <>
                   {selected.phases && selected.phases.length > 1 && (
