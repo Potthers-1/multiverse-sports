@@ -1442,17 +1442,7 @@ const ARGENTINA_DIVISIONS = [
   "Liga regional",
 ];
 
-const ARGENTINA_REGIONS = [
-  "Metropolitana (AFA)",
-  "Bonaerense Pampeana Norte",
-  "Bonaerense Pampeana Sur",
-  "Centro",
-  "Cuyo",
-  "Litoral Norte",
-  "Litoral Sur",
-  "Norte",
-  "Patagonia",
-];
+const ARGENTINA_REGIONS: string[] = [];
 
 const ARGENTINA_CLUBS_STORAGE_KEY = "football-manager-argentina-clubs-v1";
 
@@ -1617,7 +1607,7 @@ export default function App() {
   const [argentinaClubs, setArgentinaClubs] = useState<ArgentinaClub[]>([]);
   const [argentinaClubName, setArgentinaClubName] = useState("");
   const [argentinaClubAffiliation, setArgentinaClubAffiliation] = useState<ArgentinaClub["affiliation"]>("AFA direta");
-  const [argentinaClubRegion, setArgentinaClubRegion] = useState(ARGENTINA_REGIONS[0]);
+  const [argentinaClubRegion, setArgentinaClubRegion] = useState("");
   const [argentinaClubDivision, setArgentinaClubDivision] = useState(ARGENTINA_DIVISIONS[0]);
   const [argentinaClubSearch, setArgentinaClubSearch] = useState("");
 
@@ -6660,13 +6650,13 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
               <label>Nome do clube<input value={argentinaClubName} onChange={(event) => setArgentinaClubName(event.target.value)} placeholder="Ex.: Club Atlético..." /></label>
               <label>Filiação<select value={argentinaClubAffiliation} onChange={(event) => setArgentinaClubAffiliation(event.target.value as ArgentinaClub["affiliation"])}><option value="AFA direta">Filiado diretamente à AFA</option><option value="Indireta / Conselho Federal">Filiado indiretamente / Conselho Federal</option></select></label>
               <label>Divisão atual<select value={argentinaClubDivision} onChange={(event) => setArgentinaClubDivision(event.target.value)}>{ARGENTINA_DIVISIONS.map((division) => <option key={division} value={division}>{division}</option>)}</select></label>
-              {argentinaClubAffiliation === "Indireta / Conselho Federal" && <label>Região / federação regional<select value={argentinaClubRegion} onChange={(event) => setArgentinaClubRegion(event.target.value)}>{ARGENTINA_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}</select></label>}
+              {argentinaClubAffiliation === "Indireta / Conselho Federal" && <label>Região / federação regional<select value={argentinaClubRegion} onChange={(event) => setArgentinaClubRegion(event.target.value)}><option value="" disabled>Nenhuma região cadastrada ainda</option>{ARGENTINA_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}</select></label>}
               <button className="primary-button" type="submit">{argentinaClubs.some((club) => club.name.toLocaleLowerCase() === argentinaClubName.trim().toLocaleLowerCase()) ? "Atualizar clube" : "Adicionar clube"}</button>
             </form>
             <div className="argentina-club-list-header"><h3>Clubes cadastrados</h3><input value={argentinaClubSearch} onChange={(event) => setArgentinaClubSearch(event.target.value)} placeholder="Buscar clube..." aria-label="Buscar clube argentino" /></div>
             {argentinaClubs.length === 0 ? <div className="argentina-empty">Nenhum clube cadastrado ainda. Comece pelos clubes da primeira divisão e preencha filiação e região; o cadastro fica salvo neste navegador.</div> : (
               <div className="argentina-club-table-wrap"><table className="argentina-club-table"><thead><tr><th>Clube</th><th>Divisão</th><th>Filiação</th><th>Região</th><th>Ações</th></tr></thead><tbody>
-                {argentinaClubs.filter((club) => club.name.toLocaleLowerCase().includes(argentinaClubSearch.toLocaleLowerCase())).map((club) => <tr key={club.id}><td>{club.name}</td><td>{club.division ?? "Não definida"}</td><td>{club.affiliation}</td><td>{club.region || "Não se aplica (AFA direta)"}</td><td><button className="secondary-button argentina-edit" onClick={() => { setArgentinaClubName(club.name); setArgentinaClubAffiliation(club.affiliation); setArgentinaClubRegion(club.region || ARGENTINA_REGIONS[0]); setArgentinaClubDivision(club.division ?? ARGENTINA_DIVISIONS[0]); }} type="button">Editar</button><button className="danger-link" onClick={() => { if (window.confirm(`Remover ${club.name} do cadastro?`)) setArgentinaClubs((current) => current.filter((item) => item.id !== club.id)); }} type="button">Remover</button></td></tr>)}
+                {argentinaClubs.filter((club) => club.name.toLocaleLowerCase().includes(argentinaClubSearch.toLocaleLowerCase())).map((club) => <tr key={club.id}><td>{club.name}</td><td>{club.division ?? "Não definida"}</td><td>{club.affiliation}</td><td>{club.affiliation === "AFA direta" ? "Não se aplica (AFA direta)" : (club.region || "A definir")}</td><td><button className="secondary-button argentina-edit" onClick={() => { setArgentinaClubName(club.name); setArgentinaClubAffiliation(club.affiliation); setArgentinaClubRegion(""); setArgentinaClubDivision(club.division ?? ARGENTINA_DIVISIONS[0]); }} type="button">Editar</button><button className="danger-link" onClick={() => { if (window.confirm(`Remover ${club.name} do cadastro?`)) setArgentinaClubs((current) => current.filter((item) => item.id !== club.id)); }} type="button">Remover</button></td></tr>)}
               </tbody></table></div>
             )}
             <div className="argentina-hint">Importante: por enquanto, este cadastro guarda os dados federativos. As divisões, vagas e regras de promoção/rebaixamento serão conectadas a esses campos quando configurarmos a pirâmide argentina.</div>
