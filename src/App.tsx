@@ -6507,7 +6507,7 @@ function simulateChampionshipFully(championship: Championship): Championship | n
     const argentinaFirstDivision = [argentinaApertura, argentinaClausura].filter((item): item is Championship => Boolean(item));
     const argentinaAggregate: Record<string, Standing> = {};
     for (const tournament of argentinaFirstDivision) {
-      const rows = tournament.standings ?? Object.assign({}, ...(Object.values(tournament.phaseStandings ?? {}).map((group) => group)));
+      const rows: Record<string, Standing> = tournament.standings ?? Object.assign({}, ...((Object.values(tournament.phaseStandings ?? {}) as Record<string, Standing>[])));
       for (const [club, row] of Object.entries(rows)) {
         const old = argentinaAggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
         argentinaAggregate[club] = { j: old.j + row.j, v: old.v + row.v, e: old.e + row.e, d: old.d + row.d, gp: old.gp + row.gp, gc: old.gc + row.gc, sg: old.sg + row.sg, pts: old.pts + row.pts };
