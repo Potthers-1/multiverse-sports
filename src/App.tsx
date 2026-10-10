@@ -6620,7 +6620,14 @@ function simulateChampionshipFully(championship: Championship): Championship | n
         argentinaAggregate[club] = { j: old.j + row.j, v: old.v + row.v, e: old.e + row.e, d: old.d + row.d, gp: old.gp + row.gp, gc: old.gc + row.gc, sg: old.sg + row.sg, pts: old.pts + row.pts };
       }
     }
-    const argentinaOverallTeams = [...new Set(argentinaFirstDivision.flatMap((item) => item.teams ?? []))].sort((a, b) => {
+    const argentinaOverallTeams = [...new Set(argentinaFirstDivision.flatMap((item) => [
+      ...(item.teams ?? []),
+      ...(item.argentinaGroups?.A ?? []),
+      ...(item.argentinaGroups?.B ?? []),
+      ...Object.keys(item.standings ?? {}),
+      ...Object.keys(item.phaseStandings?.["Grupo A"] ?? {}),
+      ...Object.keys(item.phaseStandings?.["Grupo B"] ?? {}),
+    ]))].sort((a, b) => {
       const x = argentinaAggregate[a] ?? { pts: 0, sg: 0, gp: 0, v: 0 };
       const y = argentinaAggregate[b] ?? { pts: 0, sg: 0, gp: 0, v: 0 };
       return y.pts - x.pts || y.sg - x.sg || y.gp - x.gp || y.v - x.v || a.localeCompare(b, "pt-BR");
@@ -7656,11 +7663,29 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                 const primera = championships.filter((item) => item.country === "Argentina" && item.division === "Primera División" && item.season === year && ["Torneo Apertura", "Torneo Clausura"].includes(item.name));
                 const segunda = championships.find((item) => item.country === "Argentina" && item.division === "Primera Nacional" && item.season === year);
                 const aggregate: Record<string, Standing> = {};
-                for (const tournament of primera) for (const groupName of ["Grupo A", "Grupo B"]) for (const [club, row] of Object.entries(tournament.phaseStandings?.[groupName] ?? {})) {
-                  const old = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-                  aggregate[club] = { j: old.j + row.j, v: old.v + row.v, e: old.e + row.e, d: old.d + row.d, gp: old.gp + row.gp, gc: old.gc + row.gc, sg: old.sg + row.sg, pts: old.pts + row.pts };
+                for (const tournament of primera) {
+                  for (const club of new Set([
+                    ...(tournament.teams ?? []),
+                    ...(tournament.argentinaGroups?.A ?? []),
+                    ...(tournament.argentinaGroups?.B ?? []),
+                    ...Object.keys(tournament.standings ?? {}),
+                  ])) {
+                    const row = tournament.standings?.[club] ??
+                      tournament.phaseStandings?.["Grupo A"]?.[club] ??
+                      tournament.phaseStandings?.["Grupo B"]?.[club] ??
+                      { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                    const old = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                    aggregate[club] = { j: old.j + row.j, v: old.v + row.v, e: old.e + row.e, d: old.d + row.d, gp: old.gp + row.gp, gc: old.gc + row.gc, sg: old.sg + row.sg, pts: old.pts + row.pts };
+                  }
                 }
-                const firstTeams = [...new Set(primera.flatMap((item) => item.teams ?? []))];
+                const firstTeams = [...new Set(primera.flatMap((item) => [
+                  ...(item.teams ?? []),
+                  ...(item.argentinaGroups?.A ?? []),
+                  ...(item.argentinaGroups?.B ?? []),
+                  ...Object.keys(item.standings ?? {}),
+                  ...Object.keys(item.phaseStandings?.["Grupo A"] ?? {}),
+                  ...Object.keys(item.phaseStandings?.["Grupo B"] ?? {}),
+                ]))];
                 const overall = firstTeams.sort((a, b) => {
                   const x = aggregate[a] ?? { pts: 0, sg: 0, gp: 0, v: 0 }; const y = aggregate[b] ?? { pts: 0, sg: 0, gp: 0, v: 0 };
                   return y.pts - x.pts || y.sg - x.sg || y.gp - x.gp || y.v - x.v || a.localeCompare(b, "pt-BR");
