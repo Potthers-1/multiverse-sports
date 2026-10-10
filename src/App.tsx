@@ -6658,13 +6658,13 @@ function simulateChampionshipFully(championship: Championship): Championship | n
               </button>
               {argentinaPrimeraOpen && (
                 <div className="state-menu">
-                  <button className={`champ-link ${selectedSection[selectedId ?? -1] === "argentinaOverall" ? "selected" : ""}`} onClick={() => {
+                  <button className={`champ-link ${selectedId !== null && selectedSection[selectedId] === "argentinaOverall" ? "selected" : ""}`} onClick={() => {
                     const apertura = championships.find((item) => item.country === "Argentina" && item.season === (countrySeasons["Argentina"] || "2026") && item.division === "Primera División" && item.name === "Torneo Apertura");
                     if (apertura) { setSelectedId(apertura.id); setSelectedSection((current) => ({ ...current, [apertura.id]: "argentinaOverall" })); }
                   }}><span>Classificação geral</span><small>Apertura + Clausura</small></button>
                   {["Torneo Apertura", "Torneo Clausura"].map((name) => {
                     const champ = championships.find((item) => item.country === "Argentina" && item.season === (countrySeasons["Argentina"] || "2026") && item.division === "Primera División" && item.name === name);
-                    return champ ? <button key={champ.id} className={`champ-link ${selectedId === champ.id ? "selected" : ""}`} onClick={() => setSelectedId(champ.id)}><span>{name}</span><small>{champ.season}</small></button> : <div key={name} className="empty-sidebar">{name} será criado automaticamente quando os 30 clubes estiverem cadastrados.</div>;
+                    return champ ? <button key={champ.id} className={`champ-link ${selectedId === champ.id && selectedSection[champ.id] !== "argentinaOverall" ? "selected" : ""}`} onClick={() => { setSelectedId(champ.id); setSelectedSection((current) => ({ ...current, [champ.id]: "competition" })); }}><span>{name}</span><small>{champ.season}</small></button> : <div key={name} className="empty-sidebar">{name} será criado automaticamente quando os 30 clubes estiverem cadastrados.</div>;
                   })}
                 </div>
               )}
