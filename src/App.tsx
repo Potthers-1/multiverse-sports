@@ -1636,6 +1636,7 @@ export default function App() {
   const [clubHistory, setClubHistory] = useState<Record<string, ClubHistoryEntry[]>>({});
   const [showCreate, setShowCreate] = useState(false);
   const [estaduaisOpen, setEstaduaisOpen] = useState(false);
+  const [argentinaPrimeraOpen, setArgentinaPrimeraOpen] = useState(false);
   const [openStates, setOpenStates] = useState<Record<string, boolean>>({});
   const [name, setName] = useState("");
   const [season, setSeason] = useState("2026");
@@ -1688,6 +1689,26 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(ARGENTINA_CLUBS_STORAGE_KEY, JSON.stringify(argentinaClubs));
   }, [argentinaClubs]);
+
+  useEffect(() => {
+    if (argentinaClubs.filter((club) => club.division === "Primera División").length !== 30) return;
+    setChampionships((current) => {
+      const year = countrySeasons["Argentina"] || "2026";
+      const existing = current.filter((item) => item.country === "Argentina" && item.season === year && item.division === "Primera División");
+      if (existing.some((item) => item.name === "Torneo Apertura") && existing.some((item) => item.name === "Torneo Clausura")) return current;
+      const teams = argentinaClubs.filter((club) => club.division === "Primera División").map((club) => club.name);
+      const shuffled = [...teams];
+      for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
+      const groups = { A: shuffled.slice(0, 15), B: shuffled.slice(15, 30) };
+      const missing = ["Apertura", "Clausura"].filter((part) => !existing.some((item) => item.name === `Torneo ${part}`));
+      return [...current, ...missing.map((part, index): Championship => ({
+        id: Date.now() + index, name: `Torneo ${part}`, season: year, division: "Primera División", country: "Argentina",
+        teams: [...teams], argentinaGroups: { A: [...groups.A], B: [...groups.B] },
+        rules: ["30 clubes divididos em Grupo A e Grupo B, com 15 clubes em cada grupo.", "Todos contra todos em turno único: cada clube enfrenta os outros 29 clubes, incluindo os do próprio grupo e do grupo oposto, totalizando 29 rodadas.", "Classificam-se os 8 melhores de cada grupo para as oitavas de final.", "Mata-mata em jogo único: oitavas, quartas, semifinais e final. Empates são decididos por pênaltis."]
+      }))];
+    });
+  }, [argentinaClubs, countrySeasons]);
+
 
   useEffect(() => {
     try {
@@ -6630,21 +6651,27 @@ function simulateChampionshipFully(championship: Championship): Championship | n
         </div>
         <div className="sidebar-section">
           <div className="section-title">CAMPEONATOS</div>
-          {championships.filter((champ) => champ.country === selectedCountry && !champ.state && champ.division !== "Estadual").length === 0 ? (
+          {selectedCountry === "Argentina" ? (
+            <>
+              <button className={`state-menu-toggle ${argentinaPrimeraOpen ? "open" : ""}`} onClick={() => setArgentinaPrimeraOpen((open) => !open)} aria-expanded={argentinaPrimeraOpen}>
+                <span>1° divisão</span><span className="state-chevron">{argentinaPrimeraOpen ? "▾" : "▸"}</span>
+              </button>
+              {argentinaPrimeraOpen && (
+                <div className="state-menu">
+                  {["Torneo Apertura", "Torneo Clausura"].map((name) => {
+                    const champ = championships.find((item) => item.country === "Argentina" && item.season === (countrySeasons["Argentina"] || "2026") && item.division === "Primera División" && item.name === name);
+                    return champ ? <button key={champ.id} className={`champ-link ${selectedId === champ.id ? "selected" : ""}`} onClick={() => setSelectedId(champ.id)}><span>{name}</span><small>{champ.season}</small></button> : <div key={name} className="empty-sidebar">{name} será criado automaticamente quando os 30 clubes estiverem cadastrados.</div>;
+                  })}
+                </div>
+              )}
+              {championships.filter((champ) => champ.country === "Argentina" && !champ.state && champ.division !== "Estadual" && champ.division !== "Primera División").map((champ) => <button key={champ.id} className={`champ-link ${selectedId === champ.id ? "selected" : ""}`} onClick={() => setSelectedId(champ.id)}><span>{champ.name}</span><small>{champ.season}</small></button>)}
+            </>
+          ) : championships.filter((champ) => champ.country === selectedCountry && !champ.state && champ.division !== "Estadual").length === 0 ? (
             <div className="empty-sidebar">Nenhum campeonato criado.</div>
           ) : (
-            championships
-              .filter((champ) => champ.country === selectedCountry && !champ.state && champ.division !== "Estadual")
-              .map((champ) => (
-                <button
-                  key={champ.id}
-                  className={`champ-link ${selectedId === champ.id ? "selected" : ""}`}
-                  onClick={() => setSelectedId(champ.id)}
-                >
-                  <span>{champ.name}</span>
-                  <small>{champ.season}</small>
-                </button>
-              ))
+            championships.filter((champ) => champ.country === selectedCountry && !champ.state && champ.division !== "Estadual").map((champ) => (
+              <button key={champ.id} className={`champ-link ${selectedId === champ.id ? "selected" : ""}`} onClick={() => setSelectedId(champ.id)}><span>{champ.name}</span><small>{champ.season}</small></button>
+            ))
           )}
 
           {selectedCountry === "Brasil" && (
@@ -6790,7 +6817,7 @@ function simulateChampionshipFully(championship: Championship): Championship | n
               <span className="ranking-season-badge">{argentinaClubs.length} clubes cadastrados</span>
             </div>
             <p className="argentina-intro">Cadastre cada clube uma vez. A filiação define qual pirâmide de acesso ele disputa; a região define para qual federação regional ele retorna em caso de rebaixamento. Essas informações serão usadas para montar as divisões argentinas e movimentar os clubes entre temporadas.</p>
-            <div className="argentina-actions"><button type="button" className="primary-button" onClick={createArgentinaPrimeraDivisionTournaments}>Criar Primera División (Apertura e Clausura)</button><p className="argentina-hint">Disponível quando houver 30 clubes cadastrados na divisão Primera División.</p></div>
+            
             <div className="argentina-mechanics-grid">
               <div className="argentina-mechanic-card"><span>01 • FILIAÇÃO</span><strong>AFA direta</strong><p>Clubes filiados diretamente à AFA entram na pirâmide metropolitana/nacional correspondente às regras configuradas.</p><strong>Indireta / Conselho Federal</strong><p>Clubes ligados por meio de uma liga regional entram na pirâmide do interior.</p></div>
               <div className="argentina-mechanic-card"><span>02 • REGIÃO FEDERATIVA</span><strong>Federação de origem</strong><p>Escolha a região do Conselho Federal. Quando houver rebaixamento, o sistema consultará essa região e as regras da competição para determinar a divisão de destino.</p><p className="argentina-hint">A região é independente da filiação: escolha a região real do clube mesmo que ele dispute uma competição nacional.</p></div>
