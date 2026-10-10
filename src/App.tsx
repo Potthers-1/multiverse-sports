@@ -7252,6 +7252,14 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                 >
                   Regulamento
                 </button>
+                {selected.country === "Argentina" && ["Primera División", "Primera Nacional"].includes(selected.division) && (
+                  <button
+                    className={`section-tab ${selectedSection[selected.id] === "argentinaMovement" ? "active" : ""}`}
+                    onClick={() => setSelectedSection((current) => ({ ...current, [selected.id]: "argentinaMovement" }))}
+                  >
+                    Acesso e rebaixamento
+                  </button>
+                )}
                 {selected.country === "Brasil" && ["Série A", "Série B", "Série C", "Série D"].includes(selected.division) && (
                   <button
                     className={`section-tab ${selectedSection[selected.id] === "movement" ? "active" : ""}`}
@@ -7467,7 +7475,44 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                     );
                   })()}
                 </div>
-              ) : selectedSection[selected.id] === "movement" ? (
+              ) : selectedSection[selected.id] === "argentinaMovement" && selected.country === "Argentina" && ["Primera División", "Primera Nacional"].includes(selected.division) ? (() => {
+                const year = selected.season;
+                const primera = championships.filter((item) => item.country === "Argentina" && item.division === "Primera División" && item.season === year && ["Torneo Apertura", "Torneo Clausura"].includes(item.name));
+                const segunda = championships.find((item) => item.country === "Argentina" && item.division === "Primera Nacional" && item.season === year);
+                const aggregate: Record<string, Standing> = {};
+                for (const tournament of primera) for (const groupName of ["Grupo A", "Grupo B"]) for (const [club, row] of Object.entries(tournament.phaseStandings?.[groupName] ?? {})) {
+                  const old = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                  aggregate[club] = { j: old.j + row.j, v: old.v + row.v, e: old.e + row.e, d: old.d + row.d, gp: old.gp + row.gp, gc: old.gc + row.gc, sg: old.sg + row.sg, pts: old.pts + row.pts };
+                }
+                const firstTeams = [...new Set(primera.flatMap((item) => item.teams ?? []))];
+                const overall = firstTeams.sort((a, b) => {
+                  const x = aggregate[a] ?? { pts: 0, sg: 0, gp: 0, v: 0 }; const y = aggregate[b] ?? { pts: 0, sg: 0, gp: 0, v: 0 };
+                  return y.pts - x.pts || y.sg - x.sg || y.gp - x.gp || y.v - x.v || a.localeCompare(b, "pt-BR");
+                });
+                const relegated = primera.length === 2 && primera.every((item) => item.champion) && overall.length ? overall.slice(-2) : [];
+                const promoted = segunda?.champion && segunda?.accessTeams?.length ? [...new Set([segunda.champion, segunda.accessTeams.find((club) => club !== segunda.champion)].filter((club): club is string => Boolean(club)))] : [];
+                const firstReady = relegated.length === 2;
+                const secondReady = promoted.length === 2;
+                return (
+                  <div className="competition-block national-movement-panel">
+                    <div className="block-title">ACESSO E REBAIXAMENTO — ARGENTINA {year}</div>
+                    <div className="history-subtitle">A movimentação é calculada com base na classificação geral do Apertura + Clausura e nos resultados da Primera Nacional.</div>
+                    <div className="movement-grid">
+                      <div className="movement-card movement-access">
+                        <div className="movement-card-title">🟢 ACESSO À PRIMERA DIVISIÓN</div>
+                        <div className="movement-subtitle">Campeão geral e campeão do torneio pelo segundo acesso da Primera Nacional</div>
+                        {secondReady ? promoted.map((club) => <div className="movement-club" key={club}>{clubLink(club, "club-link club-link-strong")}<span>{club === segunda?.champion ? "Campeão da Primera Nacional — 1º acesso" : "Vencedor do torneio pelo segundo acesso"}</span></div> : <div className="movement-empty small">O acesso será definido após a conclusão da Primera Nacional.</div>}
+                      </div>
+                      <div className="movement-card movement-relegation">
+                        <div className="movement-card-title">🔴 REBAIXAMENTO À PRIMERA NACIONAL</div>
+                        <div className="movement-subtitle">Os dois últimos da classificação geral do Apertura + Clausura</div>
+                        {firstReady ? relegated.map((club) => <div className="movement-club" key={club}>{clubLink(club, "club-link club-link-strong")}<span>Rebaixado pela classificação geral</span></div>) : <div className="movement-empty small">Os rebaixados serão definidos após Apertura e Clausura serem concluídos e a classificação geral estiver completa.</div>}
+                      </div>
+                    </div>
+                    <div className="clubs-note">A mesma aba está disponível nas duas divisões para consultar a movimentação entre a Primera División e a Primera Nacional.</div>
+                  </div>
+                );
+              })() : selectedSection[selected.id] === "movement" ? (
                 <div className="competition-block national-movement-panel">
                   {(() => {
                     const table = selected.standings ?? selected.phaseStandings?.["Primeira fase"] ?? {};
