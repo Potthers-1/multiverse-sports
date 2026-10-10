@@ -6532,7 +6532,7 @@ function simulateChampionshipFully(championship: Championship): Championship | n
           ...updated,
           simulationRound: buildSimulationUnits(updated).length,
           simulationTotalRounds: buildSimulationUnits(updated).length,
-          simulationVersion: 3,
+          simulationVersion: updated.country === "Argentina" && updated.division === "Primera División" ? 12 : 3,
           simulationPlan: undefined,
         });
         simulatedCount += 1;
