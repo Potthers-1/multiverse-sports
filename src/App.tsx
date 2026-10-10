@@ -1637,6 +1637,7 @@ export default function App() {
   const [showCreate, setShowCreate] = useState(false);
   const [estaduaisOpen, setEstaduaisOpen] = useState(false);
   const [argentinaPrimeraOpen, setArgentinaPrimeraOpen] = useState(false);
+  const [argentinaSegundaOpen, setArgentinaSegundaOpen] = useState(false);
   const [openStates, setOpenStates] = useState<Record<string, boolean>>({});
   const [name, setName] = useState("");
   const [season, setSeason] = useState("2026");
@@ -6668,7 +6669,16 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                   })}
                 </div>
               )}
-              {championships.filter((champ) => champ.country === "Argentina" && !champ.state && champ.division !== "Estadual" && champ.division !== "Primera División").map((champ) => <button key={champ.id} className={`champ-link ${selectedId === champ.id ? "selected" : ""}`} onClick={() => setSelectedId(champ.id)}><span>{champ.name}</span><small>{champ.season}</small></button>)}
+              <button className={`state-menu-toggle ${argentinaSegundaOpen ? "open" : ""}`} onClick={() => setArgentinaSegundaOpen((open) => !open)} aria-expanded={argentinaSegundaOpen}>
+                <span>2° divisão</span><span className="state-chevron">{argentinaSegundaOpen ? "▾" : "▸"}</span>
+              </button>
+              {argentinaSegundaOpen && (
+                <div className="state-menu">
+                  {championships.filter((champ) => champ.country === "Argentina" && !champ.state && champ.division === "Primera Nacional" && champ.season === (countrySeasons["Argentina"] || "2026")).map((champ) => <button key={champ.id} className={`champ-link ${selectedId === champ.id ? "selected" : ""}`} onClick={() => { setSelectedId(champ.id); setSelectedSection((current) => ({ ...current, [champ.id]: "competition" })); }}><span>{champ.name}</span><small>{champ.season}</small></button>)}
+                  {!championships.some((champ) => champ.country === "Argentina" && !champ.state && champ.division === "Primera Nacional" && champ.season === (countrySeasons["Argentina"] || "2026")) && <div className="empty-sidebar">A 2ª divisão está pronta para ser configurada quando definirmos o formato da competição.</div>}
+                </div>
+              )}
+              {championships.filter((champ) => champ.country === "Argentina" && !champ.state && champ.division !== "Estadual" && champ.division !== "Primera División" && champ.division !== "Primera Nacional").map((champ) => <button key={champ.id} className={`champ-link ${selectedId === champ.id ? "selected" : ""}`} onClick={() => setSelectedId(champ.id)}><span>{champ.name}</span><small>{champ.season}</small></button>)}
             </>
           ) : championships.filter((champ) => champ.country === selectedCountry && !champ.state && champ.division !== "Estadual").length === 0 ? (
             <div className="empty-sidebar">Nenhum campeonato criado.</div>
