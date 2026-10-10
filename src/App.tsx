@@ -4847,6 +4847,21 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       // Formatos por grupos precisam de tabelas separadas durante a
       // simulação gradual. Filtramos as partidas pelo grupo para que
       // uma tabela nunca incorpore resultados do outro grupo.
+      if (
+        plan.country === "Argentina" &&
+        plan.division === "Primera División" &&
+        phase === "Fase de grupos" &&
+        plan.argentinaGroups
+      ) {
+        const groups = plan.argentinaGroups;
+        const groupTable = (group: string[]) => {
+          const table = calculateStandingFromMatches(matches, plan.teams ?? []);
+          return Object.fromEntries(sortStandingTeams(group, table).map((club) => [club, table[club]]));
+        };
+        phaseStandings["Grupo A"] = groupTable(groups.A);
+        phaseStandings["Grupo B"] = groupTable(groups.B);
+      }
+
       if (plan.state === "Rio de Janeiro" && plan.division === "1ª Divisão" && phase === "Taça Guanabara" && plan.rioGroups) {
         const fullTable=calculateStandingFromMatches(matches,plan.teams??[]);
         for(const key of ["A","B"] as const){const group=plan.rioGroups[key];phaseStandings[`Taça Guanabara - Grupo ${key}`]=Object.fromEntries(sortStandingTeams(group,fullTable).map(club=>[club,fullTable[club]]));}
