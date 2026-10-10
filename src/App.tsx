@@ -7821,25 +7821,55 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                 const records = seasons.map((year) => { const pair = championships.filter((item) => item.country === "Argentina" && item.division === "Primera División" && item.season === year && (item.name === "Torneo Apertura" || item.name === "Torneo Clausura")); if (pair.length !== 2 || !pair.every((item) => item.champion)) return null; const totals: Record<string, Standing> = {}; for (const tournament of pair) for (const group of ["Grupo A", "Grupo B"]) for (const [club, row] of Object.entries(tournament.phaseStandings?.[group] ?? {})) { const old = totals[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; totals[club] = { j: old.j + row.j, v: old.v + row.v, e: old.e + row.e, d: old.d + row.d, gp: old.gp + row.gp, gc: old.gc + row.gc, sg: old.sg + row.sg, pts: old.pts + row.pts }; } const winner = Object.keys(totals).sort((a, b) => totals[b].pts - totals[a].pts || totals[b].sg - totals[a].sg || totals[b].gp - totals[a].gp || totals[b].v - totals[a].v || a.localeCompare(b, "pt-BR"))[0]; return winner ? { season: year, champion: winner } : null; }).filter((item): item is { season: string; champion: string } => item !== null).sort((a, b) => Number(b.season) - Number(a.season));
                 return <div className="competition-content"><div className="competition-block standings-block full-width-block"><div className="block-title">HISTÓRICO DE CAMPEÕES — CLASSIFICAÇÃO GERAL</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>TEMPORADA</th><th>CAMPEÃO GERAL</th></tr></thead><tbody>{records.length ? records.map((item) => <tr key={item.season}><td>{item.season}</td><td>{item.champion}</td></tr>) : <tr><td colSpan={2}>Ainda não há campeões gerais registrados. O campeão será registrado após Apertura e Clausura serem concluídos.</td></tr>}</tbody></table></div></div></div>;
               })() : (selectedSection[selected.id] ?? "competition") === "argentinaOverall" && selected.country === "Argentina" && selected.division === "Primera División" ? (() => {
-                const seasonChamps = championships.filter((item) => item.country === "Argentina" && item.season === selected.season && item.division === "Primera División" && (item.name === "Torneo Apertura" || item.name === "Torneo Clausura"));
+                const seasonChamps = championships.filter((item) =>
+                  item.country === "Argentina" &&
+                  item.season === selected.season &&
+                  item.division === "Primera División" &&
+                  (item.name === "Torneo Apertura" || item.name === "Torneo Clausura")
+                );
+
+                // Fonte única e resiliente de clubes: não depende só de item.teams,
+                // que pode estar desatualizado em temporadas salvas anteriormente.
+                const clubs = [...new Set(seasonChamps.flatMap((item) => [
+                  ...(item.teams ?? []),
+                  ...(item.argentinaGroups?.A ?? []),
+                  ...(item.argentinaGroups?.B ?? []),
+                  ...Object.keys(item.standings ?? {}),
+                  ...Object.keys(item.phaseStandings?.["Grupo A"] ?? {}),
+                  ...Object.keys(item.phaseStandings?.["Grupo B"] ?? {}),
+                ]))];
+
                 const aggregate: Record<string, Standing> = {};
-                for (const tournament of seasonChamps) {
-                  const clubGroups = tournament.argentinaGroups ?? { A: (tournament.teams ?? []).slice(0, 15), B: (tournament.teams ?? []).slice(15, 30) };
-                  for (const groupName of ["Grupo A", "Grupo B"]) {
-                    const groupTeams = groupName === "Grupo A" ? clubGroups.A : clubGroups.B;
-                    const savedGroupTable = tournament.phaseStandings?.[groupName] ?? {};
-                    for (const club of groupTeams) {
-                      const row = savedGroupTable[club] ?? tournament.standings?.[club];
-                      if (!row) continue;
-                      const current = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
-                      aggregate[club] = { j: current.j + row.j, v: current.v + row.v, e: current.e + row.e, d: current.d + row.d, gp: current.gp + row.gp, gc: current.gc + row.gc, sg: current.sg + row.sg, pts: current.pts + row.pts };
-                    }
+                for (const club of clubs) {
+                  let combined: Standing = { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                  for (const tournament of seasonChamps) {
+                    // Contabiliza cada clube uma única vez por torneio. Prioriza a
+                    // classificação completa; usa tabelas dos grupos como fallback.
+                    const row = tournament.standings?.[club] ??
+                      tournament.phaseStandings?.["Grupo A"]?.[club] ??
+                      tournament.phaseStandings?.["Grupo B"]?.[club];
+                    if (!row) continue;
+                    combined = {
+                      j: combined.j + (row.j ?? 0),
+                      v: combined.v + (row.v ?? 0),
+                      e: combined.e + (row.e ?? 0),
+                      d: combined.d + (row.d ?? 0),
+                      gp: combined.gp + (row.gp ?? 0),
+                      gc: combined.gc + (row.gc ?? 0),
+                      sg: combined.sg + (row.sg ?? ((row.gp ?? 0) - (row.gc ?? 0))),
+                      pts: combined.pts + (row.pts ?? 0),
+                    };
                   }
+                  aggregate[club] = combined;
                 }
-                const clubs = [...new Set(seasonChamps.flatMap((item) => item.teams ?? []))];
-                const ordered = clubs.sort((a, b) => { const x = aggregate[a] ?? { pts: 0, sg: 0, gp: 0, v: 0 }; const y = aggregate[b] ?? { pts: 0, sg: 0, gp: 0, v: 0 }; return y.pts - x.pts || y.sg - x.sg || y.gp - x.gp || y.v - x.v || a.localeCompare(b, "pt-BR"); });
+
+                const ordered = [...clubs].sort((a, b) => {
+                  const x = aggregate[a] ?? { pts: 0, sg: 0, gp: 0, v: 0 };
+                  const y = aggregate[b] ?? { pts: 0, sg: 0, gp: 0, v: 0 };
+                  return y.pts - x.pts || y.sg - x.sg || y.gp - x.gp || y.v - x.v || a.localeCompare(b, "pt-BR");
+                });
                 const overallChampion = seasonChamps.length === 2 && seasonChamps.every((item) => item.champion) && ordered.length > 0 ? ordered[0] : undefined;
-                return <div className="competition-content"><div className="competition-block standings-block full-width-block"><div className="block-title">CLASSIFICAÇÃO GERAL — APERTURA + CLAUSURA {selected.season}</div><p className="clubs-note">Soma dos pontos e estatísticas dos dois torneios. A classificação é atualizada conforme Apertura e Clausura forem simulados.</p>{overallChampion && <div className="champion-banner"><strong>🏆 CAMPEÃO DA CLASSIFICAÇÃO GERAL: {overallChampion}</strong><span>{aggregate[overallChampion]?.pts ?? 0} pontos somados</span></div>}<div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((club, index) => { const row = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; return <tr key={club}><td>{index + 1}</td><td>{clubLink(club, "club-link club-link-strong")}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td><strong>{row.pts}</strong></td></tr>; })}</tbody></table></div></div></div>;
+                return <div className="competition-content"><div className="competition-block standings-block full-width-block"><div className="block-title">CLASSIFICAÇÃO GERAL — APERTURA + CLAUSURA {selected.season}</div><p className="clubs-note">Soma dos pontos e estatísticas dos dois torneios. Clubes identificados nos grupos e nas tabelas salvas também são incluídos.</p><p className="clubs-note">Clubes na classificação: <strong>{ordered.length} de 30</strong></p>{overallChampion && <div className="champion-banner"><strong>🏆 CAMPEÃO DA CLASSIFICAÇÃO GERAL: {overallChampion}</strong><span>{aggregate[overallChampion]?.pts ?? 0} pontos somados</span></div>}<div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((club, index) => { const row = aggregate[club] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; return <tr key={club}><td>{index + 1}</td><td>{clubLink(club, "club-link club-link-strong")}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td><strong>{row.pts}</strong></td></tr>; })}</tbody></table></div></div></div>;
               })() : (selectedSection[selected.id] ?? "competition") === "competition" ? (
                 <>
                   {selected.phases && selected.phases.length > 1 && (
