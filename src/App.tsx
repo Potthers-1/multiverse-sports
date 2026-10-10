@@ -6403,7 +6403,7 @@ function simulateChampionshipFully(championship: Championship): Championship | n
       const hasKnockout = ["Oitavas de final", "Quartas de final", "Semifinais", "Final"].every((phase) =>
         (championship.phaseMatches?.[phase]?.length ?? 0) > 0
       );
-      if (teams.length === 30 && standingsCount >= 30 && matches.length >= 435 && hasKnockout && Boolean(championship.champion)) return true;
+      if (teams.length === 30 && standingsCount >= 30 && matches.length === 210 && hasKnockout && Boolean(championship.champion) && (championship.simulationVersion ?? 0) >= 11) return true;
       return false;
     }
     if (championship.champion) return true;
