@@ -5166,7 +5166,8 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     const current = championships.find((item) => item.id === championshipId);
     if (!current) return;
 
-    if (current.champion) {
+    const isArgentinaPrimera = current.country === "Argentina" && current.division === "Primera División" && /Torneo (Apertura|Clausura)/.test(current.name);
+    if (current.champion && !isArgentinaPrimera) {
       window.alert("Este campeonato já está 100% simulado.");
       return;
     }
@@ -5175,6 +5176,21 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     let previousProgress = (current.simulationVersion ?? 0) >= 4
       ? (current.simulationRound ?? 0)
       : 0;
+
+    if (isArgentinaPrimera && plan && (
+      (current.simulationVersion ?? 0) < 11 ||
+      (plan.simulationVersion ?? 0) < 11 ||
+      (plan.phaseMatches?.["Fase de grupos"] ?? []).length !== 210 ||
+      (plan.phaseMatches?.["Oitavas de final"] ?? []).length !== 8 ||
+      (plan.phaseMatches?.["Quartas de final"] ?? []).length !== 4 ||
+      (plan.phaseMatches?.["Semifinais"] ?? []).length !== 2 ||
+      (plan.phaseMatches?.["Final"] ?? []).length !== 1
+    )) {
+      // Descarta plano antigo/quebrado da Primera División e reconstrói
+      // Apertura ou Clausura sem alterar os demais campeonatos.
+      plan = undefined;
+      previousProgress = 0;
+    }
 
     if (
       current.state === "Amazonas" &&
@@ -5371,7 +5387,8 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           current.state === "Rio de Janeiro" && current.division === "1ª Divisão" ? 8 :
           current.state === "Pernambuco" && current.division === "1ª Divisão" ? 7 :
           current.state === "Paraná" && current.division === "1ª Divisão" ? 6 :
-          current.state === "Minas Gerais" && current.division === "1ª Divisão" ? 5 : 5,
+          current.state === "Minas Gerais" && current.division === "1ª Divisão" ? 5 :
+          (current.country === "Argentina" && current.division === "Primera División") ? 11 : 5,
       };
       previousProgress = 0;
     } else {
@@ -5680,51 +5697,53 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
   }
 
   function simulateArgentinaPrimeraDivision(championship: Championship): Championship {
-    const teams = [...(championship.teams ?? [])];
+    const teams = [...new Set(championship.teams ?? [])];
     if (teams.length !== 30) return championship;
-    const shuffle = (items: string[]) => {
-      const copy = [...items];
-      for (let i = copy.length - 1; i > 0; i--) {
+
+    // Recria grupos válidos para migração de temporadas salvas em formatos antigos.
+    let groups = championship.argentinaGroups;
+    const validGroups = Boolean(groups && groups.A?.length === 15 && groups.B?.length === 15 &&
+      new Set([...groups.A, ...groups.B]).size === 30 &&
+      teams.every((team) => groups!.A.includes(team) || groups!.B.includes(team)));
+    if (!validGroups) {
+      const shuffled = [...teams];
+      for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [copy[i], copy[j]] = [copy[j], copy[i]];
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      return copy;
-    };
-    const groups = championship.argentinaGroups ?? (() => {
-      const shuffled = shuffle(teams);
-      return { A: shuffled.slice(0, 15), B: shuffled.slice(15, 30) };
-    })();
-    // Fase única: todos enfrentam os outros 29 clubes, independentemente do grupo.
-    const league = simulateRoundRobinWithMatches(teams);
-    const fullTable = league.table;
-    const phaseMatches: Record<string, Matchup[]> = { "Fase de grupos": league.matches };
+      groups = { A: shuffled.slice(0, 15), B: shuffled.slice(15, 30) };
+    }
+
+    // Cada torneio tem dois grupos de 15: turno único dentro do grupo (14 rodadas).
+    // O calendário é reconstruído do zero e todos os jogos recebem número de rodada.
+    const groupA = simulateRoundRobinWithMatches(groups!.A);
+    const groupB = simulateRoundRobinWithMatches(groups!.B);
+    const fullTable: Record<string, Standing> = { ...groupA.table, ...groupB.table };
+    const groupMatches = [...groupA.matches, ...groupB.matches];
+    const phaseMatches: Record<string, Matchup[]> = { "Fase de grupos": groupMatches };
+    const sortedA = sortStandingTeams(groups!.A, groupA.table);
+    const sortedB = sortStandingTeams(groups!.B, groupB.table);
     const phaseStandings: Record<string, Record<string, Standing>> = {
-      "Grupo A": Object.fromEntries(sortStandingTeams(groups.A, fullTable).map((club) => [club, fullTable[club]])),
-      "Grupo B": Object.fromEntries(sortStandingTeams(groups.B, fullTable).map((club) => [club, fullTable[club]])),
+      "Grupo A": Object.fromEntries(sortedA.map((club) => [club, groupA.table[club]])),
+      "Grupo B": Object.fromEntries(sortedB.map((club) => [club, groupB.table[club]])),
     };
-    const a = sortStandingTeams(groups.A, fullTable);
-    const b = sortStandingTeams(groups.B, fullTable);
-    const winner = (match: Matchup) => match.penaltyWinner ?? ((match.homeScore ?? 0) >= (match.awayScore ?? 0) ? match.home : match.away);
-    let advancing = Array.from({ length: 8 }, (_, i) => [a[i], b[7 - i]] as [string, string]);
+
+    const winner = (match: Matchup) =>
+      match.penaltyWinner ?? ((match.homeScore ?? 0) >= (match.awayScore ?? 0) ? match.home : match.away);
+    let advancing: Array<[string, string]> = Array.from({ length: 8 }, (_, i) => [sortedA[i], sortedB[7 - i]]);
     const roundNames = ["Oitavas de final", "Quartas de final", "Semifinais", "Final"];
     for (const phase of roundNames) {
       const matches = advancing.map(([home, away]) => ({ ...simulateSingleKnockoutMatch(home, away), round: 1 }));
       phaseMatches[phase] = matches;
-      phaseStandings[phase] = calculateStandingFromMatches(matches);
-      advancing = [];
-      for (const match of matches) {
-        const qualified = winner(match);
-        const loser = qualified === match.home ? match.away : match.home;
-        advancing.push([qualified, loser]);
-      }
+      const roundTable = calculateStandingFromMatches(matches);
+      phaseStandings[phase] = roundTable;
       if (phase !== "Final") {
         const winners = matches.map(winner);
         advancing = [];
         for (let i = 0; i < winners.length; i += 2) advancing.push([winners[i], winners[i + 1]]);
       }
     }
-    const final = phaseMatches["Final"][0];
-    const champion = final ? winner(final) : undefined;
+    const champion = phaseMatches["Final"]?.[0] ? winner(phaseMatches["Final"][0]) : undefined;
     return {
       ...championship,
       teams,
@@ -5734,6 +5753,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       phaseStandings,
       phaseMatches,
       champion,
+      simulationVersion: 11,
     };
   }
 
