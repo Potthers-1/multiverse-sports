@@ -416,3 +416,8 @@ td:nth-child(2) { color: #d8e0e9; }
   .clubSeasonMain em { grid-column:2; }
   .clubSeasonStats { margin-left:0; }
 }
+
+/* Primera Nacional: líderes vão à final geral; 2º–8º disputam o torneio pelo segundo acesso. */
+.standings-table tbody tr.zone-title-access { background:rgba(229,112,45,.20); box-shadow:inset 4px 0 #e5702d; }
+.standings-table tbody tr.zone-title-access td:first-child { color:#ff9a52; font-weight:800; }
+.standings-table tbody tr.zone-second-phase { background:rgba(229,138,63,.10); box-shadow:inset 3px 0 #e58a3f; }
