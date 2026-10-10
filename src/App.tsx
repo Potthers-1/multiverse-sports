@@ -1442,7 +1442,15 @@ const ARGENTINA_DIVISIONS = [
   "Liga regional",
 ];
 
-const ARGENTINA_REGIONS: string[] = [];
+const ARGENTINA_REGIONS: string[] = [
+  "Federación de Fútbol Bonaerense Pampeana",
+  "Federación Tucumana de Fútbol",
+  "Federación Cordobesa de Fútbol",
+  "Federación Provincial de Fútbol de Santiago del Estero",
+  "Federación Regional de Fútbol de Río Cuarto",
+  "Federación Mendocina de Fútbol",
+  "Federación Santafesina de Fútbol",
+];
 
 const ARGENTINA_CLUBS_STORAGE_KEY = "football-manager-argentina-clubs-v1";
 
