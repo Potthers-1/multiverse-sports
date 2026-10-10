@@ -6518,12 +6518,30 @@ function simulateChampionshipFully(championship: Championship): Championship | n
       const y = argentinaAggregate[b] ?? { pts: 0, sg: 0, gp: 0, v: 0 };
       return y.pts - x.pts || y.sg - x.sg || y.gp - x.gp || y.v - x.v || a.localeCompare(b, "pt-BR");
     });
+    const argentinaWinnerFromFinal = (item?: Championship) => {
+      const match = item?.phaseMatches?.["Final"]?.[0];
+      return item?.champion ?? (match ? (match.penaltyWinner ?? ((match.homeScore ?? 0) >= (match.awayScore ?? 0) ? match.home : match.away)) : undefined);
+    };
+    const argentinaTitleWinner = argentinaWinnerFromFinal(argentinaApertura);
+    const argentinaClausuraWinner = argentinaWinnerFromFinal(argentinaClausura);
+    const argentinaNacionalTitleWinner = argentinaNacional?.champion ?? (() => {
+      const match = argentinaNacional?.phaseMatches?.["Final pelo título e acesso"]?.[0];
+      return match ? (match.penaltyWinner ?? ((match.homeScore ?? 0) >= (match.awayScore ?? 0) ? match.home : match.away)) : undefined;
+    })();
+    const argentinaAccessWinner = argentinaNacional?.accessTeams?.find((club) => club !== argentinaNacionalTitleWinner) ?? (() => {
+      const matches = argentinaNacional?.phaseMatches?.["Torneio pelo segundo acesso — Final"] ?? [];
+      if (matches.length < 2) return undefined;
+      return resolveTwoLeggedTie(matches[0], matches[1]);
+    })();
+    // Não depender apenas dos campos champion/accessTeams: campeonatos antigos podem
+    // ter placares completos, mas metadados de acesso ainda não gravados.
     const argentinaMovementReady = country === "Argentina" &&
-      argentinaApertura?.champion && argentinaClausura?.champion &&
-      argentinaNacional?.champion && argentinaNacional.accessTeams?.length;
+      Boolean(argentinaApertura && argentinaClausura && argentinaNacional &&
+        argentinaTitleWinner && argentinaClausuraWinner && argentinaNacionalTitleWinner && argentinaAccessWinner &&
+        argentinaOverallTeams.length >= 30);
     const argentinaRelegated = argentinaMovementReady ? argentinaOverallTeams.slice(-2) : [];
     const argentinaPromoted = argentinaMovementReady
-      ? [...new Set([argentinaNacional!.champion!, argentinaNacional!.accessTeams!.find((club) => club !== argentinaNacional!.champion!)].filter((club): club is string => Boolean(club)))]
+      ? [...new Set([argentinaNacionalTitleWinner, argentinaAccessWinner].filter((club): club is string => Boolean(club)))]
       : [];
 
     const completedRankingRecords: ClubRankingSeasonRecord[] = countryChampionships
