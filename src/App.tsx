@@ -1765,7 +1765,21 @@ export default function App() {
     if (argentinaClubs.filter((club) => club.division === "Primera Nacional").length !== 36) return;
     setChampionships((current) => {
       const year = countrySeasons["Argentina"] || "2026";
-      if (current.some((item) => item.country === "Argentina" && item.season === year && item.division === "Primera Nacional" && item.name === "Primera Nacional")) return current;
+      const existingIndex = current.findIndex((item) => item.country === "Argentina" && item.season === year && item.division === "Primera Nacional" && item.name === "Primera Nacional");
+      if (existingIndex >= 0) {
+        const existing = current[existingIndex];
+        const registeredTeams = argentinaClubs.filter((club) => club.division === "Primera Nacional").map((club) => club.name);
+        const validGroups = existing.argentinaGroups?.A?.length === 18 && existing.argentinaGroups?.B?.length === 18;
+        const shuffledExistingTeams = [...registeredTeams];
+        for (let i = shuffledExistingTeams.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [shuffledExistingTeams[i], shuffledExistingTeams[j]] = [shuffledExistingTeams[j], shuffledExistingTeams[i]]; }
+        const repaired = {
+          ...existing,
+          teams: registeredTeams,
+          argentinaGroups: validGroups ? existing.argentinaGroups : { A: shuffledExistingTeams.slice(0, 18), B: shuffledExistingTeams.slice(18, 36) },
+          phases: ["Fase de grupos", "Final pelo título e acesso", "Torneio pelo segundo acesso — 1ª fase", "Torneio pelo segundo acesso — 2ª fase", "Torneio pelo segundo acesso — Semifinais", "Torneio pelo segundo acesso — Final"],
+        };
+        return current.map((item, index) => index === existingIndex ? repaired : item);
+      }
       const teams = argentinaClubs.filter((club) => club.division === "Primera Nacional").map((club) => club.name);
       const shuffled = [...teams];
       for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
