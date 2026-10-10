@@ -5153,6 +5153,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       simulationTotalRounds: allUnits.length,
       simulationPlan: complete ? undefined : plan,
       simulationVersion:
+        plan.country === "Argentina" && plan.division === "Primera División" ? 11 :
         plan.state === "Rondônia" && plan.division === "1ª Divisão" ? 8 :
         plan.state === "Rio Grande do Sul" && plan.division === "1ª Divisão" ? 7 :
         plan.state === "Rio de Janeiro" && plan.division === "1ª Divisão" ? 8 :
@@ -5420,7 +5421,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
       champion: undefined,
       accessTeams: undefined,
       relegatedTeams: undefined,
-      simulationVersion: current.state === "São Paulo" && current.division === "1ª Divisão" ? 10 : current.state === "Santa Catarina" && current.division === "1ª Divisão" ? 9 : current.state === "Rondônia" ? 8 : current.state === "Rio Grande do Sul" ? 7 : current.state === "Rio de Janeiro" ? 8 : current.state === "Pernambuco" ? 7 : current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
+      simulationVersion: isArgentinaPrimera ? 11 : current.state === "São Paulo" && current.division === "1ª Divisão" ? 10 : current.state === "Santa Catarina" && current.division === "1ª Divisão" ? 9 : current.state === "Rondônia" ? 8 : current.state === "Rio Grande do Sul" ? 7 : current.state === "Rio de Janeiro" ? 8 : current.state === "Pernambuco" ? 7 : current.state === "Paraná" ? 6 : current.state === "Minas Gerais" ? 5 : 4,
     };
     const updated = applySimulationProgress(progressPlan, roundCount);
     setChampionships((items) =>
