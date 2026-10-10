@@ -4012,11 +4012,11 @@ function simulateRondoniaFirstDivision(championship: Championship): Championship
     const teams = championship.teams ?? [];
     if (teams.length !== 7) return championship;
 
-    // Calendário circular de 12 rodadas para 7 clubes: cada rodada tem
-    // 3 partidas e um clube de folga; cada par se enfrenta em casa e fora.
+    // Calendário circular para 7 clubes: cada turno exige 7 datas (uma folga
+    // por clube); no total são 14 rodadas, 12 jogos por clube e 42 partidas.
     const rotating = [...teams];
     const firstPhaseMatches: Matchup[] = [];
-    for (let round = 0; round < 6; round++) {
+    for (let round = 0; round < 7; round++) {
       for (let i = 0; i < 3; i++) {
         const left = rotating[i];
         const right = rotating[6 - i];
@@ -4036,7 +4036,7 @@ function simulateRondoniaFirstDivision(championship: Championship): Championship
       away: match.home,
       homeScore: Math.floor(Math.random() * 5),
       awayScore: Math.floor(Math.random() * 5),
-      round: (match.round ?? 0) + 6,
+      round: (match.round ?? 0) + 7,
     }));
     const allFirstPhaseMatches = [...firstLeg, ...secondLeg];
     const standings = calculateStandingFromMatches(allFirstPhaseMatches, teams);
