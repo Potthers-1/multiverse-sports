@@ -7501,7 +7501,7 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                       <div className="movement-card movement-access">
                         <div className="movement-card-title">🟢 ACESSO À PRIMERA DIVISIÓN</div>
                         <div className="movement-subtitle">Campeão geral e campeão do torneio pelo segundo acesso da Primera Nacional</div>
-                        {secondReady ? promoted.map((club) => <div className="movement-club" key={club}>{clubLink(club, "club-link club-link-strong")}<span>{club === segunda?.champion ? "Campeão da Primera Nacional — 1º acesso" : "Vencedor do torneio pelo segundo acesso"}</span></div> : <div className="movement-empty small">O acesso será definido após a conclusão da Primera Nacional.</div>}
+                        {secondReady ? promoted.map((club) => <div className="movement-club" key={club}>{clubLink(club, "club-link club-link-strong")}<span>{club === segunda?.champion ? "Campeão da Primera Nacional — 1º acesso" : "Vencedor do torneio pelo segundo acesso"}</span></div>) : <div className="movement-empty small">O acesso será definido após a conclusão da Primera Nacional.</div>}
                       </div>
                       <div className="movement-card movement-relegation">
                         <div className="movement-card-title">🔴 REBAIXAMENTO À PRIMERA NACIONAL</div>
