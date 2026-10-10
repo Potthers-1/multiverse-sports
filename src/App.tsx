@@ -1427,7 +1427,7 @@ type ClubRankingSeasonRecord = {
 type ArgentinaClub = {
   id: string;
   name: string;
-  affiliation: "AFA direta" | "Indireta / Conselho Federal";
+  affiliation: "AFA direta" | "Indireta / Conselho Federal" | "A confirmar";
   region: string;
   division: string;
 };
@@ -1453,6 +1453,39 @@ const ARGENTINA_REGIONS: string[] = [
 ];
 
 const ARGENTINA_CLUBS_STORAGE_KEY = "football-manager-argentina-clubs-v1";
+
+const ARGENTINA_PRIMERA_DIVISION_CLUBS: Array<Omit<ArgentinaClub, "id">> = [
+  { name: "Aldosivi", affiliation: "Indireta / Conselho Federal", region: "Federación de Fútbol Bonaerense Pampeana", division: "Primera División" },
+  { name: "Argentinos Juniors", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Atlético Tucumán", affiliation: "Indireta / Conselho Federal", region: "Federación Tucumana de Fútbol", division: "Primera División" },
+  { name: "Banfield", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Barracas Central", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Belgrano", affiliation: "Indireta / Conselho Federal", region: "Federación Cordobesa de Fútbol", division: "Primera División" },
+  { name: "Boca Juniors", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Central Córdoba (Santiago del Estero)", affiliation: "Indireta / Conselho Federal", region: "Federación Provincial de Fútbol de Santiago del Estero", division: "Primera División" },
+  { name: "Defensa y Justicia", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Deportivo Riestra", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Estudiantes (La Plata)", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Estudiantes de Río Cuarto", affiliation: "Indireta / Conselho Federal", region: "Federación Regional de Fútbol de Río Cuarto", division: "Primera División" },
+  { name: "Gimnasia y Esgrima (Mendoza)", affiliation: "Indireta / Conselho Federal", region: "Federación Mendocina de Fútbol", division: "Primera División" },
+  { name: "Huracán", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Independiente", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Independiente Rivadavia", affiliation: "Indireta / Conselho Federal", region: "Federación Mendocina de Fútbol", division: "Primera División" },
+  { name: "Instituto", affiliation: "Indireta / Conselho Federal", region: "Federación Cordobesa de Fútbol", division: "Primera División" },
+  { name: "Lanús", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Newell's Old Boys", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Platense", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Racing", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "River Plate", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Rosario Central", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "San Lorenzo", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Sarmiento (Junín)", affiliation: "A confirmar", region: "Federación de Fútbol Bonaerense Pampeana", division: "Primera División" },
+  { name: "Talleres", affiliation: "Indireta / Conselho Federal", region: "Federación Cordobesa de Fútbol", division: "Primera División" },
+  { name: "Tigre", affiliation: "AFA direta", region: "", division: "Primera División" },
+  { name: "Unión de Santa Fe", affiliation: "Indireta / Conselho Federal", region: "Federación Santafesina de Fútbol", division: "Primera División" },
+  { name: "Vélez Sarsfield", affiliation: "AFA direta", region: "", division: "Primera División" },
+];
+
 
 
 function getLeagueRankingPercentage(position: number): number {
@@ -1637,7 +1670,14 @@ export default function App() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(ARGENTINA_CLUBS_STORAGE_KEY);
-      if (saved) setArgentinaClubs(JSON.parse(saved) as ArgentinaClub[]);
+      const existing = saved ? JSON.parse(saved) as ArgentinaClub[] : [];
+      const merged = [...existing];
+      for (const club of ARGENTINA_PRIMERA_DIVISION_CLUBS) {
+        const index = merged.findIndex((item) => item.name.trim().toLocaleLowerCase() === club.name.trim().toLocaleLowerCase());
+        if (index >= 0) merged[index] = { ...merged[index], ...club };
+        else merged.push({ id: `argentina-primer-${club.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-")}`, ...club });
+      }
+      setArgentinaClubs(merged.sort((a, b) => a.name.localeCompare(b.name, "es")));
     } catch {
       localStorage.removeItem(ARGENTINA_CLUBS_STORAGE_KEY);
     }
@@ -6656,9 +6696,9 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
               setArgentinaClubName("");
             }}>
               <label>Nome do clube<input value={argentinaClubName} onChange={(event) => setArgentinaClubName(event.target.value)} placeholder="Ex.: Club Atlético..." /></label>
-              <label>Filiação<select value={argentinaClubAffiliation} onChange={(event) => setArgentinaClubAffiliation(event.target.value as ArgentinaClub["affiliation"])}><option value="AFA direta">Filiado diretamente à AFA</option><option value="Indireta / Conselho Federal">Filiado indiretamente / Conselho Federal</option></select></label>
+              <label>Filiação<select value={argentinaClubAffiliation} onChange={(event) => setArgentinaClubAffiliation(event.target.value as ArgentinaClub["affiliation"])}><option value="AFA direta">Filiado diretamente à AFA</option><option value="Indireta / Conselho Federal">Filiado indiretamente / Conselho Federal</option><option value="A confirmar">Filiação a confirmar</option></select></label>
               <label>Divisão atual<select value={argentinaClubDivision} onChange={(event) => setArgentinaClubDivision(event.target.value)}>{ARGENTINA_DIVISIONS.map((division) => <option key={division} value={division}>{division}</option>)}</select></label>
-              {argentinaClubAffiliation === "Indireta / Conselho Federal" && <label>Região / federação regional<select value={argentinaClubRegion} onChange={(event) => setArgentinaClubRegion(event.target.value)}><option value="" disabled>Nenhuma região cadastrada ainda</option>{ARGENTINA_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}</select></label>}
+              {argentinaClubAffiliation !== "AFA direta" && <label>Região / federação regional<select value={argentinaClubRegion} onChange={(event) => setArgentinaClubRegion(event.target.value)}><option value="" disabled>Nenhuma região cadastrada ainda</option>{ARGENTINA_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}</select></label>}
               <button className="primary-button" type="submit">{argentinaClubs.some((club) => club.name.toLocaleLowerCase() === argentinaClubName.trim().toLocaleLowerCase()) ? "Atualizar clube" : "Adicionar clube"}</button>
             </form>
             <div className="argentina-club-list-header"><h3>Clubes cadastrados</h3><input value={argentinaClubSearch} onChange={(event) => setArgentinaClubSearch(event.target.value)} placeholder="Buscar clube..." aria-label="Buscar clube argentino" /></div>
