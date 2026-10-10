@@ -1424,6 +1424,28 @@ type ClubRankingSeasonRecord = {
   order: string[];
 };
 
+type ArgentinaClub = {
+  id: string;
+  name: string;
+  affiliation: "AFA direta" | "Indireta / Conselho Federal";
+  region: string;
+};
+
+const ARGENTINA_REGIONS = [
+  "Metropolitana (AFA)",
+  "Bonaerense Pampeana Norte",
+  "Bonaerense Pampeana Sur",
+  "Centro",
+  "Cuyo",
+  "Litoral Norte",
+  "Litoral Sur",
+  "Norte",
+  "Patagonia",
+];
+
+const ARGENTINA_CLUBS_STORAGE_KEY = "football-manager-argentina-clubs-v1";
+
+
 function getLeagueRankingPercentage(position: number): number {
   if (position <= 0) return 0;
   if (position === 1) return 100;
@@ -1581,6 +1603,12 @@ export default function App() {
   const [selectedCountry, setSelectedCountry] = useState("Brasil");
   const [showClubRanking, setShowClubRanking] = useState(false);
   const [clubRankingHistory, setClubRankingHistory] = useState<ClubRankingSeasonRecord[]>([]);
+  const [argentinaClubs, setArgentinaClubs] = useState<ArgentinaClub[]>([]);
+  const [argentinaClubName, setArgentinaClubName] = useState("");
+  const [argentinaClubAffiliation, setArgentinaClubAffiliation] = useState<ArgentinaClub["affiliation"]>("AFA direta");
+  const [argentinaClubRegion, setArgentinaClubRegion] = useState(ARGENTINA_REGIONS[0]);
+  const [argentinaClubSearch, setArgentinaClubSearch] = useState("");
+
   const roundRobinMatchCache: Record<string, Matchup[]> = {};
 
   useEffect(() => {
@@ -1595,6 +1623,19 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("football-manager-club-history-v1", JSON.stringify(clubHistory));
   }, [clubHistory]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(ARGENTINA_CLUBS_STORAGE_KEY);
+      if (saved) setArgentinaClubs(JSON.parse(saved) as ArgentinaClub[]);
+    } catch {
+      localStorage.removeItem(ARGENTINA_CLUBS_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(ARGENTINA_CLUBS_STORAGE_KEY, JSON.stringify(argentinaClubs));
+  }, [argentinaClubs]);
 
   useEffect(() => {
     try {
@@ -6582,6 +6623,42 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           </button>
         </header>
 
+        {selectedCountry === "Argentina" && !selected && !showClubRanking && (
+          <section className="card argentina-club-registry">
+            <div className="card-header">
+              <div><div className="eyebrow">ARGENTINA • CONFIGURAÇÃO INICIAL</div><h2>Cadastro de clubes e estrutura federativa</h2></div>
+              <span className="ranking-season-badge">{argentinaClubs.length} clubes cadastrados</span>
+            </div>
+            <p className="argentina-intro">Cadastre cada clube uma vez. A filiação define qual pirâmide de acesso ele disputa; a região define para qual federação regional ele retorna em caso de rebaixamento. Essas informações serão usadas para montar as divisões argentinas e movimentar os clubes entre temporadas.</p>
+            <div className="argentina-mechanics-grid">
+              <div className="argentina-mechanic-card"><span>01 • FILIAÇÃO</span><strong>AFA direta</strong><p>Clubes filiados diretamente à AFA entram na pirâmide metropolitana/nacional correspondente às regras configuradas.</p><strong>Indireta / Conselho Federal</strong><p>Clubes ligados por meio de uma liga regional entram na pirâmide do interior.</p></div>
+              <div className="argentina-mechanic-card"><span>02 • REGIÃO FEDERATIVA</span><strong>Federação de origem</strong><p>Escolha a região do Conselho Federal. Quando houver rebaixamento, o sistema consultará essa região e as regras da competição para determinar a divisão de destino.</p><p className="argentina-hint">A região é independente da filiação: escolha a região real do clube mesmo que ele dispute uma competição nacional.</p></div>
+            </div>
+            <form className="argentina-club-form" onSubmit={(event) => {
+              event.preventDefault();
+              const cleanName = argentinaClubName.trim();
+              if (!cleanName) return;
+              setArgentinaClubs((current) => {
+                const existing = current.find((club) => club.name.toLocaleLowerCase() === cleanName.toLocaleLowerCase());
+                if (existing) return current.map((club) => club.id === existing.id ? { ...club, name: cleanName, affiliation: argentinaClubAffiliation, region: argentinaClubRegion } : club);
+                return [...current, { id: String(Date.now()), name: cleanName, affiliation: argentinaClubAffiliation, region: argentinaClubRegion }].sort((a, b) => a.name.localeCompare(b.name, "es"));
+              });
+              setArgentinaClubName("");
+            }}>
+              <label>Nome do clube<input value={argentinaClubName} onChange={(event) => setArgentinaClubName(event.target.value)} placeholder="Ex.: Club Atlético..." /></label>
+              <label>Filiação<select value={argentinaClubAffiliation} onChange={(event) => setArgentinaClubAffiliation(event.target.value as ArgentinaClub["affiliation"])}><option value="AFA direta">Filiado diretamente à AFA</option><option value="Indireta / Conselho Federal">Filiado indiretamente / Conselho Federal</option></select></label>
+              <label>Região / federação regional<select value={argentinaClubRegion} onChange={(event) => setArgentinaClubRegion(event.target.value)}>{ARGENTINA_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}</select></label>
+              <button className="primary-button" type="submit">{argentinaClubs.some((club) => club.name.toLocaleLowerCase() === argentinaClubName.trim().toLocaleLowerCase()) ? "Atualizar clube" : "Adicionar clube"}</button>
+            </form>
+            <div className="argentina-club-list-header"><h3>Clubes cadastrados</h3><input value={argentinaClubSearch} onChange={(event) => setArgentinaClubSearch(event.target.value)} placeholder="Buscar clube..." aria-label="Buscar clube argentino" /></div>
+            {argentinaClubs.length === 0 ? <div className="argentina-empty">Nenhum clube cadastrado ainda. Comece pelos clubes da primeira divisão e preencha filiação e região; o cadastro fica salvo neste navegador.</div> : (
+              <div className="argentina-club-table-wrap"><table className="argentina-club-table"><thead><tr><th>Clube</th><th>Filiação</th><th>Região</th><th>Ações</th></tr></thead><tbody>
+                {argentinaClubs.filter((club) => club.name.toLocaleLowerCase().includes(argentinaClubSearch.toLocaleLowerCase())).map((club) => <tr key={club.id}><td>{club.name}</td><td>{club.affiliation}</td><td>{club.region}</td><td><button className="secondary-button argentina-edit" onClick={() => { setArgentinaClubName(club.name); setArgentinaClubAffiliation(club.affiliation); setArgentinaClubRegion(club.region); }} type="button">Editar</button><button className="danger-link" onClick={() => { if (window.confirm(`Remover ${club.name} do cadastro?`)) setArgentinaClubs((current) => current.filter((item) => item.id !== club.id)); }} type="button">Remover</button></td></tr>)}
+              </tbody></table></div>
+            )}
+            <div className="argentina-hint">Importante: por enquanto, este cadastro guarda os dados federativos. As divisões, vagas e regras de promoção/rebaixamento serão conectadas a esses campos quando configurarmos a pirâmide argentina.</div>
+          </section>
+        )}
 
         {showClubRanking ? (
           <section className="card club-ranking-panel">
@@ -8308,6 +8385,30 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
           .club-history-result-badge { width: auto; min-width: 92px; }
         }
 
+        .argentina-club-registry { max-width: 1100px; }
+        .argentina-intro { margin: 18px 0; color: #aeb9d0; font-size: 12px; line-height: 1.65; }
+        .argentina-mechanics-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+        .argentina-mechanic-card { padding: 16px; border: 1px solid #26314a; border-radius: 11px; background: #0c1323; }
+        .argentina-mechanic-card > span { display: block; color: #8fb0ff; font-size: 9px; font-weight: 900; letter-spacing: .1em; margin-bottom: 12px; }
+        .argentina-mechanic-card strong { display: block; color: #eef2ff; font-size: 12px; margin: 8px 0 5px; }
+        .argentina-mechanic-card p { color: #8e9ab4; font-size: 11px; line-height: 1.55; }
+        .argentina-club-form { display: grid; grid-template-columns: 1.3fr 1fr 1.2fr auto; align-items: end; gap: 12px; padding: 16px; border: 1px solid #26314a; border-radius: 11px; background: #0c1323; }
+        .argentina-club-form label { margin: 0; min-width: 0; }
+        .argentina-club-form input, .argentina-club-form select { margin-top: 7px; font-size: 11px; }
+        .argentina-club-form .primary-button { white-space: nowrap; padding: 11px 12px; }
+        .argentina-club-list-header { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin: 22px 0 10px; }
+        .argentina-club-list-header h3 { font-size: 14px; color: #eef2ff; }
+        .argentina-club-list-header input { max-width: 240px; margin: 0; }
+        .argentina-club-table-wrap { width: 100%; overflow-x: auto; }
+        .argentina-club-table { width: 100%; border-collapse: collapse; min-width: 650px; }
+        .argentina-club-table th { text-align: left; padding: 10px; color: #71809f; font-size: 9px; text-transform: uppercase; border-bottom: 1px solid #26314a; }
+        .argentina-club-table td { padding: 10px; color: #b8c3d8; font-size: 11px; border-bottom: 1px solid #1c2539; }
+        .argentina-club-table td:first-child { color: #eef2ff; font-weight: 700; }
+        .argentina-edit { padding: 6px 9px; margin-right: 8px; font-size: 10px; }
+        .argentina-empty { padding: 24px 14px; text-align: center; color: #8e9ab4; background: #0c1323; border: 1px dashed #2b3650; border-radius: 10px; font-size: 12px; }
+        .argentina-hint { margin-top: 14px; color: #71809f; font-size: 10px; line-height: 1.6; }
+        @media (max-width: 900px) { .argentina-club-form { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 600px) { .argentina-mechanics-grid, .argentina-club-form { grid-template-columns: 1fr; } .argentina-club-list-header { align-items: stretch; flex-direction: column; } .argentina-club-list-header input { max-width: none; } }
         .clubs-panel { width: 100%; }
         .clubs-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
         .clubs-summary > div { background: #11192b; border: 1px solid #26314a; border-radius: 10px; padding: 12px; }
