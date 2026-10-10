@@ -1429,7 +1429,18 @@ type ArgentinaClub = {
   name: string;
   affiliation: "AFA direta" | "Indireta / Conselho Federal";
   region: string;
+  division: string;
 };
+
+const ARGENTINA_DIVISIONS = [
+  "Primera División",
+  "Primera Nacional",
+  "Primera B Metropolitana",
+  "Primera C",
+  "Torneo Federal A",
+  "Torneo Regional Federal Amateur",
+  "Liga regional",
+];
 
 const ARGENTINA_REGIONS = [
   "Metropolitana (AFA)",
@@ -1607,6 +1618,7 @@ export default function App() {
   const [argentinaClubName, setArgentinaClubName] = useState("");
   const [argentinaClubAffiliation, setArgentinaClubAffiliation] = useState<ArgentinaClub["affiliation"]>("AFA direta");
   const [argentinaClubRegion, setArgentinaClubRegion] = useState(ARGENTINA_REGIONS[0]);
+  const [argentinaClubDivision, setArgentinaClubDivision] = useState(ARGENTINA_DIVISIONS[0]);
   const [argentinaClubSearch, setArgentinaClubSearch] = useState("");
 
   const roundRobinMatchCache: Record<string, Matchup[]> = {};
@@ -6640,20 +6652,21 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
               if (!cleanName) return;
               setArgentinaClubs((current) => {
                 const existing = current.find((club) => club.name.toLocaleLowerCase() === cleanName.toLocaleLowerCase());
-                if (existing) return current.map((club) => club.id === existing.id ? { ...club, name: cleanName, affiliation: argentinaClubAffiliation, region: argentinaClubRegion } : club);
-                return [...current, { id: String(Date.now()), name: cleanName, affiliation: argentinaClubAffiliation, region: argentinaClubRegion }].sort((a, b) => a.name.localeCompare(b.name, "es"));
+                if (existing) return current.map((club) => club.id === existing.id ? { ...club, name: cleanName, affiliation: argentinaClubAffiliation, region: argentinaClubRegion, division: argentinaClubDivision } : club);
+                return [...current, { id: String(Date.now()), name: cleanName, affiliation: argentinaClubAffiliation, region: argentinaClubRegion, division: argentinaClubDivision }].sort((a, b) => a.name.localeCompare(b.name, "es"));
               });
               setArgentinaClubName("");
             }}>
               <label>Nome do clube<input value={argentinaClubName} onChange={(event) => setArgentinaClubName(event.target.value)} placeholder="Ex.: Club Atlético..." /></label>
               <label>Filiação<select value={argentinaClubAffiliation} onChange={(event) => setArgentinaClubAffiliation(event.target.value as ArgentinaClub["affiliation"])}><option value="AFA direta">Filiado diretamente à AFA</option><option value="Indireta / Conselho Federal">Filiado indiretamente / Conselho Federal</option></select></label>
+              <label>Divisão atual<select value={argentinaClubDivision} onChange={(event) => setArgentinaClubDivision(event.target.value)}>{ARGENTINA_DIVISIONS.map((division) => <option key={division} value={division}>{division}</option>)}</select></label>
               <label>Região / federação regional<select value={argentinaClubRegion} onChange={(event) => setArgentinaClubRegion(event.target.value)}>{ARGENTINA_REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}</select></label>
               <button className="primary-button" type="submit">{argentinaClubs.some((club) => club.name.toLocaleLowerCase() === argentinaClubName.trim().toLocaleLowerCase()) ? "Atualizar clube" : "Adicionar clube"}</button>
             </form>
             <div className="argentina-club-list-header"><h3>Clubes cadastrados</h3><input value={argentinaClubSearch} onChange={(event) => setArgentinaClubSearch(event.target.value)} placeholder="Buscar clube..." aria-label="Buscar clube argentino" /></div>
             {argentinaClubs.length === 0 ? <div className="argentina-empty">Nenhum clube cadastrado ainda. Comece pelos clubes da primeira divisão e preencha filiação e região; o cadastro fica salvo neste navegador.</div> : (
-              <div className="argentina-club-table-wrap"><table className="argentina-club-table"><thead><tr><th>Clube</th><th>Filiação</th><th>Região</th><th>Ações</th></tr></thead><tbody>
-                {argentinaClubs.filter((club) => club.name.toLocaleLowerCase().includes(argentinaClubSearch.toLocaleLowerCase())).map((club) => <tr key={club.id}><td>{club.name}</td><td>{club.affiliation}</td><td>{club.region}</td><td><button className="secondary-button argentina-edit" onClick={() => { setArgentinaClubName(club.name); setArgentinaClubAffiliation(club.affiliation); setArgentinaClubRegion(club.region); }} type="button">Editar</button><button className="danger-link" onClick={() => { if (window.confirm(`Remover ${club.name} do cadastro?`)) setArgentinaClubs((current) => current.filter((item) => item.id !== club.id)); }} type="button">Remover</button></td></tr>)}
+              <div className="argentina-club-table-wrap"><table className="argentina-club-table"><thead><tr><th>Clube</th><th>Divisão</th><th>Filiação</th><th>Região</th><th>Ações</th></tr></thead><tbody>
+                {argentinaClubs.filter((club) => club.name.toLocaleLowerCase().includes(argentinaClubSearch.toLocaleLowerCase())).map((club) => <tr key={club.id}><td>{club.name}</td><td>{club.division ?? "Não definida"}</td><td>{club.affiliation}</td><td>{club.region}</td><td><button className="secondary-button argentina-edit" onClick={() => { setArgentinaClubName(club.name); setArgentinaClubAffiliation(club.affiliation); setArgentinaClubRegion(club.region); setArgentinaClubDivision(club.division ?? ARGENTINA_DIVISIONS[0]); }} type="button">Editar</button><button className="danger-link" onClick={() => { if (window.confirm(`Remover ${club.name} do cadastro?`)) setArgentinaClubs((current) => current.filter((item) => item.id !== club.id)); }} type="button">Remover</button></td></tr>)}
               </tbody></table></div>
             )}
             <div className="argentina-hint">Importante: por enquanto, este cadastro guarda os dados federativos. As divisões, vagas e regras de promoção/rebaixamento serão conectadas a esses campos quando configurarmos a pirâmide argentina.</div>
@@ -8392,7 +8405,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         .argentina-mechanic-card > span { display: block; color: #8fb0ff; font-size: 9px; font-weight: 900; letter-spacing: .1em; margin-bottom: 12px; }
         .argentina-mechanic-card strong { display: block; color: #eef2ff; font-size: 12px; margin: 8px 0 5px; }
         .argentina-mechanic-card p { color: #8e9ab4; font-size: 11px; line-height: 1.55; }
-        .argentina-club-form { display: grid; grid-template-columns: 1.3fr 1fr 1.2fr auto; align-items: end; gap: 12px; padding: 16px; border: 1px solid #26314a; border-radius: 11px; background: #0c1323; }
+        .argentina-club-form { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1.2fr auto; align-items: end; gap: 12px; padding: 16px; border: 1px solid #26314a; border-radius: 11px; background: #0c1323; }
         .argentina-club-form label { margin: 0; min-width: 0; }
         .argentina-club-form input, .argentina-club-form select { margin-top: 7px; font-size: 11px; }
         .argentina-club-form .primary-button { white-space: nowrap; padding: 11px 12px; }
