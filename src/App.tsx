@@ -7419,6 +7419,26 @@ function simulateChampionshipFully(championship: Championship): Championship | n
                         const currentPhase = selectedPhase[selected.id] ?? selected.phases?.[0] ?? "CLASSIFICAÇÃO";
                         const matches = selected.phaseMatches?.[currentPhase] ?? [];
 
+                        if (selected.country === "Argentina" && selected.division === "Primera División" && currentPhase === "Fase de grupos") {
+                          const groups = selected.argentinaGroups ?? { A: (selected.teams ?? []).slice(0, 15), B: (selected.teams ?? []).slice(15, 30) };
+                          const renderGroup = (letter: "A" | "B") => {
+                            const group = groups[letter] ?? [];
+                            const table = selected.phaseStandings?.[`Grupo ${letter}`] ?? {};
+                            const ordered = sortStandingTeams(group, table);
+                            return <div className="amazonas-group-table" key={letter}>
+                              <div className="amazonas-group-title">{`GRUPO ${letter}`}</div>
+                              <div className="standings-wrap"><table className="standings-table">
+                                <thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead>
+                                <tbody>{ordered.map((team, index) => {
+                                  const row = table[team] ?? { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 };
+                                  return <tr key={team} className={index < 8 ? "zone-second-phase" : ""}><td>{index + 1}</td><td className="standing-team">{clubLink(team)}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>;
+                                })}</tbody>
+                              </table></div>
+                            </div>;
+                          };
+                          return <div className="amazonas-groups-grid">{renderGroup("A")}{renderGroup("B")}</div>;
+                        }
+
                         if (selected.state === "Pernambuco" && currentPhase === "1º Turno - Fase de grupos") {
                           const groups=selected.pernambucoGroups??{A:[],B:[],C:[],D:[]};
                           const render=(letter:string)=>{const group=groups[letter as keyof typeof groups]??[],table=selected.phaseStandings?.[`1º Turno - Grupo ${letter}`]??{},ordered=sortStandingTeams(group,table);return <div className="amazonas-group-table"><div className="amazonas-group-title">{`GRUPO ${letter}`}</div><div className="standings-wrap"><table className="standings-table"><thead><tr><th>#</th><th>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{ordered.map((team,index)=>{const row=table[team]??{j:0,v:0,e:0,d:0,gp:0,gc:0,sg:0,pts:0};return <tr key={team} className={index<4?"zone-second-phase":""}><td>{index+1}</td><td className="standing-team">{clubLink(team)}</td><td>{row.j}</td><td>{row.v}</td><td>{row.e}</td><td>{row.d}</td><td>{row.gp}</td><td>{row.gc}</td><td>{row.sg}</td><td className="standing-points">{row.pts}</td></tr>})}</tbody></table></div></div>};return <div className="amazonas-groups-grid">{render("A")}{render("B")}{render("C")}{render("D")}</div>;
