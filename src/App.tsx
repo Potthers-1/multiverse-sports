@@ -5249,7 +5249,7 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
         // Mantém o resultado final dentro do plano privado para que ele
         // possa ser revelado quando todas as rodadas forem liberadas.
         // O progresso parcial esconde esses campos na temporada visível.
-        champion: current.state === "Minas Gerais" ? generated.champion : undefined,
+        champion: (current.state === "Minas Gerais" || (current.country === "Argentina" && current.division === "Primera División")) ? generated.champion : undefined,
         accessTeams: current.state === "Minas Gerais" ? generated.accessTeams : undefined,
         relegatedTeams: current.state === "Minas Gerais" ? generated.relegatedTeams : undefined,
         simulationPlan: undefined,
