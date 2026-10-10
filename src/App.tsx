@@ -5172,14 +5172,20 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
     // Caminho isolado para a Primera División: não passa pelo fluxo genérico,
     // que pode manter planos antigos vazios e informar zero rodadas.
     if (isArgentinaPrimera) {
-      const validPlan = (candidate?: Championship) =>
-        Boolean(candidate &&
-          (candidate.teams ?? []).length === 30 &&
+      const validPlan = (candidate?: Championship) => {
+        if (!candidate) return false;
+        const candidateTeams = [...new Set([
+          ...(candidate.teams ?? []),
+          ...(candidate.argentinaGroups?.A ?? []),
+          ...(candidate.argentinaGroups?.B ?? []),
+        ])];
+        return candidateTeams.length === 30 &&
           (candidate.phaseMatches?.["Fase de grupos"] ?? []).length === 435 &&
           (candidate.phaseMatches?.["Oitavas de final"] ?? []).length === 8 &&
           (candidate.phaseMatches?.["Quartas de final"] ?? []).length === 4 &&
           (candidate.phaseMatches?.["Semifinais"] ?? []).length === 2 &&
-          (candidate.phaseMatches?.["Final"] ?? []).length === 1);
+          (candidate.phaseMatches?.["Final"] ?? []).length === 1;
+      };
 
       let fullPlan = current.simulationPlan;
       let previousProgress = current.simulationRound ?? 0;
@@ -5749,7 +5755,14 @@ function simulateRioGrandeDoSulFirstDivision(championship: Championship): Champi
   }
 
   function simulateArgentinaPrimeraDivision(championship: Championship): Championship {
-    const teams = [...new Set(championship.teams ?? [])];
+    const registeredTeams = [...new Set(championship.teams ?? [])];
+    const teamsFromGroups = [...new Set([
+      ...(championship.argentinaGroups?.A ?? []),
+      ...(championship.argentinaGroups?.B ?? []),
+    ])];
+    // Algumas temporadas antigas guardaram os 30 clubes apenas nos grupos,
+    // enquanto championship.teams ficou vazio/desatualizado.
+    const teams = registeredTeams.length === 30 ? registeredTeams : teamsFromGroups;
     if (teams.length !== 30) return championship;
 
     // Recria grupos válidos para migração de temporadas salvas em formatos antigos.
