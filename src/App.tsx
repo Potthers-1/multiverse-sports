@@ -1688,7 +1688,7 @@ export default function App() {
   const [season, setSeason] = useState("2026");
   const [division, setDivision] = useState("Estadual");
   const [selectedPhase, setSelectedPhase] = useState<Record<number, string>>({});
-  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason" | "argentinaOverall" | "argentinaOverallHistory">>({});
+  const [selectedSection, setSelectedSection] = useState<Record<number, "competition" | "rules" | "clubs" | "movement" | "history" | "serieDNextSeason" | "argentinaOverall" | "argentinaOverallHistory" | "argentinaMovement">>({});
   const [simulationRounds, setSimulationRounds] = useState(1);
   const [countrySeasons, setCountrySeasons] = useState<Record<string, string>>({});
   const [selectedCountry, setSelectedCountry] = useState("Brasil");
